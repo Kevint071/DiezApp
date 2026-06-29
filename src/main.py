@@ -6,6 +6,7 @@ from utils.theme import (
     LIGHT_THEME,
     DARK_THEME,
     PRIMARY,
+    ON_PRIMARY,
     PRIMARY_CONTAINER,
     ON_PRIMARY_CONTAINER,
     SURFACE_LIGHT,
@@ -67,6 +68,8 @@ def _colors(page: ft.Page):
         hero_fg=ON_PRIMARY_CONTAINER if light else PRIMARY_DARK,
         input_border=OUTLINE_LIGHT if light else OUTLINE_DARK_INPUT,
         input_focused=PRIMARY if light else PRIMARY_DARK,
+        primary=PRIMARY if light else PRIMARY_DARK,
+        on_primary=ON_PRIMARY if light else "#050609",
     )
 
 

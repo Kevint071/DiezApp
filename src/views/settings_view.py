@@ -61,21 +61,30 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         page.pop_dialog()
         navigate_to_settings()
 
+    def _theme_option(label, icon, mode, is_selected):
+        return ft.Container(
+            on_click=lambda e: _on_theme_selected(mode),
+            border_radius=12,
+            padding=ft.Padding.symmetric(vertical=10, horizontal=12),
+            bgcolor=c["primary"] if is_selected else ft.Colors.TRANSPARENT,
+            content=ft.Row(
+                spacing=10,
+                controls=[
+                    ft.Icon(icon, size=20, color=c["on_primary"] if is_selected else c["on_surface_variant"]),
+                    ft.Text(label, size=14, weight=ft.FontWeight.W_500, color=c["on_primary"] if is_selected else c["on_surface"]),
+                ],
+            ),
+        )
+
     theme_dialog = ft.AlertDialog(
-        title=ft.Text("Seleccionar tema", size=17),
+        title=ft.Text("Tema", size=16, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=20, right=20, top=8, bottom=4),
         content=ft.Column(
             tight=True,
+            spacing=4,
             controls=[
-                ft.ListTile(
-                    title=ft.Text("Claro"),
-                    leading=ft.Icon(ft.Icons.LIGHT_MODE_OUTLINED),
-                    on_click=lambda e: _on_theme_selected("light"),
-                ),
-                ft.ListTile(
-                    title=ft.Text("Oscuro"),
-                    leading=ft.Icon(ft.Icons.DARK_MODE_OUTLINED),
-                    on_click=lambda e: _on_theme_selected("dark"),
-                ),
+                _theme_option("Claro", ft.Icons.LIGHT_MODE_OUTLINED, "light", light),
+                _theme_option("Oscuro", ft.Icons.DARK_MODE_OUTLINED, "dark", not light),
             ],
         ),
     )
@@ -110,6 +119,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         value=str(fund_percentage),
         keyboard_type=ft.KeyboardType.NUMBER,
         border_radius=14,
+        on_submit=lambda e: _save_pct(e),
     )
 
     def _close_pct_dialog(e):
