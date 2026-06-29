@@ -257,7 +257,9 @@ def main(page: ft.Page):
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
 
     def _navigate_to_saved():
-        apply_saved_calculations_appbar(page, _navigate_to_main, _colors)
+        from utils.storage import load_calculations as _load_calcs
+        has_calcs = len(_load_calcs()) > 0
+        apply_saved_calculations_appbar(page, _navigate_to_main, _colors, has_calcs)
         page.controls.clear()
         page.add(build_saved_calculations_view(page, _colors, _navigate_to_saved))
 

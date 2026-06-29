@@ -1,3 +1,4 @@
+import os
 import flet as ft
 from datetime import datetime
 
@@ -9,11 +10,33 @@ from utils.theme import (
     OUTLINE_LIGHT_INPUT,
 )
 from utils.storage import load_calculations, update_calculation, delete_calculation
+from utils.pdf_export import generate_pdf
 
 
-def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn):
+def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, has_calculations: bool):
     light = page.theme_mode == ft.ThemeMode.LIGHT
     fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+
+    async def _on_export(e):
+        calculations = load_calculations()
+        if not calculations:
+            return
+        pdf_path = generate_pdf(calculations)
+        share = ft.Share()
+        await share.share_files(
+            [ft.ShareFile.from_path(pdf_path, name=pdf_path.split(os.sep)[-1])],
+            title="Exportar cálculos",
+        )
+
+    export_btn = ft.IconButton(
+        icon=ft.Icons.IOS_SHARE,
+        icon_color=fg if has_calculations else ft.Colors.with_opacity(0.38, fg),
+        icon_size=22,
+        tooltip="Exportar PDF",
+        on_click=_on_export if has_calculations else None,
+        disabled=not has_calculations,
+    )
+
     page.appbar = ft.AppBar(
         leading=ft.Container(
             width=40,
@@ -38,6 +61,7 @@ def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn):
         leading_width=40,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
+        actions=[export_btn],
     )
 
 
@@ -311,9 +335,12 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
     cards = [_build_card(calc) for calc in calculations]
 
     return ft.SafeArea(
+        expand=True,
         content=ft.Container(
+            expand=True,
             padding=ft.Padding.only(top=8, left=24, right=24, bottom=24),
             content=ft.Column(
+                expand=True,
                 spacing=0,
                 scroll=ft.ScrollMode.AUTO,
                 controls=cards,
