@@ -1,0 +1,170 @@
+import flet as ft
+
+from utils.theme import (
+    ON_SURFACE_LIGHT,
+    ON_SURFACE_DARK,
+)
+
+
+def apply_settings_appbar(page: ft.Page, on_navigate_back, colors_fn):
+    light = page.theme_mode == ft.ThemeMode.LIGHT
+    fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+    page.appbar = ft.AppBar(
+        leading=ft.IconButton(
+            icon=ft.Icons.ARROW_BACK,
+            icon_color=fg,
+            on_click=lambda e: on_navigate_back(),
+        ),
+        title=ft.Text("Configuración", color=fg, weight=ft.FontWeight.W_600, size=18),
+        center_title=False,
+        bgcolor=ft.Colors.TRANSPARENT,
+        elevation=0,
+    )
+
+
+def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn):
+    """Build the settings view.
+
+    Args:
+        page: The Flet page.
+        state: Mutable dict with 'fund_percentage' key.
+        save_settings: Function(theme_mode, fund_percentage) to persist settings.
+        navigate_to_settings: Function to refresh the settings view.
+        colors_fn: Function(page) returning contextual color dict.
+    """
+    c = colors_fn(page)
+    light = page.theme_mode == ft.ThemeMode.LIGHT
+
+    # Theme row
+    theme_label = "Claro" if light else "Oscuro"
+
+    def _on_theme_selected(mode: str):
+        if mode == "light":
+            page.theme_mode = ft.ThemeMode.LIGHT
+        else:
+            page.theme_mode = ft.ThemeMode.DARK
+        save_settings(mode, state["fund_percentage"])
+        page.pop_dialog()
+        navigate_to_settings()
+
+    theme_dialog = ft.AlertDialog(
+        title=ft.Text("Seleccionar tema", size=17),
+        content=ft.Column(
+            tight=True,
+            controls=[
+                ft.ListTile(
+                    title=ft.Text("Claro"),
+                    leading=ft.Icon(ft.Icons.LIGHT_MODE_OUTLINED),
+                    on_click=lambda e: _on_theme_selected("light"),
+                ),
+                ft.ListTile(
+                    title=ft.Text("Oscuro"),
+                    leading=ft.Icon(ft.Icons.DARK_MODE_OUTLINED),
+                    on_click=lambda e: _on_theme_selected("dark"),
+                ),
+            ],
+        ),
+    )
+
+    def _open_theme_dialog(e):
+        page.show_dialog(theme_dialog)
+
+    theme_row = ft.Container(
+        on_click=_open_theme_dialog,
+        border_radius=12,
+        bgcolor=c["card_bg"],
+        border=ft.Border.all(1, c["outline"]),
+        padding=ft.Padding.symmetric(vertical=14, horizontal=16),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            controls=[
+                ft.Text("Tema", size=15, color=c["on_surface"]),
+                ft.Row(
+                    spacing=4,
+                    controls=[
+                        ft.Text(theme_label, size=14, color=c["on_surface_variant"]),
+                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=c["on_surface_variant"], size=20),
+                    ],
+                ),
+            ],
+        ),
+    )
+
+    # Fund percentage row + modal
+    fund_percentage = state["fund_percentage"]
+    pct_label = ft.Text(f"{fund_percentage}%", size=14, color=c["on_surface_variant"])
+
+    pct_field = ft.TextField(
+        label="Porcentaje (1-30)",
+        value=str(fund_percentage),
+        keyboard_type=ft.KeyboardType.NUMBER,
+        border_radius=12,
+    )
+
+    def _close_pct_dialog(e):
+        page.pop_dialog()
+
+    def _save_pct(e):
+        try:
+            val = int(pct_field.value)
+        except (ValueError, TypeError):
+            pct_field.error_text = "Ingresa un número válido"
+            page.update()
+            return
+        if val < 1 or val > 30:
+            pct_field.error_text = "El porcentaje debe estar entre 1% y 30%"
+            page.update()
+            return
+        pct_field.error_text = None
+        state["fund_percentage"] = val
+        current_mode = "dark" if page.theme_mode == ft.ThemeMode.DARK else "light"
+        save_settings(current_mode, val)
+        page.pop_dialog()
+        navigate_to_settings()
+
+    pct_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Aporte al fondo local", size=17),
+        content=pct_field,
+        actions=[
+            ft.TextButton("Cancelar", on_click=_close_pct_dialog),
+            ft.TextButton("Guardar", on_click=_save_pct),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
+    def _open_pct_dialog(e):
+        pct_field.value = str(state["fund_percentage"])
+        pct_field.error_text = None
+        page.show_dialog(pct_dialog)
+
+    fund_row = ft.Container(
+        on_click=_open_pct_dialog,
+        border_radius=12,
+        bgcolor=c["card_bg"],
+        border=ft.Border.all(1, c["outline"]),
+        padding=ft.Padding.symmetric(vertical=14, horizontal=16),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            controls=[
+                ft.Text("Aporte al fondo local", size=15, color=c["on_surface"]),
+                ft.Row(
+                    spacing=4,
+                    controls=[
+                        pct_label,
+                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=c["on_surface_variant"], size=20),
+                    ],
+                ),
+            ],
+        ),
+    )
+
+    return ft.SafeArea(
+        content=ft.Container(
+            padding=ft.Padding.all(20),
+            content=ft.Column(
+                spacing=16,
+                controls=[theme_row, fund_row],
+            ),
+        ),
+    )
