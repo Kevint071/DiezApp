@@ -1,23 +1,28 @@
 import flet as ft
 
-# ── MD3 Palette ──────────────────────────────────────────
-PRIMARY = "#6750A4"
+# ── Modern Palette ───────────────────────────────────────
+# Light — clean white with violet accent
+PRIMARY = "#7C5CFC"
+PRIMARY_LIGHT = "#9B82FC"
 ON_PRIMARY = "#FFFFFF"
-PRIMARY_CONTAINER = "#EADDFF"
-ON_PRIMARY_CONTAINER = "#21005D"
-SURFACE_LIGHT = "#FFFBFE"
-SURFACE_VARIANT_LIGHT = "#F7F2FA"
-ON_SURFACE_LIGHT = "#1C1B1F"
-ON_SURFACE_VARIANT_LIGHT = "#49454F"
-OUTLINE_LIGHT = "#79747E"
-DIVIDER_LIGHT = "#D0BCFF"
+PRIMARY_CONTAINER = "#EDE7FF"
+ON_PRIMARY_CONTAINER = "#2D0F7A"
+SURFACE_LIGHT = "#FAFAFA"
+SURFACE_VARIANT_LIGHT = "#F3F0FF"
+ON_SURFACE_LIGHT = "#1A1A2E"
+ON_SURFACE_VARIANT_LIGHT = "#5C5670"
+OUTLINE_LIGHT = "#B0A8C0"
+DIVIDER_LIGHT = "#E0D8F0"
 
-SURFACE_DARK = "#1C1B1F"
-SURFACE_VARIANT_DARK = "#2B2930"
-ON_SURFACE_DARK = "#E6E1E5"
-ON_SURFACE_VARIANT_DARK = "#CAC4D0"
-OUTLINE_DARK = "#938F99"
-DIVIDER_DARK = "#4F378B"
+# Dark — true dark with vibrant accents
+SURFACE_DARK = "#0F0F14"
+SURFACE_VARIANT_DARK = "#1A1A24"
+ON_SURFACE_DARK = "#EAEAF0"
+ON_SURFACE_VARIANT_DARK = "#A0A0B8"
+OUTLINE_DARK = "#4A4A60"
+DIVIDER_DARK = "#2E2E40"
+PRIMARY_DARK = "#A78BFA"
+HERO_BG_DARK = "#1E1B30"
 
 # ── Themes ───────────────────────────────────────────────
 LIGHT_THEME = ft.Theme(
@@ -36,10 +41,10 @@ LIGHT_THEME = ft.Theme(
 DARK_THEME = ft.Theme(
     color_scheme_seed=PRIMARY,
     color_scheme=ft.ColorScheme(
-        primary=PRIMARY_CONTAINER,
-        on_primary=ON_PRIMARY_CONTAINER,
-        primary_container=PRIMARY,
-        on_primary_container=ON_PRIMARY,
+        primary=PRIMARY_DARK,
+        on_primary="#1A1A2E",
+        primary_container=HERO_BG_DARK,
+        on_primary_container=PRIMARY_DARK,
         surface=SURFACE_DARK,
         on_surface=ON_SURFACE_DARK,
         outline=OUTLINE_DARK,
@@ -48,4 +53,4 @@ DARK_THEME = ft.Theme(
 
 # ── Helpers ──────────────────────────────────────────────
 APPBAR_BGCOLOR_LIGHT = PRIMARY
-APPBAR_BGCOLOR_DARK = SURFACE_VARIANT_DARK
+APPBAR_BGCOLOR_DARK = "#16161E"

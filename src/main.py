@@ -23,6 +23,8 @@ from utils.theme import (
     ON_SURFACE_VARIANT_DARK,
     OUTLINE_DARK,
     DIVIDER_DARK,
+    PRIMARY_DARK,
+    HERO_BG_DARK,
 )
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
@@ -59,8 +61,10 @@ def _colors(page: ft.Page):
         appbar_bg=APPBAR_BGCOLOR_LIGHT if light else APPBAR_BGCOLOR_DARK,
         appbar_fg=ON_PRIMARY if light else ON_SURFACE_DARK,
         card_bg=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
-        hero_bg=PRIMARY_CONTAINER if light else PRIMARY,
-        hero_fg=ON_PRIMARY_CONTAINER if light else ON_PRIMARY,
+        hero_bg=PRIMARY_CONTAINER if light else HERO_BG_DARK,
+        hero_fg=ON_PRIMARY_CONTAINER if light else PRIMARY_DARK,
+        input_border=OUTLINE_LIGHT if light else "#5A5A78",
+        input_focused=PRIMARY if light else PRIMARY_DARK,
     )
 
 
@@ -128,7 +132,7 @@ def main(page: ft.Page):
         details = ft.Container(
             bgcolor=c["card_bg"],
             border_radius=12,
-            border=ft.Border.all(1, c["divider"]),
+            border=ft.Border.all(1, c["outline"]),
             padding=ft.Padding.all(0),
             content=ft.Column(
                 spacing=0,
@@ -148,6 +152,7 @@ def main(page: ft.Page):
         label="Cantidad neta ($)",
         keyboard_type=ft.KeyboardType.NUMBER,
         border_radius=12,
+        on_submit=lambda e: calculate(e),
     )
 
     def calculate(e):
