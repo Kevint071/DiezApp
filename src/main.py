@@ -202,7 +202,6 @@ def main(page: ft.Page):
     )
 
     def _build_main_content():
-        c = _colors(page)
         return ft.SafeArea(
             content=ft.Container(
                 padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
