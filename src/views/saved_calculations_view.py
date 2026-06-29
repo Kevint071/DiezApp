@@ -54,14 +54,14 @@ def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, 
             "Cálculos guardados",
             color=fg,
             weight=ft.FontWeight.W_700,
-            size=18,
-            style=ft.TextStyle(height=1),
+            size=17,
         ),
         center_title=False,
         leading_width=40,
+        title_spacing=0,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
-        actions=[export_btn],
+        actions=[export_btn, ft.Container(width=8)],
     )
 
 
