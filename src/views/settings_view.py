@@ -29,11 +29,11 @@ def apply_settings_appbar(page: ft.Page, on_navigate_back, colors_fn):
             "Configuración",
             color=fg,
             weight=ft.FontWeight.W_700,
-            size=18,
-            style=ft.TextStyle(height=1),
+            size=17,
         ),
         center_title=False,
         leading_width=40,
+        title_spacing=0,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
     )
@@ -101,6 +101,24 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     focus_color = FOCUS_LIGHT if light else FOCUS_DARK
     input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
 
+    def _on_pct_change(e):
+        raw = pct_field.value.strip()
+        if not raw:
+            pct_field.error = None
+            pct_dialog.update()
+            return
+        try:
+            val = int(raw)
+        except (ValueError, TypeError):
+            pct_field.error = "Ingresa un número válido"
+            pct_dialog.update()
+            return
+        if val < 1 or val > 30:
+            pct_field.error = "Debe ser entre 1% y 30%"
+        else:
+            pct_field.error = None
+        pct_dialog.update()
+
     pct_field = ft.TextField(
         label="Porcentaje",
         value=str(fund_percentage),
@@ -110,8 +128,8 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         suffix=ft.Text("%", color=c["on_surface_variant"]),
         border_color=input_border,
         focused_border_color=focus_color,
-        expand=True,
         on_submit=lambda e: _save_pct(e),
+        on_change=_on_pct_change,
     )
 
     def _close_pct_dialog(e):
@@ -122,14 +140,14 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         try:
             val = int(raw)
         except (ValueError, TypeError):
-            pct_field.error_text = "Ingresa un número válido"
-            page.update()
+            pct_field.error = "Ingresa un número válido"
+            pct_dialog.update()
             return
         if val < 1 or val > 30:
-            pct_field.error_text = "El rango debe estar entre 1% y 30%"
-            page.update()
+            pct_field.error = "Debe ser entre 1% y 30%"
+            pct_dialog.update()
             return
-        pct_field.error_text = None
+        pct_field.error = None
         state["fund_percentage"] = val
         current_mode = "dark" if page.theme_mode == ft.ThemeMode.DARK else "light"
         save_settings(current_mode, val)
@@ -140,7 +158,11 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         modal=True,
         title=ft.Text("Aporte al fondo local", size=17, weight=ft.FontWeight.W_600),
         content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
-        content=ft.Row(controls=[pct_field]),
+        content=ft.Column(
+            tight=True,
+            spacing=0,
+            controls=[pct_field],
+        ),
         actions=[
             ft.TextButton("Cancelar", on_click=_close_pct_dialog),
             ft.FilledTonalButton("Guardar", on_click=_save_pct),
@@ -150,7 +172,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
 
     def _open_pct_dialog(e):
         pct_field.value = str(state["fund_percentage"])
-        pct_field.error_text = None
+        pct_field.error = None
         page.show_dialog(pct_dialog)
 
     fund_cell = _settings_cell(
