@@ -1,6 +1,6 @@
 import os
 import tempfile
-from datetime import date
+from datetime import date, datetime
 
 from fpdf import FPDF
 
@@ -11,10 +11,14 @@ def _format_currency(value: float) -> str:
 
 def _format_date(date_str: str) -> str:
     try:
-        parts = date_str.split("-")
-        return f"{parts[2]}/{parts[1]}/{parts[0]}"
-    except (IndexError, AttributeError):
-        return date_str
+        d = datetime.fromisoformat(date_str)
+        return d.strftime("%d/%m/%Y %I:%M %p")
+    except (ValueError, TypeError):
+        try:
+            parts = date_str.split("-")
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+        except (IndexError, AttributeError):
+            return date_str
 
 
 def generate_pdf(calculations: list) -> str:

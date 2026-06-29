@@ -98,7 +98,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
     def _format_date(date_str: str) -> str:
         try:
             d = datetime.fromisoformat(date_str)
-            return d.strftime("%d/%m/%Y")
+            return d.strftime("%d/%m/%Y %I:%M %p")
         except (ValueError, TypeError):
             return date_str
 

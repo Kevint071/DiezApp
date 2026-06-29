@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 import tempfile
-from datetime import date
+from datetime import datetime
 
 
 CALCULATIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "saved_calculations.json")
@@ -34,7 +34,7 @@ def save_calculations(calculations: list):
 def add_calculation(amount: float, envio_21: float, restante: float, fondo_local: float, sostenimiento: float, fund_percentage: int) -> dict:
     calc = {
         "id": str(uuid.uuid4()),
-        "created_at": date.today().isoformat(),
+        "created_at": datetime.now().isoformat(),
         "amount": amount,
         "envio_21": envio_21,
         "restante": restante,
