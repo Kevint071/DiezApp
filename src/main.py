@@ -19,6 +19,7 @@ from utils.theme import (
     ON_SURFACE_DARK,
     ON_SURFACE_VARIANT_DARK,
     OUTLINE_DARK,
+    OUTLINE_DARK_INPUT,
     DIVIDER_DARK,
     PRIMARY_DARK,
     HERO_BG_DARK,
@@ -64,7 +65,7 @@ def _colors(page: ft.Page):
         card_bg=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
         hero_bg=PRIMARY_CONTAINER if light else HERO_BG_DARK,
         hero_fg=ON_PRIMARY_CONTAINER if light else PRIMARY_DARK,
-        input_border=OUTLINE_LIGHT if light else "#5A5A78",
+        input_border=OUTLINE_LIGHT if light else OUTLINE_DARK_INPUT,
         input_focused=PRIMARY if light else PRIMARY_DARK,
     )
 
@@ -110,7 +111,7 @@ def main(page: ft.Page):
 
         details = ft.Container(
             bgcolor=c["card_bg"],
-            border_radius=12,
+            border_radius=16,
             border=ft.Border.all(1, c["outline"]),
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
             padding=ft.Padding.all(0),
@@ -133,10 +134,15 @@ def main(page: ft.Page):
     input_amount = ft.TextField(
         label="Cantidad neta ($)",
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=12,
+        border_radius=14,
         expand=True,
         on_submit=lambda e: calculate(e),
     )
+
+    def _apply_input_colors():
+        c = _colors(page)
+        input_amount.border_color = c["input_border"]
+        input_amount.focused_border_color = c["input_focused"]
 
     def format_currency(value: float) -> str:
         return f"${value:,.0f}".replace(",", ".")
@@ -206,6 +212,7 @@ def main(page: ft.Page):
     def _navigate_to_main():
         lbl_1_of_79.value = f"Aporte al fondo local ({state['fund_percentage']}%)"
         _apply_appbar()
+        _apply_input_colors()
         page.controls.clear()
         page.add(main_content)
         if results_container.visible:
@@ -224,6 +231,7 @@ def main(page: ft.Page):
     )
 
     _apply_appbar()
+    _apply_input_colors()
 
     page.add(main_content)
 

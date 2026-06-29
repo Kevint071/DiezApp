@@ -10,13 +10,27 @@ def apply_settings_appbar(page: ft.Page, on_navigate_back, colors_fn):
     light = page.theme_mode == ft.ThemeMode.LIGHT
     fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
     page.appbar = ft.AppBar(
-        leading=ft.IconButton(
-            icon=ft.Icons.ARROW_BACK,
-            icon_color=fg,
+        leading=ft.Container(
+            width=40,
+            height=40,
+            alignment=ft.Alignment.CENTER,
             on_click=lambda e: on_navigate_back(),
+            content=ft.Image(
+                src="chevron-left.svg",
+                width=24,
+                height=24,
+                color=fg,
+            ),
         ),
-        title=ft.Text("Configuración", color=fg, weight=ft.FontWeight.W_600, size=18),
+        title=ft.Text(
+            "Configuración",
+            color=fg,
+            weight=ft.FontWeight.W_600,
+            size=18,
+            style=ft.TextStyle(height=1),
+        ),
         center_title=False,
+        leading_width=40,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
     )
@@ -69,12 +83,9 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     def _open_theme_dialog(e):
         page.show_dialog(theme_dialog)
 
-    theme_row = ft.Container(
+    theme_cell = ft.Container(
         on_click=_open_theme_dialog,
-        border_radius=12,
-        bgcolor=c["card_bg"],
-        border=ft.Border.all(1, c["outline"]),
-        padding=ft.Padding.symmetric(vertical=14, horizontal=16),
+        padding=ft.Padding.symmetric(vertical=14, horizontal=0),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             controls=[
@@ -98,7 +109,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         label="Porcentaje (1-30)",
         value=str(fund_percentage),
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=12,
+        border_radius=14,
     )
 
     def _close_pct_dialog(e):
@@ -138,12 +149,9 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         pct_field.error_text = None
         page.show_dialog(pct_dialog)
 
-    fund_row = ft.Container(
+    fund_cell = ft.Container(
         on_click=_open_pct_dialog,
-        border_radius=12,
-        bgcolor=c["card_bg"],
-        border=ft.Border.all(1, c["outline"]),
-        padding=ft.Padding.symmetric(vertical=14, horizontal=16),
+        padding=ft.Padding.symmetric(vertical=14, horizontal=0),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             controls=[
@@ -159,12 +167,18 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         ),
     )
 
+    # Group cells as a clean list without borders
+    settings_group = ft.Column(
+        spacing=0,
+        controls=[
+            theme_cell,
+            fund_cell,
+        ],
+    )
+
     return ft.SafeArea(
         content=ft.Container(
-            padding=ft.Padding.all(20),
-            content=ft.Column(
-                spacing=16,
-                controls=[theme_row, fund_row],
-            ),
+            padding=ft.Padding.symmetric(vertical=20, horizontal=20),
+            content=settings_group,
         ),
     )

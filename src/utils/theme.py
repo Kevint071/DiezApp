@@ -1,28 +1,37 @@
 import flet as ft
 
-# ── Modern Palette ───────────────────────────────────────
-# Light — clean white with violet accent
-PRIMARY = "#7C5CFC"
-PRIMARY_LIGHT = "#9B82FC"
-ON_PRIMARY = "#FFFFFF"
-PRIMARY_CONTAINER = "#EDE7FF"
-ON_PRIMARY_CONTAINER = "#2D0F7A"
-SURFACE_LIGHT = "#FAFAFA"
-SURFACE_VARIANT_LIGHT = "#F3F0FF"
-ON_SURFACE_LIGHT = "#1A1A2E"
-ON_SURFACE_VARIANT_LIGHT = "#5C5670"
-OUTLINE_LIGHT = "#B0A8C0"
-DIVIDER_LIGHT = "#E0D8F0"
+# ── Brand Palette ────────────────────────────────────────
+# --black:           #050609
+# --porcelain:       #fdfffc
+# --light-sea-green: #0ca4a5
+# --dim-grey:        #747274
+# --sapphire:        #0353a4
 
-# Dark — true dark with vibrant accents
-SURFACE_DARK = "#0F0F14"
-SURFACE_VARIANT_DARK = "#1A1A24"
-ON_SURFACE_DARK = "#EAEAF0"
-ON_SURFACE_VARIANT_DARK = "#A0A0B8"
-OUTLINE_DARK = "#4A4A60"
-DIVIDER_DARK = "#2E2E40"
-PRIMARY_DARK = "#A78BFA"
-HERO_BG_DARK = "#1E1B30"
+# ── Light Mode ───────────────────────────────────────────
+PRIMARY = "#0ca4a5"
+PRIMARY_LIGHT = "#2ebcbd"
+ON_PRIMARY = "#FFFFFF"
+PRIMARY_CONTAINER = "#e0f6f6"
+ON_PRIMARY_CONTAINER = "#053d3d"
+SURFACE_LIGHT = "#fdfffc"
+SURFACE_VARIANT_LIGHT = "#f2f7f7"
+ON_SURFACE_LIGHT = "#050609"
+ON_SURFACE_VARIANT_LIGHT = "#747274"
+OUTLINE_LIGHT = "#c2c0c2"
+DIVIDER_LIGHT = "#e4e2e4"
+SECONDARY = "#0353a4"
+
+# ── Dark Mode ────────────────────────────────────────────
+SURFACE_DARK = "#050609"
+SURFACE_VARIANT_DARK = "#161c24"
+ON_SURFACE_DARK = "#fdfffc"
+ON_SURFACE_VARIANT_DARK = "#b0aeb0"
+OUTLINE_DARK = "#3d5254"
+OUTLINE_DARK_INPUT = "#708e90"  # unfocused input border, lighter than OUTLINE_DARK
+DIVIDER_DARK = "#263436"
+PRIMARY_DARK = "#3ecbcc"
+HERO_BG_DARK = "#0c2828"
+SECONDARY_DARK = "#5b9fd6"
 
 # ── Themes ───────────────────────────────────────────────
 LIGHT_THEME = ft.Theme(
@@ -31,6 +40,7 @@ LIGHT_THEME = ft.Theme(
         on_primary=ON_PRIMARY,
         primary_container=PRIMARY_CONTAINER,
         on_primary_container=ON_PRIMARY_CONTAINER,
+        secondary=SECONDARY,
         surface=SURFACE_LIGHT,
         on_surface=ON_SURFACE_LIGHT,
         on_surface_variant=ON_SURFACE_VARIANT_LIGHT,
@@ -42,9 +52,10 @@ LIGHT_THEME = ft.Theme(
 DARK_THEME = ft.Theme(
     color_scheme=ft.ColorScheme(
         primary=PRIMARY_DARK,
-        on_primary="#1A1A2E",
+        on_primary="#050609",
         primary_container=HERO_BG_DARK,
         on_primary_container=PRIMARY_DARK,
+        secondary=SECONDARY_DARK,
         surface=SURFACE_DARK,
         on_surface=ON_SURFACE_DARK,
         on_surface_variant=ON_SURFACE_VARIANT_DARK,
@@ -55,4 +66,4 @@ DARK_THEME = ft.Theme(
 
 # ── Helpers ──────────────────────────────────────────────
 APPBAR_BGCOLOR_LIGHT = PRIMARY
-APPBAR_BGCOLOR_DARK = "#16161E"
+APPBAR_BGCOLOR_DARK = "#0a0c10"
