@@ -5,10 +5,7 @@ import os
 from utils.theme import (
     LIGHT_THEME,
     DARK_THEME,
-    APPBAR_BGCOLOR_LIGHT,
-    APPBAR_BGCOLOR_DARK,
     PRIMARY,
-    ON_PRIMARY,
     PRIMARY_CONTAINER,
     ON_PRIMARY_CONTAINER,
     SURFACE_LIGHT,
@@ -58,8 +55,6 @@ def _colors(page: ft.Page):
         on_surface_variant=ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
         outline=OUTLINE_LIGHT if light else OUTLINE_DARK,
         divider=DIVIDER_LIGHT if light else DIVIDER_DARK,
-        appbar_bg=APPBAR_BGCOLOR_LIGHT if light else APPBAR_BGCOLOR_DARK,
-        appbar_fg=ON_PRIMARY if light else ON_SURFACE_DARK,
         card_bg=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
         hero_bg=PRIMARY_CONTAINER if light else HERO_BG_DARK,
         hero_fg=ON_PRIMARY_CONTAINER if light else PRIMARY_DARK,
@@ -78,15 +73,15 @@ def main(page: ft.Page):
     page.dark_theme = DARK_THEME
 
     # ── Result texts ─────────────────────────────────────
-    txt_rest = ft.Text(value="", size=32, weight=ft.FontWeight.BOLD)
-    txt_rest_label = ft.Text(value="", size=13)
     txt_21 = ft.Text(value="", size=16, weight=ft.FontWeight.W_500)
     txt_79 = ft.Text(value="", size=16, weight=ft.FontWeight.W_500)
     txt_1_of_79 = ft.Text(value="", size=16, weight=ft.FontWeight.W_500)
+    txt_rest = ft.Text(value="", size=16, weight=ft.FontWeight.W_600)
 
-    lbl_21 = ft.Text("21% Diezmo", size=13)
-    lbl_79 = ft.Text("79% Restante", size=13)
-    lbl_1_of_79 = ft.Text("1% del 79%", size=13)
+    lbl_21 = ft.Text("Envío (21%)", size=13)
+    lbl_79 = ft.Text("Restante", size=13)
+    lbl_1_of_79 = ft.Text("Aporte al fondo local", size=13)
+    lbl_rest = ft.Text("Sostenimiento", size=13, weight=ft.FontWeight.W_600)
 
     # ── Results container (hidden until first calc) ──────
     results_container = ft.Container(visible=False)
@@ -94,34 +89,11 @@ def main(page: ft.Page):
     def _build_results():
         c = _colors(page)
 
-        hero_card = ft.Container(
-            bgcolor=c["hero_bg"],
-            border_radius=16,
-            padding=ft.Padding.symmetric(vertical=24, horizontal=20),
-            content=ft.Column(
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=4,
-                controls=[
-                    ft.Text(
-                        txt_rest_label.value,
-                        size=13,
-                        color=c["hero_fg"],
-                        opacity=0.8,
-                    ),
-                    ft.Text(
-                        txt_rest.value,
-                        size=32,
-                        weight=ft.FontWeight.BOLD,
-                        color=c["hero_fg"],
-                    ),
-                ],
-            ),
-        )
-
-        def _detail_row(label_ctrl: ft.Text, value_ctrl: ft.Text):
-            label_ctrl.color = c["on_surface_variant"]
-            value_ctrl.color = c["on_surface"]
+        def _detail_row(label_ctrl: ft.Text, value_ctrl: ft.Text, highlight=False):
+            label_ctrl.color = c["hero_fg"] if highlight else c["on_surface_variant"]
+            value_ctrl.color = c["hero_fg"] if highlight else c["on_surface"]
             return ft.Container(
+                bgcolor=c["hero_bg"] if highlight else None,
                 padding=ft.Padding.symmetric(vertical=12, horizontal=16),
                 content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -133,6 +105,7 @@ def main(page: ft.Page):
             bgcolor=c["card_bg"],
             border_radius=12,
             border=ft.Border.all(1, c["outline"]),
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
             padding=ft.Padding.all(0),
             content=ft.Column(
                 spacing=0,
@@ -142,18 +115,24 @@ def main(page: ft.Page):
                     _detail_row(lbl_79, txt_79),
                     ft.Divider(height=1, color=c["divider"]),
                     _detail_row(lbl_1_of_79, txt_1_of_79),
+                    ft.Divider(height=1, color=c["divider"]),
+                    _detail_row(lbl_rest, txt_rest, highlight=True),
                 ],
             ),
         )
 
-        results_container.content = ft.Column(spacing=12, controls=[hero_card, details])
+        results_container.content = details
 
     input_amount = ft.TextField(
         label="Cantidad neta ($)",
         keyboard_type=ft.KeyboardType.NUMBER,
         border_radius=12,
+        expand=True,
         on_submit=lambda e: calculate(e),
     )
+
+    def format_currency(value: float) -> str:
+        return f"${value:,.0f}".replace(",", ".")
 
     def calculate(e):
         try:
@@ -169,26 +148,25 @@ def main(page: ft.Page):
         val_1_of_79 = val_79 * 0.01
         val_rest = amount - val_21 - val_1_of_79
 
-        txt_21.value = f"${val_21:,.2f}"
-        txt_79.value = f"${val_79:,.2f}"
-        txt_1_of_79.value = f"${val_1_of_79:,.2f}"
-        txt_rest.value = f"${val_rest:,.2f}"
-        txt_rest_label.value = "Neto final (100% − 21% − 1% del 79%)"
+        txt_21.value = format_currency(val_21)
+        txt_79.value = format_currency(val_79)
+        txt_1_of_79.value = format_currency(val_1_of_79)
+        txt_rest.value = format_currency(val_rest)
 
         _build_results()
         results_container.visible = True
         page.update()
 
     def _apply_appbar():
-        c = _colors(page)
-        theme_btn.icon = (
-            ft.Icons.WB_SUNNY_OUTLINED if _is_light(page) else ft.Icons.WB_SUNNY
-        )
-        theme_btn.icon_color = c["appbar_fg"]
+        light = _is_light(page)
+        fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+        theme_btn.icon = ft.Icons.DARK_MODE_OUTLINED if light else ft.Icons.LIGHT_MODE_OUTLINED
+        theme_btn.icon_color = fg
         page.appbar = ft.AppBar(
-            title=ft.Text("DiezmApp", color=c["appbar_fg"], weight=ft.FontWeight.W_600),
-            center_title=True,
-            bgcolor=c["appbar_bg"],
+            title=ft.Text("DiezmApp", color=fg, weight=ft.FontWeight.W_600, size=18),
+            center_title=False,
+            bgcolor=ft.Colors.TRANSPARENT,
+            elevation=0,
             actions=[theme_btn],
         )
 
@@ -205,7 +183,7 @@ def main(page: ft.Page):
         page.update()
 
     theme_btn = ft.IconButton(
-        icon=ft.Icons.WB_SUNNY_OUTLINED if _is_light(page) else ft.Icons.WB_SUNNY,
+        icon=ft.Icons.DARK_MODE_OUTLINED if _is_light(page) else ft.Icons.LIGHT_MODE_OUTLINED,
         tooltip="Cambiar tema",
         on_click=toggle_theme,
     )
