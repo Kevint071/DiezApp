@@ -150,6 +150,26 @@ def main(page: ft.Page):
             ],
         )
 
+    def _format_input_number(e):
+        """Format the input with dots as thousand separators while typing."""
+        raw = input_amount.value.replace(".", "").replace(",", "")
+        if not raw:
+            return
+        # Keep only digits
+        digits = "".join(c for c in raw if c.isdigit())
+        if not digits:
+            input_amount.value = ""
+            page.update()
+            return
+        # Format with dots every 3 digits
+        formatted = ""
+        for i, d in enumerate(reversed(digits)):
+            if i > 0 and i % 3 == 0:
+                formatted = "." + formatted
+            formatted = d + formatted
+        input_amount.value = formatted
+        page.update()
+
     input_amount = ft.TextField(
         label="Cantidad neta ($)",
         label_style=ft.TextStyle(weight=ft.FontWeight.W_400),
@@ -159,6 +179,7 @@ def main(page: ft.Page):
         text_size=15,
         expand=True,
         on_submit=lambda e: calculate(e),
+        on_change=_format_input_number,
     )
 
     def _apply_input_colors():
@@ -171,13 +192,13 @@ def main(page: ft.Page):
 
     def calculate(e):
         try:
-            amount = float(input_amount.value.replace(",", "."))
+            amount = float(input_amount.value.replace(".", "").replace(",", "."))
         except (ValueError, AttributeError):
-            input_amount.error_text = "Ingresa un número válido"
+            input_amount.error = "Ingresa un número válido"
             page.update()
             return
 
-        input_amount.error_text = None
+        input_amount.error = None
         val_21 = amount * 0.21
         val_79 = amount * 0.79
         val_1_of_79 = val_79 * (state["fund_percentage"] / 100)
@@ -195,7 +216,7 @@ def main(page: ft.Page):
 
     def _save_calculation(e):
         try:
-            amount = float(input_amount.value.replace(",", "."))
+            amount = float(input_amount.value.replace(".", "").replace(",", "."))
         except (ValueError, AttributeError):
             return
         val_21 = amount * 0.21
@@ -218,7 +239,7 @@ def main(page: ft.Page):
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
-            actions=[history_btn, settings_btn],
+            actions=[history_btn, settings_btn, ft.Container(width=8)],
         )
 
     # ── Navigation ───────────────────────────────────────
