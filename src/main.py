@@ -252,6 +252,9 @@ def main(page: ft.Page):
     main_content = _build_main_content()
 
     def _navigate_to_settings():
+        input_amount.value = ""
+        results_container.visible = False
+        save_btn.visible = False
         apply_settings_appbar(page, _navigate_to_main, _colors)
         page.controls.clear()
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
