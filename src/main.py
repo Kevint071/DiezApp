@@ -14,6 +14,7 @@ from utils.theme import (
     ON_SURFACE_LIGHT,
     ON_SURFACE_VARIANT_LIGHT,
     OUTLINE_LIGHT,
+    OUTLINE_LIGHT_INPUT,
     DIVIDER_LIGHT,
     SURFACE_DARK,
     SURFACE_VARIANT_DARK,
@@ -24,6 +25,9 @@ from utils.theme import (
     DIVIDER_DARK,
     PRIMARY_DARK,
     HERO_BG_DARK,
+    PRIMARY_LIGHT,
+    FOCUS_LIGHT,
+    FOCUS_DARK,
 )
 from views.settings_view import apply_settings_appbar, build_settings_view
 
@@ -65,11 +69,12 @@ def _colors(page: ft.Page):
         divider=DIVIDER_LIGHT if light else DIVIDER_DARK,
         card_bg=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
         hero_bg=PRIMARY_CONTAINER if light else HERO_BG_DARK,
-        hero_fg=ON_PRIMARY_CONTAINER if light else PRIMARY_DARK,
-        input_border=OUTLINE_LIGHT if light else OUTLINE_DARK_INPUT,
-        input_focused=PRIMARY if light else PRIMARY_DARK,
+        hero_fg=ON_PRIMARY_CONTAINER if light else "#A7F3D0",
+        input_border=OUTLINE_LIGHT_INPUT if light else OUTLINE_DARK_INPUT,
+        input_focused=FOCUS_LIGHT if light else FOCUS_DARK,
         primary=PRIMARY if light else PRIMARY_DARK,
-        on_primary=ON_PRIMARY if light else "#050609",
+        primary_light=PRIMARY_LIGHT if light else "#34D399",
+        on_primary=ON_PRIMARY if light else "#F1F5F9",
     )
 
 
@@ -84,15 +89,15 @@ def main(page: ft.Page):
     page.dark_theme = DARK_THEME
 
     # ── Result texts ─────────────────────────────────────
-    txt_21 = ft.Text(value="", size=16, weight=ft.FontWeight.W_500)
-    txt_79 = ft.Text(value="", size=16, weight=ft.FontWeight.W_500)
-    txt_1_of_79 = ft.Text(value="", size=16, weight=ft.FontWeight.W_500)
-    txt_rest = ft.Text(value="", size=16, weight=ft.FontWeight.W_600)
+    txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
+    txt_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
+    txt_1_of_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
+    txt_rest = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
 
-    lbl_21 = ft.Text("Envío (21%)", size=13)
-    lbl_79 = ft.Text("Restante", size=13)
-    lbl_1_of_79 = ft.Text(f"Aporte al fondo local ({state['fund_percentage']}%)", size=13)
-    lbl_rest = ft.Text("Sostenimiento", size=13, weight=ft.FontWeight.W_600)
+    lbl_21 = ft.Text("Envío (21%)", size=13, weight=ft.FontWeight.W_500)
+    lbl_79 = ft.Text("Restante", size=13, weight=ft.FontWeight.W_500)
+    lbl_1_of_79 = ft.Text(f"Fondo local ({state['fund_percentage']}%)", size=13, weight=ft.FontWeight.W_500)
+    lbl_rest = ft.Text("Sostenimiento", size=13, weight=ft.FontWeight.W_500)
 
     # ── Results container (hidden until first calc) ──────
     results_container = ft.Container(visible=False)
@@ -100,11 +105,12 @@ def main(page: ft.Page):
     def _build_results():
         c = _colors(page)
 
-        def _detail_row(label_ctrl: ft.Text, value_ctrl: ft.Text, highlight=False):
-            label_ctrl.color = c["hero_fg"] if highlight else c["on_surface_variant"]
-            value_ctrl.color = c["hero_fg"] if highlight else c["on_surface"]
+        def _result_tile(label_ctrl: ft.Text, value_ctrl: ft.Text):
+            label_ctrl.color = c["on_surface_variant"]
+            value_ctrl.color = c["primary"]
             return ft.Container(
-                bgcolor=c["hero_bg"] if highlight else None,
+                bgcolor=c["card_bg"],
+                border_radius=14,
                 padding=ft.Padding.symmetric(vertical=12, horizontal=16),
                 content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -112,32 +118,30 @@ def main(page: ft.Page):
                 ),
             )
 
-        details = ft.Container(
-            bgcolor=c["card_bg"],
-            border_radius=16,
-            border=ft.Border.all(1, c["outline"]),
-            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-            padding=ft.Padding.all(0),
-            content=ft.Column(
-                spacing=0,
-                controls=[
-                    _detail_row(lbl_21, txt_21),
-                    ft.Divider(height=1, color=c["divider"]),
-                    _detail_row(lbl_79, txt_79),
-                    ft.Divider(height=1, color=c["divider"]),
-                    _detail_row(lbl_1_of_79, txt_1_of_79),
-                    ft.Divider(height=1, color=c["divider"]),
-                    _detail_row(lbl_rest, txt_rest, highlight=True),
-                ],
-            ),
+        results_container.content = ft.Column(
+            spacing=10,
+            controls=[
+                ft.Container(height=8),
+                ft.Text(
+                    "Distribución",
+                    size=14,
+                    weight=ft.FontWeight.W_600,
+                    color=c["on_surface_variant"],
+                ),
+                _result_tile(lbl_21, txt_21),
+                _result_tile(lbl_79, txt_79),
+                _result_tile(lbl_1_of_79, txt_1_of_79),
+                _result_tile(lbl_rest, txt_rest),
+            ],
         )
-
-        results_container.content = details
 
     input_amount = ft.TextField(
         label="Cantidad neta ($)",
+        label_style=ft.TextStyle(weight=ft.FontWeight.W_400),
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=14,
+        border_radius=12,
+        content_padding=ft.Padding.symmetric(vertical=14, horizontal=14),
+        text_size=15,
         expand=True,
         on_submit=lambda e: calculate(e),
     )
@@ -189,23 +193,31 @@ def main(page: ft.Page):
     calc_btn = ft.FilledButton(
         "Calcular",
         on_click=calculate,
-        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12)),
+        style=ft.ButtonStyle(
+            shape=ft.RoundedRectangleBorder(radius=12),
+            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
+            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+        ),
         width=float("inf"),
     )
 
-    main_content = ft.SafeArea(
-        content=ft.Container(
-            padding=ft.Padding.all(20),
-            content=ft.Column(
-                spacing=16,
-                controls=[
-                    input_amount,
-                    calc_btn,
-                    results_container,
-                ],
+    def _build_main_content():
+        c = _colors(page)
+        return ft.SafeArea(
+            content=ft.Container(
+                padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                content=ft.Column(
+                    spacing=20,
+                    controls=[
+                        input_amount,
+                        calc_btn,
+                        results_container,
+                    ],
+                ),
             ),
-        ),
-    )
+        )
+
+    main_content = _build_main_content()
 
     def _navigate_to_settings():
         apply_settings_appbar(page, _navigate_to_main, _colors)
@@ -213,14 +225,15 @@ def main(page: ft.Page):
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
 
     def _navigate_to_main():
-        lbl_1_of_79.value = f"Aporte al fondo local ({state['fund_percentage']}%)"
+        nonlocal main_content
+        lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"
         _apply_appbar()
         _apply_input_colors()
+        main_content = _build_main_content()
         page.controls.clear()
         page.add(main_content)
         if results_container.visible:
             _build_results()
-            # Recalculate with new percentage if there's a value
             if input_amount.value:
                 calculate(None)
 

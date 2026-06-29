@@ -3,6 +3,9 @@ import flet as ft
 from utils.theme import (
     ON_SURFACE_LIGHT,
     ON_SURFACE_DARK,
+    FOCUS_LIGHT,
+    FOCUS_DARK,
+    OUTLINE_LIGHT_INPUT,
 )
 
 
@@ -25,7 +28,7 @@ def apply_settings_appbar(page: ft.Page, on_navigate_back, colors_fn):
         title=ft.Text(
             "Configuración",
             color=fg,
-            weight=ft.FontWeight.W_600,
+            weight=ft.FontWeight.W_700,
             size=18,
             style=ft.TextStyle(height=1),
         ),
@@ -37,15 +40,7 @@ def apply_settings_appbar(page: ft.Page, on_navigate_back, colors_fn):
 
 
 def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn):
-    """Build the settings view.
-
-    Args:
-        page: The Flet page.
-        state: Mutable dict with 'fund_percentage' key.
-        save_settings: Function(theme_mode, fund_percentage) to persist settings.
-        navigate_to_settings: Function to refresh the settings view.
-        colors_fn: Function(page) returning contextual color dict.
-    """
+    """Build the settings view."""
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
 
@@ -65,23 +60,23 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         return ft.Container(
             on_click=lambda e: _on_theme_selected(mode),
             border_radius=12,
-            padding=ft.Padding.symmetric(vertical=10, horizontal=12),
+            padding=ft.Padding.symmetric(vertical=12, horizontal=14),
             bgcolor=c["primary"] if is_selected else ft.Colors.TRANSPARENT,
             content=ft.Row(
-                spacing=10,
+                spacing=12,
                 controls=[
                     ft.Icon(icon, size=20, color=c["on_primary"] if is_selected else c["on_surface_variant"]),
-                    ft.Text(label, size=14, weight=ft.FontWeight.W_500, color=c["on_primary"] if is_selected else c["on_surface"]),
+                    ft.Text(label, size=15, weight=ft.FontWeight.W_500, color=c["on_primary"] if is_selected else c["on_surface"]),
                 ],
             ),
         )
 
     theme_dialog = ft.AlertDialog(
-        title=ft.Text("Tema", size=16, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=20, right=20, top=8, bottom=4),
+        title=ft.Text("Tema", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=20, right=20, top=12, bottom=8),
         content=ft.Column(
             tight=True,
-            spacing=4,
+            spacing=6,
             controls=[
                 _theme_option("Claro", ft.Icons.LIGHT_MODE_OUTLINED, "light", light),
                 _theme_option("Oscuro", ft.Icons.DARK_MODE_OUTLINED, "dark", not light),
@@ -92,33 +87,30 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     def _open_theme_dialog(e):
         page.show_dialog(theme_dialog)
 
-    theme_cell = ft.Container(
+    theme_cell = _settings_cell(
+        icon=ft.Icons.PALETTE_OUTLINED,
+        title="Tema",
+        subtitle=theme_label,
+        colors=c,
         on_click=_open_theme_dialog,
-        padding=ft.Padding.symmetric(vertical=14, horizontal=0),
-        content=ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            controls=[
-                ft.Text("Tema", size=15, color=c["on_surface"]),
-                ft.Row(
-                    spacing=4,
-                    controls=[
-                        ft.Text(theme_label, size=14, color=c["on_surface_variant"]),
-                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=c["on_surface_variant"], size=20),
-                    ],
-                ),
-            ],
-        ),
     )
 
     # Fund percentage row + modal
     fund_percentage = state["fund_percentage"]
-    pct_label = ft.Text(f"{fund_percentage}%", size=14, color=c["on_surface_variant"])
+
+    focus_color = FOCUS_LIGHT if light else FOCUS_DARK
+    input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
 
     pct_field = ft.TextField(
-        label="Porcentaje (1-30)",
+        label="Porcentaje",
         value=str(fund_percentage),
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=14,
+        border_radius=12,
+        content_padding=ft.Padding.symmetric(vertical=14, horizontal=14),
+        suffix=ft.Text("%", color=c["on_surface_variant"]),
+        border_color=input_border,
+        focused_border_color=focus_color,
+        expand=True,
         on_submit=lambda e: _save_pct(e),
     )
 
@@ -126,14 +118,15 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         page.pop_dialog()
 
     def _save_pct(e):
+        raw = pct_field.value.strip()
         try:
-            val = int(pct_field.value)
+            val = int(raw)
         except (ValueError, TypeError):
             pct_field.error_text = "Ingresa un número válido"
             page.update()
             return
         if val < 1 or val > 30:
-            pct_field.error_text = "El porcentaje debe estar entre 1% y 30%"
+            pct_field.error_text = "El rango debe estar entre 1% y 30%"
             page.update()
             return
         pct_field.error_text = None
@@ -145,13 +138,14 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
 
     pct_dialog = ft.AlertDialog(
         modal=True,
-        title=ft.Text("Aporte al fondo local", size=17),
-        content=pct_field,
+        title=ft.Text("Aporte al fondo local", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        content=ft.Row(controls=[pct_field]),
         actions=[
             ft.TextButton("Cancelar", on_click=_close_pct_dialog),
-            ft.TextButton("Guardar", on_click=_save_pct),
+            ft.FilledTonalButton("Guardar", on_click=_save_pct),
         ],
-        actions_alignment=ft.MainAxisAlignment.END,
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
     def _open_pct_dialog(e):
@@ -159,36 +153,73 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         pct_field.error_text = None
         page.show_dialog(pct_dialog)
 
-    fund_cell = ft.Container(
+    fund_cell = _settings_cell(
+        icon=ft.Icons.SAVINGS_OUTLINED,
+        title="Fondo local",
+        subtitle=f"{fund_percentage}%",
+        colors=c,
         on_click=_open_pct_dialog,
-        padding=ft.Padding.symmetric(vertical=14, horizontal=0),
-        content=ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+    )
+
+    # Section header + grouped cells
+    settings_group = ft.Container(
+        bgcolor=c["card_bg"],
+        border_radius=16,
+        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
+        content=ft.Column(
+            spacing=0,
             controls=[
-                ft.Text("Aporte al fondo local", size=15, color=c["on_surface"]),
-                ft.Row(
-                    spacing=4,
-                    controls=[
-                        pct_label,
-                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=c["on_surface_variant"], size=20),
-                    ],
+                theme_cell,
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+                    content=ft.Divider(height=1, color=c["divider"]),
                 ),
+                fund_cell,
             ],
         ),
     )
 
-    # Group cells as a clean list without borders
-    settings_group = ft.Column(
-        spacing=0,
-        controls=[
-            theme_cell,
-            fund_cell,
-        ],
-    )
-
     return ft.SafeArea(
         content=ft.Container(
-            padding=ft.Padding.symmetric(vertical=20, horizontal=20),
-            content=settings_group,
+            padding=ft.Padding.only(top=12, left=24, right=24, bottom=24),
+            content=ft.Column(
+                spacing=12,
+                controls=[
+                    ft.Text(
+                        "General",
+                        size=13,
+                        weight=ft.FontWeight.W_600,
+                        color=c["on_surface_variant"],
+                    ),
+                    settings_group,
+                ],
+            ),
+        ),
+    )
+
+
+def _settings_cell(icon, title, subtitle, colors, on_click):
+    """Helper to build a consistent settings row."""
+    return ft.Container(
+        on_click=on_click,
+        padding=ft.Padding.symmetric(vertical=14, horizontal=18),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            controls=[
+                ft.Row(
+                    spacing=14,
+                    controls=[
+                        ft.Icon(icon, size=22, color=colors["primary"]),
+                        ft.Text(title, size=15, color=colors["on_surface"], weight=ft.FontWeight.W_500),
+                    ],
+                ),
+                ft.Row(
+                    spacing=4,
+                    controls=[
+                        ft.Text(subtitle, size=14, color=colors["on_surface_variant"]),
+                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=colors["on_surface_variant"], size=20),
+                    ],
+                ),
+            ],
         ),
     )
