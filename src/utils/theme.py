@@ -26,7 +26,6 @@ HERO_BG_DARK = "#1E1B30"
 
 # ── Themes ───────────────────────────────────────────────
 LIGHT_THEME = ft.Theme(
-    color_scheme_seed=PRIMARY,
     color_scheme=ft.ColorScheme(
         primary=PRIMARY,
         on_primary=ON_PRIMARY,
@@ -34,12 +33,13 @@ LIGHT_THEME = ft.Theme(
         on_primary_container=ON_PRIMARY_CONTAINER,
         surface=SURFACE_LIGHT,
         on_surface=ON_SURFACE_LIGHT,
+        on_surface_variant=ON_SURFACE_VARIANT_LIGHT,
         outline=OUTLINE_LIGHT,
+        surface_container_highest=SURFACE_VARIANT_LIGHT,
     ),
 )
 
 DARK_THEME = ft.Theme(
-    color_scheme_seed=PRIMARY,
     color_scheme=ft.ColorScheme(
         primary=PRIMARY_DARK,
         on_primary="#1A1A2E",
@@ -47,7 +47,9 @@ DARK_THEME = ft.Theme(
         on_primary_container=PRIMARY_DARK,
         surface=SURFACE_DARK,
         on_surface=ON_SURFACE_DARK,
+        on_surface_variant=ON_SURFACE_VARIANT_DARK,
         outline=OUTLINE_DARK,
+        surface_container_highest=SURFACE_VARIANT_DARK,
     ),
 )
 

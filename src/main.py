@@ -208,33 +208,30 @@ def main(page: ft.Page):
             page.pop_dialog()
             _navigate_to_settings()
 
-        theme_sheet = ft.BottomSheet(
-            content=ft.Container(
-                padding=ft.Padding.all(20),
-                content=ft.Column(
-                    tight=True,
-                    controls=[
-                        ft.Text("Seleccionar tema", size=16, weight=ft.FontWeight.W_600),
-                        ft.ListTile(
-                            title=ft.Text("Claro"),
-                            leading=ft.Icon(ft.Icons.LIGHT_MODE_OUTLINED),
-                            on_click=lambda e: _on_theme_selected("light"),
-                        ),
-                        ft.ListTile(
-                            title=ft.Text("Oscuro"),
-                            leading=ft.Icon(ft.Icons.DARK_MODE_OUTLINED),
-                            on_click=lambda e: _on_theme_selected("dark"),
-                        ),
-                    ],
-                ),
+        theme_dialog = ft.AlertDialog(
+            title=ft.Text("Seleccionar tema", size=17),
+            content=ft.Column(
+                tight=True,
+                controls=[
+                    ft.ListTile(
+                        title=ft.Text("Claro"),
+                        leading=ft.Icon(ft.Icons.LIGHT_MODE_OUTLINED),
+                        on_click=lambda e: _on_theme_selected("light"),
+                    ),
+                    ft.ListTile(
+                        title=ft.Text("Oscuro"),
+                        leading=ft.Icon(ft.Icons.DARK_MODE_OUTLINED),
+                        on_click=lambda e: _on_theme_selected("dark"),
+                    ),
+                ],
             ),
         )
 
-        def _open_theme_sheet(e):
-            page.show_dialog(theme_sheet)
+        def _open_theme_dialog(e):
+            page.show_dialog(theme_dialog)
 
         theme_row = ft.Container(
-            on_click=_open_theme_sheet,
+            on_click=_open_theme_dialog,
             border_radius=12,
             bgcolor=c["card_bg"],
             border=ft.Border.all(1, c["outline"]),
