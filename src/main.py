@@ -30,6 +30,8 @@ from utils.theme import (
     FOCUS_DARK,
 )
 from views.settings_view import apply_settings_appbar, build_settings_view
+from views.saved_calculations_view import apply_saved_calculations_appbar, build_saved_calculations_view
+from utils.storage import add_calculation
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 
@@ -101,6 +103,19 @@ def main(page: ft.Page):
 
     # ── Results container (hidden until first calc) ──────
     results_container = ft.Container(visible=False)
+
+    # ── Save button (hidden until first calc) ────────────
+    save_btn = ft.OutlinedButton(
+        "Guardar cálculo",
+        icon=ft.Icons.SAVE_OUTLINED,
+        visible=False,
+        style=ft.ButtonStyle(
+            shape=ft.RoundedRectangleBorder(radius=12),
+            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
+            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+        ),
+        width=float("inf"),
+    )
 
     def _build_results():
         c = _colors(page)
@@ -175,18 +190,35 @@ def main(page: ft.Page):
 
         _build_results()
         results_container.visible = True
+        save_btn.visible = True
         page.update()
+
+    def _save_calculation(e):
+        try:
+            amount = float(input_amount.value.replace(",", "."))
+        except (ValueError, AttributeError):
+            return
+        val_21 = amount * 0.21
+        val_79 = amount * 0.79
+        val_1_of_79 = val_79 * (state["fund_percentage"] / 100)
+        val_rest = amount - val_21 - val_1_of_79
+        add_calculation(amount, val_21, val_79, val_1_of_79, val_rest, state["fund_percentage"])
+        save_btn.visible = False
+        page.update()
+
+    save_btn.on_click = _save_calculation
 
     def _apply_appbar():
         light = _is_light(page)
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
         settings_btn.icon_color = fg
+        history_btn.icon_color = fg
         page.appbar = ft.AppBar(
             title=ft.Text("DiezmApp", color=fg, weight=ft.FontWeight.W_600, size=18),
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
-            actions=[settings_btn],
+            actions=[history_btn, settings_btn],
         )
 
     # ── Navigation ───────────────────────────────────────
@@ -211,6 +243,7 @@ def main(page: ft.Page):
                         input_amount,
                         calc_btn,
                         results_container,
+                        save_btn,
                     ],
                 ),
             ),
@@ -222,6 +255,11 @@ def main(page: ft.Page):
         apply_settings_appbar(page, _navigate_to_main, _colors)
         page.controls.clear()
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
+
+    def _navigate_to_saved():
+        apply_saved_calculations_appbar(page, _navigate_to_main, _colors)
+        page.controls.clear()
+        page.add(build_saved_calculations_view(page, _colors, _navigate_to_saved))
 
     def _navigate_to_main():
         nonlocal main_content
@@ -239,10 +277,19 @@ def main(page: ft.Page):
     def _open_settings(e):
         _navigate_to_settings()
 
+    def _open_saved(e):
+        _navigate_to_saved()
+
     settings_btn = ft.IconButton(
         icon=ft.Icons.SETTINGS_OUTLINED,
         tooltip="Configuración",
         on_click=_open_settings,
+    )
+
+    history_btn = ft.IconButton(
+        icon=ft.Icons.HISTORY,
+        tooltip="Cálculos guardados",
+        on_click=_open_saved,
     )
 
     _apply_appbar()
