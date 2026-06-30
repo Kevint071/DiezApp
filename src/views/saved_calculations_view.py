@@ -359,15 +359,21 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
         )
         edit_btn = ft.IconButton(
             icon=ft.Icons.EDIT_OUTLINED,
-            icon_color=c["on_surface_variant"],
+            icon_color="#1976D2",
             icon_size=20,
             tooltip="Editar",
+            style=ft.ButtonStyle(padding=ft.Padding.all(0)),
+            width=28,
+            height=28,
         )
         delete_btn = ft.IconButton(
             icon=ft.Icons.DELETE_OUTLINE,
-            icon_color=c["on_surface_variant"],
+            icon_color="#D32F2F",
             icon_size=20,
             tooltip="Eliminar",
+            style=ft.ButtonStyle(padding=ft.Padding.all(0)),
+            width=28,
+            height=28,
         )
 
         # Amount row: shows either text or edit field
@@ -494,7 +500,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
         return ft.Container(
             bgcolor=c["card_bg"],
             border_radius=14,
-            padding=ft.Padding.symmetric(vertical=14, horizontal=16),
+            padding=ft.Padding.symmetric(vertical=10, horizontal=16),
             margin=ft.Margin.only(bottom=12),
             content=ft.Column(
                 spacing=8,
@@ -502,6 +508,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                     # Header: date + action buttons
                     ft.Row(
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
                             ft.Text(
                                 _format_date(calc.get("created_at", "")),
@@ -511,6 +518,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                             ),
                             ft.Row(
                                 spacing=0,
+                                tight=True,
                                 controls=[save_edit_btn, cancel_edit_btn, edit_btn, delete_btn],
                             ),
                         ],

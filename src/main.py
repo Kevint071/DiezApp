@@ -81,7 +81,7 @@ def _colors(page: ft.Page):
 
 
 def main(page: ft.Page):
-    page.title = "DiezmApp"
+    page.title = "DiezApp"
     page.padding = ft.Padding.all(0)
 
     settings = load_settings()
@@ -235,7 +235,7 @@ def main(page: ft.Page):
         settings_btn.icon_color = fg
         history_btn.icon_color = fg
         page.appbar = ft.AppBar(
-            title=ft.Text("DiezmApp", color=fg, weight=ft.FontWeight.W_600, size=18),
+            title=ft.Text("Principal", color=fg, weight=ft.FontWeight.W_600, size=18),
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
