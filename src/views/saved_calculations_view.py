@@ -13,20 +13,216 @@ from utils.storage import load_calculations, update_calculation, delete_calculat
 from utils.pdf_export import generate_pdf
 
 
-def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, has_calculations: bool):
+def _show_date_range_modal(page: ft.Page, colors_fn):
+    """Show a modal to select date range and export filtered calculations as PDF."""
+    c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
-    fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+    focus_color = FOCUS_LIGHT if light else FOCUS_DARK
+    input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
 
-    async def _on_export(e):
-        calculations = load_calculations()
-        if not calculations:
+    state = {"start_date": None, "end_date": None}
+
+    start_field = ft.TextField(
+        label="Fecha inicial",
+        hint_text="DD/MM/AAAA",
+        read_only=True,
+        border_radius=10,
+        content_padding=ft.Padding.symmetric(vertical=10, horizontal=12),
+        text_size=14,
+        border_color=input_border,
+        focused_border_color=focus_color,
+        expand=True,
+    )
+
+    end_field = ft.TextField(
+        label="Fecha final",
+        hint_text="DD/MM/AAAA",
+        read_only=True,
+        border_radius=10,
+        content_padding=ft.Padding.symmetric(vertical=10, horizontal=12),
+        text_size=14,
+        border_color=input_border,
+        focused_border_color=focus_color,
+        expand=True,
+    )
+
+    error_text = ft.Text("", size=12, color=c.get("error", "#DC2626"), visible=False)
+
+    def _on_start_date_picked(e):
+        if e.control.value:
+            state["start_date"] = e.control.value
+            start_field.value = e.control.value.strftime("%d/%m/%Y")
+            error_text.visible = False
+            page.update()
+
+    def _on_end_date_picked(e):
+        if e.control.value:
+            state["end_date"] = e.control.value
+            end_field.value = e.control.value.strftime("%d/%m/%Y")
+            error_text.visible = False
+            page.update()
+
+    start_picker = ft.DatePicker(
+        first_date=datetime(2020, 1, 1),
+        last_date=datetime(2030, 12, 31),
+        on_change=_on_start_date_picked,
+        locale=ft.Locale("es"),
+        help_text="Fecha inicial",
+        cancel_text="Cancelar",
+        confirm_text="Aceptar",
+        error_format_text="Formato inválido",
+        error_invalid_text="Fecha inválida",
+        field_hint_text="dd/mm/aaaa",
+        field_label_text="Fecha",
+        entry_mode=ft.DatePickerEntryMode.CALENDAR_ONLY,
+    )
+
+    end_picker = ft.DatePicker(
+        first_date=datetime(2020, 1, 1),
+        last_date=datetime(2030, 12, 31),
+        on_change=_on_end_date_picked,
+        locale=ft.Locale("es"),
+        help_text="Fecha final",
+        cancel_text="Cancelar",
+        confirm_text="Aceptar",
+        error_format_text="Formato inválido",
+        error_invalid_text="Fecha inválida",
+        field_hint_text="dd/mm/aaaa",
+        field_label_text="Fecha",
+        entry_mode=ft.DatePickerEntryMode.CALENDAR_ONLY,
+    )
+
+    page.overlay.append(start_picker)
+    page.overlay.append(end_picker)
+
+    def _open_start_picker(e):
+        start_picker.open = True
+        page.update()
+
+    def _open_end_picker(e):
+        end_picker.open = True
+        page.update()
+
+    async def _on_export_filtered(e):
+        if not state["start_date"] or not state["end_date"]:
+            error_text.value = "Selecciona ambas fechas"
+            error_text.visible = True
+            page.update()
             return
-        pdf_path = generate_pdf(calculations)
+
+        sd = state["start_date"].date() if hasattr(state["start_date"], "date") else state["start_date"]
+        ed = state["end_date"].date() if hasattr(state["end_date"], "date") else state["end_date"]
+        if sd > ed:
+            error_text.value = "La fecha inicial no puede ser mayor a la final"
+            error_text.visible = True
+            page.update()
+            return
+
+        calculations = load_calculations()
+        start_d = state["start_date"].date() if hasattr(state["start_date"], "date") else state["start_date"]
+        end_d = state["end_date"].date() if hasattr(state["end_date"], "date") else state["end_date"]
+
+        filtered = []
+        for calc in calculations:
+            try:
+                calc_date = datetime.fromisoformat(calc.get("created_at", "")).date()
+                if start_d <= calc_date <= end_d:
+                    filtered.append(calc)
+            except (ValueError, TypeError):
+                continue
+
+        if not filtered:
+            error_text.value = "No hay cálculos en el rango seleccionado"
+            error_text.visible = True
+            page.update()
+            return
+
+        page.pop_dialog()
+        # Remove pickers from overlay
+        if start_picker in page.overlay:
+            page.overlay.remove(start_picker)
+        if end_picker in page.overlay:
+            page.overlay.remove(end_picker)
+
+        pdf_path = generate_pdf(filtered)
         share = ft.Share()
         await share.share_files(
             [ft.ShareFile.from_path(pdf_path, name=pdf_path.split(os.sep)[-1])],
             title="Exportar cálculos",
         )
+
+    def _on_cancel(e):
+        page.pop_dialog()
+        if start_picker in page.overlay:
+            page.overlay.remove(start_picker)
+        if end_picker in page.overlay:
+            page.overlay.remove(end_picker)
+        page.update()
+
+    dlg = ft.AlertDialog(
+        modal=True,
+        title=ft.Text(
+            "Exportar PDF",
+            size=17,
+            weight=ft.FontWeight.W_600,
+            color=c["on_surface"],
+        ),
+        content=ft.Container(
+            width=300,
+            content=ft.Column(
+                tight=True,
+                spacing=16,
+                controls=[
+                    ft.Text(
+                        "Selecciona el rango de fechas",
+                        size=14,
+                        color=c["on_surface_variant"],
+                    ),
+                    ft.Row(
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            start_field,
+                            ft.IconButton(
+                                icon=ft.Icons.CALENDAR_TODAY,
+                                icon_color=c["primary"],
+                                icon_size=22,
+                                tooltip="Seleccionar fecha",
+                                on_click=_open_start_picker,
+                            ),
+                        ],
+                    ),
+                    ft.Row(
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            end_field,
+                            ft.IconButton(
+                                icon=ft.Icons.CALENDAR_TODAY,
+                                icon_color=c["primary"],
+                                icon_size=22,
+                                tooltip="Seleccionar fecha",
+                                on_click=_open_end_picker,
+                            ),
+                        ],
+                    ),
+                    error_text,
+                ],
+            ),
+        ),
+        actions=[
+            ft.TextButton("Cancelar", on_click=_on_cancel),
+            ft.FilledTonalButton("Exportar", on_click=_on_export_filtered),
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+    )
+    page.show_dialog(dlg)
+
+
+def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, has_calculations: bool):
+    light = page.theme_mode == ft.ThemeMode.LIGHT
+    fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+
+    def _on_export(e):
+        _show_date_range_modal(page, colors_fn)
 
     export_btn = ft.IconButton(
         icon=ft.Icons.IOS_SHARE,
