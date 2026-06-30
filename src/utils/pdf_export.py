@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import os
 import tempfile
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
-from fpdf import FPDF
+if TYPE_CHECKING:
+    from fpdf import FPDF
 
 
 def _format_currency(value: float) -> str:
@@ -26,6 +30,8 @@ def generate_pdf(calculations: list) -> str:
 
     Returns the path to the generated temporary PDF file.
     """
+    from fpdf import FPDF
+
     # Order oldest first (they're stored newest first)
     calcs = list(reversed(calculations))
 

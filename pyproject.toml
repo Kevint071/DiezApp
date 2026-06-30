@@ -12,6 +12,10 @@ dependencies = [
 [tool.flet.app]
 path = "src"
 
+[tool.flet.app.startup_screen]
+show = true
+message = "Cargando..."
+
 [tool.flet.android]
 # Build only the ARM64 Android variant to keep the APK smaller on modern phones.
 target_arch = ["arm64-v8a"]

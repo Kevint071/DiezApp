@@ -30,7 +30,6 @@ from utils.theme import (
     FOCUS_DARK,
 )
 from views.settings_view import apply_settings_appbar, build_settings_view
-from views.saved_calculations_view import apply_saved_calculations_appbar, build_saved_calculations_view
 from utils.storage import add_calculation
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
@@ -281,6 +280,7 @@ def main(page: ft.Page):
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
 
     def _navigate_to_saved():
+        from views.saved_calculations_view import apply_saved_calculations_appbar, build_saved_calculations_view
         from utils.storage import load_calculations as _load_calcs
         has_calcs = len(_load_calcs()) > 0
         apply_saved_calculations_appbar(page, _navigate_to_main, _colors, has_calcs)

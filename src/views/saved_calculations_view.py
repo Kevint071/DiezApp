@@ -10,7 +10,6 @@ from utils.theme import (
     OUTLINE_LIGHT_INPUT,
 )
 from utils.storage import load_calculations, update_calculation, delete_calculation
-from utils.pdf_export import generate_pdf
 
 
 def _show_date_range_modal(page: ft.Page, colors_fn):
@@ -144,6 +143,7 @@ def _show_date_range_modal(page: ft.Page, colors_fn):
         if end_picker in page.overlay:
             page.overlay.remove(end_picker)
 
+        from utils.pdf_export import generate_pdf
         pdf_path = generate_pdf(filtered)
         share = ft.Share()
         await share.share_files(
