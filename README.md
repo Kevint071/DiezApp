@@ -65,7 +65,6 @@ src/
 ## Datos locales
 
 - [src/settings.json](src/settings.json) guarda el tema seleccionado y el porcentaje del fondo local.
-- [src/saved_calculations.json](src/saved_calculations.json) guarda el historial de cálculos.
 
 ## Notas
 
