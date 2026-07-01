@@ -104,8 +104,7 @@ def main(page: ft.Page):
 
     # ── Save button (hidden until first calc) ────────────
     save_btn = ft.OutlinedButton(
-        "Guardar cálculo",
-        icon=ft.Icons.SAVE_OUTLINED,
+        "Guardar",
         visible=False,
         style=ft.ButtonStyle(
             shape=ft.RoundedRectangleBorder(radius=12),
@@ -254,6 +253,7 @@ def main(page: ft.Page):
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
         )
+        nav_bar.bgcolor = _colors(page)["surface"]
 
     # ── Navigation ───────────────────────────────────────
     calc_btn = ft.FilledButton(
@@ -381,10 +381,10 @@ def main(page: ft.Page):
     nav_bar = ft.NavigationBar(
         selected_index=0,
         on_change=_on_nav_change,
-        height=60,
+        height=70,
         label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
         shadow_color=ft.Colors.TRANSPARENT,
-        indicator_color=ft.Colors.with_opacity(0.08, PRIMARY),
+        indicator_color=ft.Colors.TRANSPARENT,
         overlay_color=ft.Colors.TRANSPARENT,
         destinations=[
             ft.NavigationBarDestination(
@@ -447,8 +447,7 @@ def main(page: ft.Page):
     def _navigate_to_main():
         nonlocal main_content
         _apply_appbar()
-        if main_content is None:
-            main_content = _build_main_content()
+        main_content = _build_main_content()
         page.controls.clear()
         page.add(main_content)
 
