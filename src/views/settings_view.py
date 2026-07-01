@@ -1,3 +1,8 @@
+import json
+import os
+import tempfile
+from datetime import datetime
+
 import flet as ft
 
 from utils.theme import (
@@ -201,10 +206,55 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         ),
     )
 
+    # ── Backup section ─────────────────────────────────────────────
+    async def _export_json_backup(e):
+        from utils.storage import load_calculations
+        calculations = load_calculations()
+        if not calculations:
+            snack = ft.SnackBar(content=ft.Text("No hay cálculos guardados"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+        now = datetime.now()
+        file_name = now.strftime("calculos_%Y_%m_%d_%H_%M_%S.json")
+        tmp_dir = tempfile.gettempdir()
+        output_path = os.path.join(tmp_dir, file_name)
+        data = {"calculations": calculations}
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        share = ft.Share()
+        await share.share_files(
+            [ft.ShareFile.from_path(output_path, name=file_name)],
+            title="Exportar copia de seguridad",
+        )
+
+    backup_cell = _settings_cell(
+        icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
+        title="Exportar cálculos",
+        subtitle="JSON",
+        colors=c,
+        on_click=_export_json_backup,
+    )
+
+    backup_group = ft.Container(
+        bgcolor=c["card_bg"],
+        border_radius=16,
+        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
+        content=ft.Column(
+            spacing=0,
+            controls=[
+                backup_cell,
+            ],
+        ),
+    )
+
     return ft.SafeArea(
+        expand=True,
         content=ft.Container(
+            expand=True,
             padding=ft.Padding.only(top=12, left=24, right=24, bottom=24),
             content=ft.Column(
+                expand=True,
                 spacing=12,
                 controls=[
                     ft.Text(
@@ -214,6 +264,13 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
                         color=c["on_surface_variant"],
                     ),
                     settings_group,
+                    ft.Text(
+                        "Copia de seguridad",
+                        size=13,
+                        weight=ft.FontWeight.W_600,
+                        color=c["on_surface_variant"],
+                    ),
+                    backup_group,
                 ],
             ),
         ),

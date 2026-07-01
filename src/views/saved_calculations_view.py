@@ -360,7 +360,9 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
 
     if not calculations:
         return ft.SafeArea(
+            expand=True,
             content=ft.Container(
+                expand=True,
                 padding=ft.Padding.only(top=80, left=24, right=24, bottom=24),
                 alignment=ft.Alignment.TOP_CENTER,
                 content=ft.Column(

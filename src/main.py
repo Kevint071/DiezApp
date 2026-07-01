@@ -269,10 +269,14 @@ def main(page: ft.Page):
 
     def _build_calc_content():
         return ft.SafeArea(
+            expand=True,
             content=ft.Container(
+                expand=True,
                 padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
                 content=ft.Column(
+                    expand=True,
                     spacing=20,
+                    scroll=ft.ScrollMode.AUTO,
                     controls=[
                         input_amount,
                         calc_btn,
@@ -318,9 +322,12 @@ def main(page: ft.Page):
     def _build_main_content():
         c = _colors(page)
         return ft.SafeArea(
+            expand=True,
             content=ft.Container(
+                expand=True,
                 padding=ft.Padding.only(left=24, right=24, top=4, bottom=24),
                 content=ft.Column(
+                    expand=True,
                     spacing=16,
                     controls=[
                         ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
