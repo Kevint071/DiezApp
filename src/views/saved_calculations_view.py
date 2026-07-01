@@ -50,7 +50,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn):
         if s is None or e is not None:
             state["start"], state["end"] = d, None
         elif d == s:
-            state["start"] = None
+            state["end"] = d
         elif d < s:
             state["start"], state["end"] = d, s
         else:
