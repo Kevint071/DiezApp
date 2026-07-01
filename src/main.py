@@ -390,18 +390,22 @@ def main(page: ft.Page):
             ft.NavigationBarDestination(
                 icon=ft.Icons.HOME_OUTLINED,
                 selected_icon=ft.Icons.HOME_ROUNDED,
+                label="Inicio",
             ),
             ft.NavigationBarDestination(
                 icon=ft.Icons.HISTORY_OUTLINED,
                 selected_icon=ft.Icons.HISTORY_ROUNDED,
+                label="Historial",
             ),
             ft.NavigationBarDestination(
                 icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
                 selected_icon=ft.Icons.PICTURE_AS_PDF_ROUNDED,
+                label="Exportar",
             ),
             ft.NavigationBarDestination(
                 icon=ft.Icons.SETTINGS_OUTLINED,
                 selected_icon=ft.Icons.SETTINGS_ROUNDED,
+                label="Ajustes",
             ),
         ],
     )
