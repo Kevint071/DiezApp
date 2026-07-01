@@ -29,7 +29,7 @@ from utils.theme import (
     FOCUS_LIGHT,
     FOCUS_DARK,
 )
-from views.settings_view import apply_settings_appbar, build_settings_view
+from views.settings_view import build_settings_view
 from utils.storage import add_calculation
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
@@ -228,17 +228,31 @@ def main(page: ft.Page):
 
     save_btn.on_click = _save_calculation
 
-    def _apply_appbar():
+    def _apply_appbar(title="Cálculos", show_back=False, on_back=None):
         light = _is_light(page)
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
-        settings_btn.icon_color = fg
-        history_btn.icon_color = fg
+        leading = None
+        if show_back and on_back:
+            leading = ft.Container(
+                width=40,
+                height=40,
+                alignment=ft.Alignment(-1, 0),
+                padding=ft.Padding.only(left=14),
+                on_click=lambda e: on_back(),
+                content=ft.Image(
+                    src="chevron-left.svg",
+                    width=24,
+                    height=24,
+                    color=fg,
+                ),
+            )
         page.appbar = ft.AppBar(
-            title=ft.Text("Principal", color=fg, weight=ft.FontWeight.W_600, size=18),
+            leading=leading,
+            leading_width=40 if leading else 0,
+            title=ft.Text(title, color=fg, weight=ft.FontWeight.W_600, size=18),
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
-            actions=[history_btn, settings_btn, ft.Container(width=8)],
         )
 
     # ── Navigation ───────────────────────────────────────
@@ -253,7 +267,7 @@ def main(page: ft.Page):
         width=float("inf"),
     )
 
-    def _build_main_content():
+    def _build_calc_content():
         return ft.SafeArea(
             content=ft.Container(
                 padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
@@ -269,54 +283,157 @@ def main(page: ft.Page):
             ),
         )
 
+    def _build_home_card(icon, title, subtitle, on_click):
+        c = _colors(page)
+        return ft.Container(
+            bgcolor=c["card_bg"],
+            border_radius=16,
+            padding=ft.Padding.all(20),
+            on_click=on_click,
+            ink=True,
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=16,
+                controls=[
+                    ft.Container(
+                        width=48,
+                        height=48,
+                        border_radius=12,
+                        bgcolor=ft.Colors.with_opacity(0.1, c["primary"]),
+                        alignment=ft.Alignment.CENTER,
+                        content=ft.Icon(icon, color=c["primary"], size=24),
+                    ),
+                    ft.Column(
+                        spacing=2,
+                        controls=[
+                            ft.Text(title, size=15, weight=ft.FontWeight.W_600, color=c["on_surface"]),
+                            ft.Text(subtitle, size=12, weight=ft.FontWeight.W_400, color=c["on_surface_variant"]),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+    def _build_main_content():
+        c = _colors(page)
+        return ft.SafeArea(
+            content=ft.Container(
+                padding=ft.Padding.only(left=24, right=24, top=4, bottom=24),
+                content=ft.Column(
+                    spacing=16,
+                    controls=[
+                        ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+                        _build_home_card(
+                            ft.Icons.PIE_CHART_OUTLINE_ROUNDED,
+                            "Distribución porcentual",
+                            "Calcula envío, fondo local y sostenimiento",
+                            lambda e: _navigate_to_calc(),
+                        ),
+                        _build_home_card(
+                            ft.Icons.CALENDAR_MONTH_ROUNDED,
+                            "Resumen mensual",
+                            "Sumatoria de envíos (21%) por mes",
+                            lambda e: _navigate_to_monthly(),
+                        ),
+                    ],
+                ),
+            ),
+        )
+
     main_content = _build_main_content()
+
+    # ── Bottom Navigation Bar ────────────────────────────
+    nav_state = {"selected_index": 0}
+
+    def _show_export_pdf_modal():
+        from views.saved_calculations_view import _show_date_range_modal
+        _show_date_range_modal(page, _colors)
+
+    def _on_nav_change(e):
+        idx = e.control.selected_index
+        nav_state["selected_index"] = idx
+        if idx == 0:
+            _navigate_to_main()
+        elif idx == 1:
+            _navigate_to_saved()
+        elif idx == 2:
+            # Export PDF — show modal without changing view
+            nav_bar.selected_index = nav_state.get("prev_index", 0)
+            page.update()
+            _show_export_pdf_modal()
+            return
+        elif idx == 3:
+            _navigate_to_settings()
+        nav_state["prev_index"] = idx
+
+    nav_bar = ft.NavigationBar(
+        selected_index=0,
+        on_change=_on_nav_change,
+        height=60,
+        label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
+        shadow_color=ft.Colors.TRANSPARENT,
+        indicator_color=ft.Colors.with_opacity(0.08, PRIMARY),
+        overlay_color=ft.Colors.TRANSPARENT,
+        destinations=[
+            ft.NavigationBarDestination(
+                icon=ft.Icons.HOME_OUTLINED,
+                selected_icon=ft.Icons.HOME_ROUNDED,
+            ),
+            ft.NavigationBarDestination(
+                icon=ft.Icons.HISTORY_OUTLINED,
+                selected_icon=ft.Icons.HISTORY_ROUNDED,
+            ),
+            ft.NavigationBarDestination(
+                icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
+                selected_icon=ft.Icons.PICTURE_AS_PDF_ROUNDED,
+            ),
+            ft.NavigationBarDestination(
+                icon=ft.Icons.SETTINGS_OUTLINED,
+                selected_icon=ft.Icons.SETTINGS_ROUNDED,
+            ),
+        ],
+    )
+
+    page.navigation_bar = nav_bar
 
     def _navigate_to_settings():
         input_amount.value = ""
         results_container.visible = False
         save_btn.visible = False
-        apply_settings_appbar(page, _navigate_to_main, _colors)
+        _apply_appbar("Configuración")
         page.controls.clear()
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
 
     def _navigate_to_saved():
-        from views.saved_calculations_view import apply_saved_calculations_appbar, build_saved_calculations_view
-        from utils.storage import load_calculations as _load_calcs
-        has_calcs = len(_load_calcs()) > 0
-        apply_saved_calculations_appbar(page, _navigate_to_main, _colors, has_calcs)
+        from views.saved_calculations_view import build_saved_calculations_view
+        _apply_appbar("Cálculos guardados")
         page.controls.clear()
         page.add(build_saved_calculations_view(page, _colors, _navigate_to_saved))
 
-    def _navigate_to_main():
-        nonlocal main_content
+    def _navigate_to_calc():
         lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"
-        _apply_appbar()
+        _apply_appbar("Distribución", show_back=True, on_back=_navigate_to_main)
         _apply_input_colors()
-        main_content = _build_main_content()
         page.controls.clear()
-        page.add(main_content)
+        page.add(_build_calc_content())
         if results_container.visible:
             _build_results()
             if input_amount.value:
                 calculate(None)
 
-    def _open_settings(e):
-        _navigate_to_settings()
+    def _navigate_to_monthly():
+        from views.monthly_summary_view import build_monthly_summary_view
+        _apply_appbar("Resumen mensual", show_back=True, on_back=_navigate_to_main)
+        page.controls.clear()
+        page.add(build_monthly_summary_view(page, _colors, on_back=_navigate_to_main))
 
-    def _open_saved(e):
-        _navigate_to_saved()
-
-    settings_btn = ft.IconButton(
-        icon=ft.Icons.SETTINGS_OUTLINED,
-        tooltip="Configuración",
-        on_click=_open_settings,
-    )
-
-    history_btn = ft.IconButton(
-        icon=ft.Icons.HISTORY,
-        tooltip="Cálculos guardados",
-        on_click=_open_saved,
-    )
+    def _navigate_to_main():
+        nonlocal main_content
+        _apply_appbar()
+        main_content = _build_main_content()
+        page.controls.clear()
+        page.add(main_content)
 
     _apply_appbar()
     _apply_input_colors()

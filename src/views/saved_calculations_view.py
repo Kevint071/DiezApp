@@ -221,18 +221,6 @@ def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, 
     light = page.theme_mode == ft.ThemeMode.LIGHT
     fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
 
-    def _on_export(e):
-        _show_date_range_modal(page, colors_fn)
-
-    export_btn = ft.IconButton(
-        icon=ft.Icons.IOS_SHARE,
-        icon_color=fg if has_calculations else ft.Colors.with_opacity(0.38, fg),
-        icon_size=22,
-        tooltip="Exportar PDF",
-        on_click=_on_export if has_calculations else None,
-        disabled=not has_calculations,
-    )
-
     page.appbar = ft.AppBar(
         leading=ft.Container(
             width=40,
@@ -257,7 +245,6 @@ def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, 
         title_spacing=0,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
-        actions=[export_btn, ft.Container(width=8)],
     )
 
 
