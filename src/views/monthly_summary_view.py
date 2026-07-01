@@ -107,9 +107,12 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
     ]
 
     return ft.SafeArea(
+        expand=True,
         content=ft.Container(
+            expand=True,
             padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
             content=ft.Column(
+                expand=True,
                 spacing=0,
                 scroll=ft.ScrollMode.AUTO,
                 controls=[
