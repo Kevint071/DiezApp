@@ -346,9 +346,22 @@ def main(page: ft.Page):
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
 
-    def _show_export_pdf_modal():
-        from views.saved_calculations_view import _show_date_range_modal
-        _show_date_range_modal(page, _colors)
+    def _navigate_to_pdf_export():
+        from views.saved_calculations_view import build_date_range_picker_view
+        _apply_appbar("Exportar PDF")
+        page.controls.clear()
+        page.add(build_date_range_picker_view(page, _colors))
+
+    def _on_back_from_pdf_export():
+        prev = nav_state.get("prev_index", 0)
+        nav_bar.selected_index = prev
+        if prev == 1:
+            _navigate_to_saved()
+        elif prev == 3:
+            _navigate_to_settings()
+        else:
+            _navigate_to_main()
+        page.update()
 
     def _on_nav_change(e):
         idx = e.control.selected_index
@@ -358,10 +371,8 @@ def main(page: ft.Page):
         elif idx == 1:
             _navigate_to_saved()
         elif idx == 2:
-            # Export PDF — show modal without changing view
-            nav_bar.selected_index = nav_state.get("prev_index", 0)
-            page.update()
-            _show_export_pdf_modal()
+            nav_bar.selected_index = 2
+            _navigate_to_pdf_export()
             return
         elif idx == 3:
             _navigate_to_settings()

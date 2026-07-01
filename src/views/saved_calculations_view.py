@@ -1,6 +1,7 @@
 import os
+import calendar
 import flet as ft
-from datetime import datetime
+from datetime import datetime, date
 
 from utils.theme import (
     ON_SURFACE_LIGHT,
@@ -12,137 +13,223 @@ from utils.theme import (
 from utils.storage import load_calculations, update_calculation, delete_calculation
 
 
-def _show_date_range_modal(page: ft.Page, colors_fn):
-    """Show a modal to select date range and export filtered calculations as PDF."""
+def build_date_range_picker_view(page: ft.Page, colors_fn):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
-    focus_color = FOCUS_LIGHT if light else FOCUS_DARK
-    input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
+    today = datetime.today().date()
 
-    state = {"start_date": None, "end_date": None}
+    MONTH_NAMES = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    ]
+    DAY_NAMES = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]
+    CELL = 42
 
-    start_field = ft.TextField(
-        label="Fecha inicial",
-        hint_text="DD/MM/AAAA",
-        read_only=True,
-        border_radius=10,
-        content_padding=ft.Padding.symmetric(vertical=10, horizontal=12),
-        text_size=14,
-        border_color=input_border,
-        focused_border_color=focus_color,
-        expand=True,
+    state = {"start": None, "end": None, "month": today.replace(day=1)}
+
+    def _get_range():
+        s, e = state["start"], state["end"]
+        return (e, s) if s and e and s > e else (s, e)
+
+    def _pos(d):
+        s, e = _get_range()
+        if d == s and e and s != e:
+            return "start"
+        if d == s:
+            return "solo"
+        if e and d == e:
+            return "end"
+        if s and e and s < d < e:
+            return "range"
+        if d == today:
+            return "today"
+        return "normal"
+
+    def _on_tap(d):
+        s, e = state["start"], state["end"]
+        if s is None or e is not None:
+            state["start"], state["end"] = d, None
+        elif d == s:
+            state["start"] = None
+        elif d < s:
+            state["start"], state["end"] = d, s
+        else:
+            state["end"] = d
+        _refresh()
+
+    def _cell(d):
+        if d is None:
+            return ft.Container(width=CELL, height=CELL)
+        p = _pos(d)
+        _, e = _get_range()
+        half = CELL // 2
+        layers = []
+        # ── Range band ────────────────────────────────────
+        if p == "range":
+            layers.append(ft.Container(
+                width=CELL, height=CELL,
+                bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
+            ))
+        elif p == "start" and e:
+            layers.append(ft.Row(spacing=0, controls=[
+                ft.Container(width=half, height=CELL),
+                ft.Container(width=CELL - half, height=CELL,
+                             bgcolor=ft.Colors.with_opacity(0.14, c["primary"])),
+            ]))
+        elif p == "end":
+            layers.append(ft.Row(spacing=0, controls=[
+                ft.Container(width=half, height=CELL,
+                             bgcolor=ft.Colors.with_opacity(0.14, c["primary"])),
+                ft.Container(width=CELL - half, height=CELL),
+            ]))
+        # ── Circle ───────────────────────────────────────
+        if p in ("start", "end", "solo"):
+            layers.append(ft.Container(
+                width=CELL, height=CELL,
+                border_radius=CELL // 2,
+                bgcolor=c["primary"],
+            ))
+        elif p == "today":
+            layers.append(ft.Container(
+                width=CELL, height=CELL,
+                border_radius=CELL // 2,
+                border=ft.Border.all(1.5, c["primary"]),
+            ))
+        # ── Day number ───────────────────────────────────
+        if p in ("start", "end", "solo"):
+            txt_color = "#FFFFFF" if light else "#064E3B"
+            weight = ft.FontWeight.W_700
+        elif p in ("range", "today"):
+            txt_color = c["primary"]
+            weight = ft.FontWeight.W_500
+        else:
+            txt_color = c["on_surface"]
+            weight = ft.FontWeight.W_400
+        layers.append(ft.Container(
+            width=CELL, height=CELL, alignment=ft.Alignment.CENTER,
+            content=ft.Text(
+                str(d.day), size=13, color=txt_color, weight=weight,
+                text_align=ft.TextAlign.CENTER,
+            ),
+        ))
+        return ft.Container(
+            width=CELL, height=CELL,
+            content=ft.Stack(width=CELL, height=CELL, controls=layers),
+            on_click=lambda e, day=d: _on_tap(day),
+        )
+
+    def _grid():
+        m = state["month"]
+        first_wd = m.weekday()
+        days_in = calendar.monthrange(m.year, m.month)[1]
+        raw = [None] * first_wd + [date(m.year, m.month, n) for n in range(1, days_in + 1)]
+        while len(raw) % 7:
+            raw.append(None)
+        header = ft.Row(
+            spacing=0, alignment=ft.MainAxisAlignment.CENTER,
+            controls=[
+                ft.Container(
+                    width=CELL, height=28, alignment=ft.Alignment.CENTER,
+                    content=ft.Text(
+                        name, size=11, weight=ft.FontWeight.W_600,
+                        color=c["on_surface_variant"], text_align=ft.TextAlign.CENTER,
+                    ),
+                )
+                for name in DAY_NAMES
+            ],
+        )
+        rows = [header]
+        for i in range(0, len(raw), 7):
+            rows.append(ft.Row(
+                spacing=0, alignment=ft.MainAxisAlignment.CENTER,
+                controls=[_cell(d) for d in raw[i:i + 7]],
+            ))
+        return ft.Column(spacing=2, controls=rows)
+
+    # ── Static controls ───────────────────────────────────
+    m0 = state["month"]
+    month_lbl = ft.Text(
+        f"{MONTH_NAMES[m0.month - 1]} {m0.year}",
+        size=15, weight=ft.FontWeight.W_700, color=c["on_surface"],
+    )
+    start_val = ft.Text(
+        "Seleccionar", size=14,
+        color=c["on_surface_variant"], weight=ft.FontWeight.W_400,
+    )
+    end_val = ft.Text(
+        "Seleccionar", size=14,
+        color=c["on_surface_variant"], weight=ft.FontWeight.W_400,
+    )
+    grid_box = ft.Container(content=_grid())
+    err_txt = ft.Text(
+        "", size=12, color="#DC2626", visible=False,
+        text_align=ft.TextAlign.CENTER,
+    )
+    export_btn = ft.FilledButton(
+        "Exportar PDF",
+        icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
+        disabled=True,
+        style=ft.ButtonStyle(
+            shape=ft.RoundedRectangleBorder(radius=12),
+            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
+            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+        ),
+        width=float("inf"),
     )
 
-    end_field = ft.TextField(
-        label="Fecha final",
-        hint_text="DD/MM/AAAA",
-        read_only=True,
-        border_radius=10,
-        content_padding=ft.Padding.symmetric(vertical=10, horizontal=12),
-        text_size=14,
-        border_color=input_border,
-        focused_border_color=focus_color,
-        expand=True,
-    )
-
-    error_text = ft.Text("", size=12, color=c.get("error", "#DC2626"), visible=False)
-
-    def _on_start_date_picked(e):
-        if e.control.value:
-            state["start_date"] = e.control.value
-            start_field.value = e.control.value.strftime("%d/%m/%Y")
-            error_text.visible = False
-            page.update()
-
-    def _on_end_date_picked(e):
-        if e.control.value:
-            state["end_date"] = e.control.value
-            end_field.value = e.control.value.strftime("%d/%m/%Y")
-            error_text.visible = False
-            page.update()
-
-    start_picker = ft.DatePicker(
-        first_date=datetime(2020, 1, 1),
-        last_date=datetime(2030, 12, 31),
-        on_change=_on_start_date_picked,
-        locale=ft.Locale("es"),
-        help_text="Fecha inicial",
-        cancel_text="Cancelar",
-        confirm_text="Aceptar",
-        error_format_text="Formato inválido",
-        error_invalid_text="Fecha inválida",
-        field_hint_text="dd/mm/aaaa",
-        field_label_text="Fecha",
-        entry_mode=ft.DatePickerEntryMode.CALENDAR_ONLY,
-    )
-
-    end_picker = ft.DatePicker(
-        first_date=datetime(2020, 1, 1),
-        last_date=datetime(2030, 12, 31),
-        on_change=_on_end_date_picked,
-        locale=ft.Locale("es"),
-        help_text="Fecha final",
-        cancel_text="Cancelar",
-        confirm_text="Aceptar",
-        error_format_text="Formato inválido",
-        error_invalid_text="Fecha inválida",
-        field_hint_text="dd/mm/aaaa",
-        field_label_text="Fecha",
-        entry_mode=ft.DatePickerEntryMode.CALENDAR_ONLY,
-    )
-
-    page.overlay.append(start_picker)
-    page.overlay.append(end_picker)
-
-    def _open_start_picker(e):
-        start_picker.open = True
+    def _refresh():
+        m = state["month"]
+        month_lbl.value = f"{MONTH_NAMES[m.month - 1]} {m.year}"
+        grid_box.content = _grid()
+        s, e = state["start"], state["end"]
+        if s:
+            start_val.value = s.strftime("%d/%m/%Y")
+            start_val.color = c["on_surface"]
+            start_val.weight = ft.FontWeight.W_600
+        else:
+            start_val.value = "Seleccionar"
+            start_val.color = c["on_surface_variant"]
+            start_val.weight = ft.FontWeight.W_400
+        if e:
+            end_val.value = e.strftime("%d/%m/%Y")
+            end_val.color = c["on_surface"]
+            end_val.weight = ft.FontWeight.W_600
+        else:
+            end_val.value = "Seleccionar"
+            end_val.color = c["on_surface_variant"]
+            end_val.weight = ft.FontWeight.W_400
+        export_btn.disabled = not (s and e)
+        err_txt.visible = False
         page.update()
 
-    def _open_end_picker(e):
-        end_picker.open = True
-        page.update()
+    def _prev(e):
+        m = state["month"]
+        state["month"] = m.replace(month=m.month - 1) if m.month > 1 else m.replace(year=m.year - 1, month=12)
+        _refresh()
 
-    async def _on_export_filtered(e):
-        if not state["start_date"] or not state["end_date"]:
-            error_text.value = "Selecciona ambas fechas"
-            error_text.visible = True
-            page.update()
+    def _next(e):
+        m = state["month"]
+        state["month"] = m.replace(month=m.month + 1) if m.month < 12 else m.replace(year=m.year + 1, month=1)
+        _refresh()
+
+    async def _export(e):
+        s, en = _get_range()
+        if not s or not en:
             return
-
-        sd = state["start_date"].date() if hasattr(state["start_date"], "date") else state["start_date"]
-        ed = state["end_date"].date() if hasattr(state["end_date"], "date") else state["end_date"]
-        if sd > ed:
-            error_text.value = "La fecha inicial no puede ser mayor a la final"
-            error_text.visible = True
-            page.update()
-            return
-
         calculations = load_calculations()
-        start_d = state["start_date"].date() if hasattr(state["start_date"], "date") else state["start_date"]
-        end_d = state["end_date"].date() if hasattr(state["end_date"], "date") else state["end_date"]
-
         filtered = []
         for calc in calculations:
             try:
-                calc_date = datetime.fromisoformat(calc.get("created_at", "")).date()
-                if start_d <= calc_date <= end_d:
+                cd = datetime.fromisoformat(calc.get("created_at", "")).date()
+                if s <= cd <= en:
                     filtered.append(calc)
             except (ValueError, TypeError):
                 continue
-
         if not filtered:
-            error_text.value = "No hay cálculos en el rango seleccionado"
-            error_text.visible = True
+            err_txt.value = "No hay cálculos en el rango seleccionado"
+            err_txt.visible = True
             page.update()
             return
-
-        page.pop_dialog()
-        # Remove pickers from overlay
-        if start_picker in page.overlay:
-            page.overlay.remove(start_picker)
-        if end_picker in page.overlay:
-            page.overlay.remove(end_picker)
-
         from utils.pdf_export import generate_pdf
         pdf_path = generate_pdf(filtered)
         share = ft.Share()
@@ -151,70 +238,88 @@ def _show_date_range_modal(page: ft.Page, colors_fn):
             title="Exportar cálculos",
         )
 
-    def _on_cancel(e):
-        page.pop_dialog()
-        if start_picker in page.overlay:
-            page.overlay.remove(start_picker)
-        if end_picker in page.overlay:
-            page.overlay.remove(end_picker)
-        page.update()
+    export_btn.on_click = _export
 
-    dlg = ft.AlertDialog(
-        modal=True,
-        title=ft.Text(
-            "Exportar PDF",
-            size=17,
-            weight=ft.FontWeight.W_600,
-            color=c["on_surface"],
-        ),
-        content=ft.Container(
-            width=300,
+    def _chip(icon, label: str, val_ctrl: ft.Text):
+        return ft.Container(
+            expand=True,
+            bgcolor=c["card_bg"],
+            border_radius=14,
+            padding=ft.Padding.only(left=14, right=14, top=12, bottom=12),
             content=ft.Column(
-                tight=True,
+                spacing=4,
+                controls=[
+                    ft.Row(
+                        spacing=6,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(icon, color=c["primary"], size=15),
+                            ft.Text(label, size=11, color=c["on_surface_variant"],
+                                    weight=ft.FontWeight.W_500),
+                        ],
+                    ),
+                    val_ctrl,
+                ],
+            ),
+        )
+
+    return ft.SafeArea(
+        expand=True,
+        content=ft.Container(
+            expand=True,
+            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            content=ft.Column(
+                expand=True,
                 spacing=16,
                 controls=[
-                    ft.Text(
-                        "Selecciona el rango de fechas",
-                        size=14,
-                        color=c["on_surface_variant"],
-                    ),
+                    # ── Date range chips ────────────────────────
                     ft.Row(
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=12,
                         controls=[
-                            start_field,
-                            ft.IconButton(
-                                icon=ft.Icons.CALENDAR_TODAY,
-                                icon_color=c["primary"],
-                                icon_size=22,
-                                tooltip="Seleccionar fecha",
-                                on_click=_open_start_picker,
-                            ),
+                            _chip(ft.Icons.CALENDAR_TODAY_OUTLINED, "Desde", start_val),
+                            _chip(ft.Icons.EVENT_OUTLINED, "Hasta", end_val),
                         ],
                     ),
-                    ft.Row(
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[
-                            end_field,
-                            ft.IconButton(
-                                icon=ft.Icons.CALENDAR_TODAY,
-                                icon_color=c["primary"],
-                                icon_size=22,
-                                tooltip="Seleccionar fecha",
-                                on_click=_open_end_picker,
-                            ),
-                        ],
+                    # ── Calendar card ───────────────────────────
+                    ft.Container(
+                        bgcolor=c["card_bg"],
+                        border_radius=16,
+                        padding=ft.Padding.only(top=12, bottom=16, left=4, right=4),
+                        content=ft.Column(
+                            spacing=8,
+                            controls=[
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                    controls=[
+                                        ft.IconButton(
+                                            icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
+                                            icon_color=c["on_surface"],
+                                            icon_size=22,
+                                            on_click=_prev,
+                                            style=ft.ButtonStyle(padding=ft.Padding.all(8)),
+                                        ),
+                                        month_lbl,
+                                        ft.IconButton(
+                                            icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
+                                            icon_color=c["on_surface"],
+                                            icon_size=22,
+                                            on_click=_next,
+                                            style=ft.ButtonStyle(padding=ft.Padding.all(8)),
+                                        ),
+                                    ],
+                                ),
+                                grid_box,
+                            ],
+                        ),
                     ),
-                    error_text,
+                    err_txt,
+                    ft.Container(expand=True),
+                    export_btn,
                 ],
             ),
         ),
-        actions=[
-            ft.TextButton("Cancelar", on_click=_on_cancel),
-            ft.FilledTonalButton("Exportar", on_click=_on_export_filtered),
-        ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
-    page.show_dialog(dlg)
 
 
 def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, has_calculations: bool):
