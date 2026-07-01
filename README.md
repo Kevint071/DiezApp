@@ -16,22 +16,9 @@ Una calculadora local de diezmos hecha con Flet para cálculos porcentuales, res
 
 La app usa dos capturas verticales. La primera muestra la pantalla de inicio y la segunda el flujo de exportación a PDF.
 
-<div style="display:flex; flex-direction:column; gap:24px;">
-  <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
-    <div style="min-width:150px;">
-      <strong>Inicio</strong><br />
-      Pantalla principal
-    </div>
-    <img src="src/assets/screenshots/home.png" width="260" alt="Home screen" />
-  </div>
-
-  <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
-    <div style="min-width:150px;">
-      <strong>Exportar PDF</strong><br />
-      Flujo de exportación
-    </div>
-    <img src="src/assets/screenshots/export_pdf.png" width="260" alt="Export PDF screen" />
-  </div>
+<div style="display:flex; justify-content:center; gap:32px; flex-wrap:wrap; align-items:flex-start;">
+  <img src="src/assets/screenshots/home.png" width="280" alt="Home screen" />
+  <img src="src/assets/screenshots/export_pdf.png" width="280" alt="Export PDF screen" />
 </div>
 
 ## Tecnologías
