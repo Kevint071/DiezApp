@@ -29,8 +29,7 @@ from utils.theme import (
     FOCUS_LIGHT,
     FOCUS_DARK,
 )
-from views.settings_view import build_settings_view
-from utils.storage import add_calculation
+# settings_view and storage are lazy-imported on first use to speed up startup
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 
@@ -214,6 +213,7 @@ def main(page: ft.Page):
         page.update()
 
     def _save_calculation(e):
+        from utils.storage import add_calculation
         try:
             amount = float(input_amount.value.replace(".", "").replace(",", "."))
         except (ValueError, AttributeError):
@@ -341,7 +341,7 @@ def main(page: ft.Page):
             ),
         )
 
-    main_content = _build_main_content()
+    main_content: ft.SafeArea | None = _build_main_content()
 
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
@@ -413,6 +413,7 @@ def main(page: ft.Page):
     page.navigation_bar = nav_bar
 
     def _navigate_to_settings():
+        from views.settings_view import build_settings_view
         input_amount.value = ""
         results_container.visible = False
         save_btn.visible = False
@@ -446,7 +447,8 @@ def main(page: ft.Page):
     def _navigate_to_main():
         nonlocal main_content
         _apply_appbar()
-        main_content = _build_main_content()
+        if main_content is None:
+            main_content = _build_main_content()
         page.controls.clear()
         page.add(main_content)
 
