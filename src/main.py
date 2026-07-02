@@ -212,6 +212,12 @@ def main(page: ft.Page):
         page.update()
 
     def _save_calculation(e):
+        from utils.conflicts import conflict_count
+        if conflict_count() > 0:
+            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de guardar"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
         from utils.storage import add_calculation
         try:
             amount = float(input_amount.value.replace(".", "").replace(",", "."))

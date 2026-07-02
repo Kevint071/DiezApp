@@ -536,6 +536,12 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             page.update()
 
         def _save_edit(e):
+            from utils.conflicts import conflict_count
+            if conflict_count() > 0:
+                snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de editar"), open=True)
+                page.overlay.append(snack)
+                page.update()
+                return
             try:
                 new_amount = float(edit_field.value.replace(",", "."))
             except (ValueError, AttributeError):
@@ -557,6 +563,13 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             page.update()
 
         def _confirm_delete(e):
+            from utils.conflicts import conflict_count
+            if conflict_count() > 0:
+                snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True)
+                page.overlay.append(snack)
+                page.update()
+                return
+
             def _do_delete(e):
                 delete_calculation(calc_id)
                 page.pop_dialog()

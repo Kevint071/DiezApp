@@ -236,6 +236,168 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         on_click=_export_json_backup,
     )
 
+    # ── Import ─────────────────────────────────────────────────────
+    import_state = {"mode": "merge"}
+
+    radio_group = ft.RadioGroup(
+        value="merge",
+        content=ft.Column(
+            tight=True,
+            spacing=4,
+            controls=[
+                ft.Radio(value="replace", label="Reemplazar todo", fill_color=c["primary"]),
+                ft.Radio(value="merge", label="Mezclar con existentes", fill_color=c["primary"]),
+            ],
+        ),
+        on_change=lambda e: _on_radio_change(e),
+    )
+
+    def _on_radio_change(e):
+        import_state["mode"] = e.control.value
+
+    def _close_import_dialog(e):
+        page.pop_dialog()
+
+    file_picker = ft.FilePicker()
+    page.services.append(file_picker)
+    page.update()
+
+    def _calcs_differ(a: dict, b: dict) -> bool:
+        keys = ["amount", "envio_21", "restante", "fondo_local", "sostenimiento", "fund_percentage"]
+        return any(a.get(k) != b.get(k) for k in keys)
+
+    async def _confirm_import(e):
+        page.pop_dialog()
+        files = await file_picker.pick_files(
+            dialog_title="Seleccionar archivo JSON",
+            allowed_extensions=["json"],
+            allow_multiple=False,
+        )
+        if not files:
+            return
+        picked = files[0]
+        raw = None
+        if picked.bytes:
+            raw = picked.bytes.decode("utf-8")
+        elif picked.path:
+            with open(picked.path, "r", encoding="utf-8") as f:
+                raw = f.read()
+        if not raw:
+            return
+        try:
+            imported = json.loads(raw)
+            imported_calcs = imported.get("calculations", [])
+        except (json.JSONDecodeError, AttributeError):
+            snack = ft.SnackBar(content=ft.Text("Archivo JSON inválido"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+
+        if not imported_calcs:
+            snack = ft.SnackBar(content=ft.Text("El archivo no contiene cálculos"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+
+        from utils.storage import load_calculations, save_calculations
+        from utils.conflicts import save_conflicts
+
+        if import_state["mode"] == "replace":
+            save_calculations(imported_calcs)
+            snack = ft.SnackBar(content=ft.Text(f"{len(imported_calcs)} cálculos importados (reemplazo)"), open=True)
+            page.overlay.append(snack)
+            page.update()
+        else:
+            # Merge mode - detect conflicts by id
+            existing = load_calculations()
+            existing_map = {calc["id"]: calc for calc in existing if "id" in calc}
+            conflicts = []
+            to_add = []
+            for imp_calc in imported_calcs:
+                imp_id = imp_calc.get("id")
+                if imp_id and imp_id in existing_map:
+                    ex_calc = existing_map[imp_id]
+                    if _calcs_differ(ex_calc, imp_calc):
+                        conflicts.append({"existing": ex_calc, "imported": imp_calc})
+                else:
+                    to_add.append(imp_calc)
+
+            if conflicts:
+                # Save conflicts to file for later resolution
+                save_conflicts(conflicts, to_add)
+                snack = ft.SnackBar(
+                    content=ft.Text(f"{len(conflicts)} conflictos detectados. Resuélvelos abajo."),
+                    open=True,
+                )
+                page.overlay.append(snack)
+                navigate_to_settings()
+            else:
+                # No conflicts, just add new ones
+                merged = existing + to_add
+                save_calculations(merged)
+                snack = ft.SnackBar(
+                    content=ft.Text(f"{len(to_add)} cálculos nuevos agregados"),
+                    open=True,
+                )
+                page.overlay.append(snack)
+                page.update()
+
+    import_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Importar cálculos", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Text("¿Cómo deseas importar?", size=14, color=c["on_surface_variant"]),
+                radio_group,
+            ],
+        ),
+        actions=[
+            ft.TextButton("Cancelar", on_click=_close_import_dialog),
+            ft.FilledTonalButton("Aceptar", on_click=_confirm_import),
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+    )
+
+    def _open_import_dialog(e):
+        from utils.conflicts import conflict_count
+        if conflict_count() > 0:
+            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de importar"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+        radio_group.value = "merge"
+        import_state["mode"] = "merge"
+        page.show_dialog(import_dialog)
+
+    import_cell = _settings_cell(
+        icon=ft.Icons.FILE_UPLOAD_OUTLINED,
+        title="Importar cálculos",
+        subtitle="JSON",
+        colors=c,
+        on_click=_open_import_dialog,
+    )
+
+    # ── Conflict resolution ────────────────────────────────────────
+    from utils.conflicts import conflict_count
+    n_conflicts = conflict_count()
+
+    def _navigate_to_conflicts(e):
+        from views.conflicts_view import build_conflicts_view, apply_conflicts_appbar
+        apply_conflicts_appbar(page, navigate_to_settings)
+        page.controls.clear()
+        page.add(build_conflicts_view(page, colors_fn, on_back=navigate_to_settings))
+
+    conflicts_cell = _settings_cell(
+        icon=ft.Icons.SYNC_PROBLEM_OUTLINED,
+        title="Resolver conflictos",
+        subtitle=f"{n_conflicts} pendientes" if n_conflicts > 0 else "Sin conflictos",
+        colors=c,
+        on_click=_navigate_to_conflicts if n_conflicts > 0 else lambda e: None,
+    )
+
     backup_group = ft.Container(
         bgcolor=c["card_bg"],
         border_radius=16,
@@ -244,6 +406,16 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             spacing=0,
             controls=[
                 backup_cell,
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+                    content=ft.Divider(height=1, color=c["divider"]),
+                ),
+                import_cell,
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+                    content=ft.Divider(height=1, color=c["divider"]),
+                ),
+                conflicts_cell,
             ],
         ),
     )
