@@ -13,7 +13,7 @@ from utils.theme import (
 from utils.storage import load_calculations, update_calculation, delete_calculation
 
 
-def build_date_range_picker_view(page: ft.Page, colors_fn):
+def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
     today = datetime.today().date()
@@ -166,8 +166,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn):
         text_align=ft.TextAlign.CENTER,
     )
     export_btn = ft.FilledButton(
-        "Exportar PDF",
-        icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
+        "Ver cálculos",
         disabled=True,
         style=ft.ButtonStyle(
             shape=ft.RoundedRectangleBorder(radius=12),
@@ -212,31 +211,27 @@ def build_date_range_picker_view(page: ft.Page, colors_fn):
         state["month"] = m.replace(month=m.month + 1) if m.month < 12 else m.replace(year=m.year + 1, month=1)
         _refresh()
 
-    async def _export(e):
+    def _export(e):
         s, en = _get_range()
         if not s or not en:
             return
         calculations = load_calculations()
-        filtered = []
+        has_calcs = False
         for calc in calculations:
             try:
                 cd = datetime.fromisoformat(calc.get("created_at", "")).date()
                 if s <= cd <= en:
-                    filtered.append(calc)
+                    has_calcs = True
+                    break
             except (ValueError, TypeError):
                 continue
-        if not filtered:
+        if not has_calcs:
             err_txt.value = "No hay cálculos en el rango seleccionado"
             err_txt.visible = True
             page.update()
             return
-        from utils.pdf_export import generate_pdf
-        pdf_path = generate_pdf(filtered)
-        share = ft.Share()
-        await share.share_files(
-            [ft.ShareFile.from_path(pdf_path, name=pdf_path.split(os.sep)[-1])],
-            title="Exportar cálculos",
-        )
+        if on_show_filtered:
+            on_show_filtered(s, en)
 
     export_btn.on_click = _export
 
@@ -353,12 +348,26 @@ def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, 
     )
 
 
-def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
+def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_range=None):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
-    calculations = load_calculations()
+    all_calculations = load_calculations()
+
+    if date_range:
+        start_date, end_date = date_range
+        calculations = []
+        for calc in all_calculations:
+            try:
+                cd = datetime.fromisoformat(calc.get("created_at", "")).date()
+                if start_date <= cd <= end_date:
+                    calculations.append(calc)
+            except (ValueError, TypeError):
+                continue
+    else:
+        calculations = all_calculations
 
     if not calculations:
+        empty_msg = "No hay cálculos en el rango seleccionado" if date_range else "No hay cálculos guardados"
         return ft.SafeArea(
             expand=True,
             content=ft.Container(
@@ -371,7 +380,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                         ft.Icon(ft.Icons.CALCULATE_OUTLINED, size=48, color=c["on_surface_variant"]),
                         ft.Container(height=12),
                         ft.Text(
-                            "No hay cálculos guardados",
+                            empty_msg,
                             size=16,
                             weight=ft.FontWeight.W_500,
                             color=c["on_surface_variant"],
@@ -420,24 +429,27 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             value=_fmt_int(int(calc["amount"])),
             keyboard_type=ft.KeyboardType.NUMBER,
             border_radius=8,
-            content_padding=ft.Padding.symmetric(vertical=6, horizontal=10),
+            content_padding=ft.Padding.symmetric(vertical=0, horizontal=0),
             text_size=14,
             text_align=ft.TextAlign.RIGHT,
             border_color=input_border,
             focused_border_color=focus_color,
             visible=False,
-            width=140,
+            width=110,
+            height=27
         )
 
         edit_btn   = ft.IconButton(
             icon=ft.Icons.EDIT_OUTLINED, icon_color=c["primary"], icon_size=18,
             tooltip="Editar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
             width=32, height=32,
+            visible=not bool(date_range),
         )
         delete_btn = ft.IconButton(
             icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=18,
             tooltip="Eliminar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
             width=32, height=32,
+            visible=not bool(date_range),
         )
         save_btn = ft.FilledButton(
             "Guardar",
@@ -616,22 +628,67 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                     _data_row("Sostenimiento", txt_sost, last=True),
                     # ── Edit actions (visible only when editing) ─
                     edit_actions,
+                    ft.Container(height=10),
                 ],
             ),
         )
         state["container"] = item
         return item
 
+    items_column = ft.Column(
+        expand=True,
+        spacing=0,
+        scroll=ft.ScrollMode.AUTO,
+        controls=[_build_item(calc) for calc in calculations],
+    )
+
+    if not date_range:
+        return ft.SafeArea(
+            expand=True,
+            content=ft.Container(
+                expand=True,
+                padding=ft.Padding.only(top=4, left=16, right=16, bottom=24),
+                content=items_column,
+            ),
+        )
+
+    # Filtered mode: show list + export button at bottom
+    async def _export_filtered(e):
+        from utils.pdf_export import generate_pdf
+        pdf_path = generate_pdf(calculations)
+        share = ft.Share()
+        await share.share_files(
+            [ft.ShareFile.from_path(pdf_path, name=pdf_path.split(os.sep)[-1])],
+            title="Exportar cálculos",
+        )
+
+    export_btn = ft.FilledButton(
+        "Exportar PDF",
+        icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
+        on_click=_export_filtered,
+        style=ft.ButtonStyle(
+            shape=ft.RoundedRectangleBorder(radius=12),
+            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
+            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+        ),
+        width=float("inf"),
+    )
+
     return ft.SafeArea(
         expand=True,
-        content=ft.Container(
+        content=ft.Column(
             expand=True,
-            padding=ft.Padding.only(top=4, left=16, right=16, bottom=24),
-            content=ft.Column(
-                expand=True,
-                spacing=0,
-                scroll=ft.ScrollMode.AUTO,
-                controls=[_build_item(calc) for calc in calculations],
-            ),
+            spacing=0,
+            controls=[
+                ft.Container(
+                    expand=True,
+                    padding=ft.Padding.only(top=4, left=16, right=16, bottom=0),
+                    content=items_column,
+                ),
+                ft.Container(
+                    padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                    content=export_btn,
+                ),
+            ],
         ),
     )

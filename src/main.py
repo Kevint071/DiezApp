@@ -363,7 +363,18 @@ def main(page: ft.Page):
         from views.saved_calculations_view import build_date_range_picker_view
         _apply_appbar("Exportar PDF")
         page.controls.clear()
-        page.add(build_date_range_picker_view(page, _colors))
+        page.add(build_date_range_picker_view(page, _colors, on_show_filtered=_navigate_to_filtered_saved))
+
+    def _navigate_to_filtered_saved(start, end):
+        from views.saved_calculations_view import build_saved_calculations_view
+        _apply_appbar("Vista previa", show_back=True, on_back=_navigate_to_pdf_export)
+        nav_bar.selected_index = 2
+
+        def _refresh():
+            _navigate_to_filtered_saved(start, end)
+
+        page.controls.clear()
+        page.add(build_saved_calculations_view(page, _colors, _refresh, date_range=(start, end)))
 
     def _on_back_from_pdf_export():
         prev = nav_state.get("prev_index", 0)
