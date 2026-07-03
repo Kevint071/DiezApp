@@ -399,6 +399,16 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
 
         focus_color  = FOCUS_LIGHT if light else FOCUS_DARK
         input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
+        label_color  = "#475569" if light else "#CBD5E1"
+
+        def _fmt_int(n: int) -> str:
+            digits = str(int(n))
+            out = ""
+            for i, d in enumerate(reversed(digits)):
+                if i > 0 and i % 3 == 0:
+                    out = "." + out
+                out = d + out
+            return out
 
         txt_amount   = ft.Text(_format_currency(calc["amount"]),       size=14, weight=ft.FontWeight.W_600, color=c["primary"])
         txt_envio    = ft.Text(_format_currency(calc["envio_21"]),     size=14, weight=ft.FontWeight.W_600, color=c["primary"])
@@ -407,7 +417,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
         txt_sost     = ft.Text(_format_currency(calc["sostenimiento"]), size=14, weight=ft.FontWeight.W_600, color=c["primary"])
 
         edit_field = ft.TextField(
-            value=str(int(calc["amount"])) if calc["amount"] == int(calc["amount"]) else str(calc["amount"]),
+            value=_fmt_int(int(calc["amount"])),
             keyboard_type=ft.KeyboardType.NUMBER,
             border_radius=8,
             content_padding=ft.Padding.symmetric(vertical=6, horizontal=10),
@@ -430,7 +440,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             width=32, height=32,
         )
         save_btn = ft.FilledButton(
-            "Guardar", icon=ft.Icons.CHECK_ROUNDED,
+            "Guardar",
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=8),
                 padding=ft.Padding.symmetric(vertical=10, horizontal=16),
@@ -460,7 +470,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Text(label, size=13, weight=ft.FontWeight.W_400, color=c["on_surface_variant"]),
+                        ft.Text(label, size=13, weight=ft.FontWeight.W_400, color=label_color),
                         right,
                     ],
                 ),
@@ -476,8 +486,15 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             txt_sost.value     = _format_currency(amount - val_21 - val_fondo)
 
         def _on_change(e):
+            raw    = edit_field.value.replace(".", "").replace(",", "")
+            digits = "".join(ch for ch in raw if ch.isdigit())
+            if not digits:
+                edit_field.value = ""
+                page.update()
+                return
+            edit_field.value = _fmt_int(int(digits))
             try:
-                _recalculate(float(edit_field.value.replace(",", ".")))
+                _recalculate(float(digits))
             except (ValueError, AttributeError):
                 pass
             page.update()
@@ -487,7 +504,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
         def _enter_edit(e):
             state["editing"] = True
             state["original_amount"] = calc["amount"]
-            edit_field.value = str(int(calc["amount"])) if calc["amount"] == int(calc["amount"]) else str(calc["amount"])
+            edit_field.value = _fmt_int(int(calc["amount"]))
             txt_amount.visible   = False
             edit_field.visible   = True
             edit_btn.visible     = False
@@ -517,7 +534,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                 page.update()
                 return
             try:
-                new_amount = float(edit_field.value.replace(",", "."))
+                new_amount = float(edit_field.value.replace(".", ""))
             except (ValueError, AttributeError):
                 return
             update_calculation(calc_id, new_amount)
