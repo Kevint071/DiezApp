@@ -451,11 +451,11 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             ),
         )
 
-        def _data_row(label: str, value_ctrl: ft.Control, is_amount: bool = False):
+        def _data_row(label: str, value_ctrl: ft.Control, is_amount: bool = False, last: bool = False):
             right = ft.Row(spacing=0, tight=True, controls=[txt_amount, edit_field]) if is_amount else value_ctrl
             return ft.Container(
                 padding=ft.Padding.symmetric(vertical=12, horizontal=16),
-                border=ft.Border.only(bottom=ft.BorderSide(0.5, c["divider"])),
+                border=None if last else ft.Border.only(bottom=ft.BorderSide(0.5, c["divider"])),
                 content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -494,7 +494,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             delete_btn.visible   = False
             edit_actions.visible = True
             if state["container"]:
-                state["container"].border = ft.Border.only(left=ft.BorderSide(3, c["primary"]))
+                state["container"].border = ft.Border.all(1.5, c["primary"])
             page.update()
 
         def _cancel_edit(e):
@@ -507,7 +507,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             txt_amount.value = _format_currency(state["original_amount"])
             _recalculate(state["original_amount"])
             if state["container"]:
-                state["container"].border = None
+                state["container"].border = ft.Border.all(1, c["outline"])
             page.update()
 
         def _save_edit(e):
@@ -531,7 +531,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             delete_btn.visible   = True
             edit_actions.visible = False
             if state["container"]:
-                state["container"].border = None
+                state["container"].border = ft.Border.all(1, c["outline"])
             page.update()
 
         def _confirm_delete(e):
@@ -567,6 +567,10 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
 
         item = ft.Container(
             bgcolor=ft.Colors.TRANSPARENT,
+            border=ft.Border.all(1, c["outline"]),
+            border_radius=12,
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+            margin=ft.Margin.only(bottom=12),
             content=ft.Column(
                 spacing=0,
                 controls=[
@@ -592,10 +596,9 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                     _data_row("Envío (21%)", txt_envio),
                     _data_row("Restante", txt_restante),
                     _data_row(f"Fondo local ({fund_pct}%)", txt_fondo),
-                    _data_row("Sostenimiento", txt_sost),
+                    _data_row("Sostenimiento", txt_sost, last=True),
                     # ── Edit actions (visible only when editing) ─
                     edit_actions,
-                    ft.Container(height=16),
                 ],
             ),
         )
@@ -606,7 +609,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(top=4, bottom=24),
+            padding=ft.Padding.only(top=4, left=16, right=16, bottom=24),
             content=ft.Column(
                 expand=True,
                 spacing=0,
