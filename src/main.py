@@ -233,7 +233,7 @@ def main(page: ft.Page):
 
     save_btn.on_click = _save_calculation
 
-    def _apply_appbar(title="Cálculos", show_back=False, on_back=None):
+    def _apply_appbar(title="Inicio", show_back=False, on_back=None):
         light = _is_light(page)
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
         leading = None
@@ -394,7 +394,6 @@ def main(page: ft.Page):
     nav_bar = ft.NavigationBar(
         selected_index=0,
         on_change=_on_nav_change,
-        height=70,
         label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
         shadow_color=ft.Colors.TRANSPARENT,
         indicator_color=ft.Colors.TRANSPARENT,
