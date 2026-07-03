@@ -11,6 +11,8 @@ from utils.theme import (
     FOCUS_LIGHT,
     FOCUS_DARK,
     OUTLINE_LIGHT_INPUT,
+    SURFACE_LIGHT,
+    SURFACE_DARK,
 )
 
 
@@ -55,8 +57,10 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     def _on_theme_selected(mode: str):
         if mode == "light":
             page.theme_mode = ft.ThemeMode.LIGHT
+            page.bgcolor = SURFACE_LIGHT
         else:
             page.theme_mode = ft.ThemeMode.DARK
+            page.bgcolor = SURFACE_DARK
         save_settings(mode, state["fund_percentage"])
         page.pop_dialog()
         navigate_to_settings()

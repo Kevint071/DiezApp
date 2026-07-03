@@ -51,6 +51,12 @@ LIGHT_THEME = ft.Theme(
         outline=OUTLINE_LIGHT,
         surface_container_highest=SURFACE_VARIANT_LIGHT,
     ),
+    system_overlay_style=ft.SystemOverlayStyle(
+        system_navigation_bar_color=SURFACE_LIGHT,
+        system_navigation_bar_icon_brightness=ft.Brightness.DARK,
+        status_bar_color=ft.Colors.TRANSPARENT,
+        status_bar_icon_brightness=ft.Brightness.DARK,
+    ),
 )
 
 DARK_THEME = ft.Theme(
@@ -65,6 +71,12 @@ DARK_THEME = ft.Theme(
         on_surface_variant=ON_SURFACE_VARIANT_DARK,
         outline=OUTLINE_DARK,
         surface_container_highest=SURFACE_VARIANT_DARK,
+    ),
+    system_overlay_style=ft.SystemOverlayStyle(
+        system_navigation_bar_color=SURFACE_DARK,
+        system_navigation_bar_icon_brightness=ft.Brightness.LIGHT,
+        status_bar_color=ft.Colors.TRANSPARENT,
+        status_bar_icon_brightness=ft.Brightness.LIGHT,
     ),
 )
 # ── Focus / Input States ───────────────────────────────────────
