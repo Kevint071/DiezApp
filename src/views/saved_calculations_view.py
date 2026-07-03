@@ -392,154 +392,128 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
         except (ValueError, TypeError):
             return date_str
 
-    def _build_card(calc: dict):
+    def _build_item(calc: dict):
         calc_id = calc["id"]
         fund_pct = calc.get("fund_percentage", 1)
+        state = {"editing": False, "original_amount": calc["amount"], "container": None}
 
-        # Edit state
-        editing = {"active": False, "original_amount": calc["amount"]}
-
-        # Value displays
-        txt_amount = ft.Text(
-            _format_currency(calc["amount"]),
-            size=14, weight=ft.FontWeight.W_600, color=c["primary"],
-        )
-        txt_envio = ft.Text(
-            _format_currency(calc["envio_21"]),
-            size=14, weight=ft.FontWeight.W_600, color=c["primary"],
-        )
-        txt_restante = ft.Text(
-            _format_currency(calc["restante"]),
-            size=14, weight=ft.FontWeight.W_600, color=c["primary"],
-        )
-        txt_fondo = ft.Text(
-            _format_currency(calc["fondo_local"]),
-            size=14, weight=ft.FontWeight.W_600, color=c["primary"],
-        )
-        txt_sost = ft.Text(
-            _format_currency(calc["sostenimiento"]),
-            size=14, weight=ft.FontWeight.W_600, color=c["primary"],
-        )
-
-        # Edit field
-        focus_color = FOCUS_LIGHT if light else FOCUS_DARK
+        focus_color  = FOCUS_LIGHT if light else FOCUS_DARK
         input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
+
+        txt_amount   = ft.Text(_format_currency(calc["amount"]),       size=14, weight=ft.FontWeight.W_600, color=c["primary"])
+        txt_envio    = ft.Text(_format_currency(calc["envio_21"]),     size=14, weight=ft.FontWeight.W_600, color=c["primary"])
+        txt_restante = ft.Text(_format_currency(calc["restante"]),     size=14, weight=ft.FontWeight.W_600, color=c["primary"])
+        txt_fondo    = ft.Text(_format_currency(calc["fondo_local"]),  size=14, weight=ft.FontWeight.W_600, color=c["primary"])
+        txt_sost     = ft.Text(_format_currency(calc["sostenimiento"]), size=14, weight=ft.FontWeight.W_600, color=c["primary"])
+
         edit_field = ft.TextField(
             value=str(int(calc["amount"])) if calc["amount"] == int(calc["amount"]) else str(calc["amount"]),
             keyboard_type=ft.KeyboardType.NUMBER,
-            border_radius=10,
-            content_padding=ft.Padding.symmetric(vertical=10, horizontal=12),
+            border_radius=8,
+            content_padding=ft.Padding.symmetric(vertical=6, horizontal=10),
             text_size=14,
+            text_align=ft.TextAlign.RIGHT,
             border_color=input_border,
             focused_border_color=focus_color,
             visible=False,
-            expand=True,
+            width=140,
         )
 
-        # Buttons
-        save_edit_btn = ft.IconButton(
-            icon=ft.Icons.CHECK_CIRCLE_OUTLINED,
-            icon_color=c["primary"],
-            icon_size=22,
-            tooltip="Guardar",
-            visible=False,
-        )
-        cancel_edit_btn = ft.IconButton(
-            icon=ft.Icons.CANCEL_OUTLINED,
-            icon_color=c["on_surface_variant"],
-            icon_size=22,
-            tooltip="Cancelar",
-            visible=False,
-        )
-        edit_btn = ft.IconButton(
-            icon=ft.Icons.EDIT_OUTLINED,
-            icon_color="#1976D2",
-            icon_size=20,
-            tooltip="Editar",
-            style=ft.ButtonStyle(padding=ft.Padding.all(0)),
-            width=28,
-            height=28,
+        edit_btn   = ft.IconButton(
+            icon=ft.Icons.EDIT_OUTLINED, icon_color=c["primary"], icon_size=18,
+            tooltip="Editar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
+            width=32, height=32,
         )
         delete_btn = ft.IconButton(
-            icon=ft.Icons.DELETE_OUTLINE,
-            icon_color="#D32F2F",
-            icon_size=20,
-            tooltip="Eliminar",
-            style=ft.ButtonStyle(padding=ft.Padding.all(0)),
-            width=28,
-            height=28,
+            icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=18,
+            tooltip="Eliminar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
+            width=32, height=32,
+        )
+        save_btn = ft.FilledButton(
+            "Guardar", icon=ft.Icons.CHECK_ROUNDED,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.Padding.symmetric(vertical=10, horizontal=16),
+            ),
+        )
+        cancel_btn = ft.TextButton(
+            "Cancelar",
+            style=ft.ButtonStyle(color=c["on_surface_variant"]),
         )
 
-        # Amount row: shows either text or edit field
-        amount_text_row = ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            controls=[
-                ft.Text("Cantidad neta", size=13, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
-                txt_amount,
-            ],
-        )
-        amount_edit_row = ft.Row(
+        edit_actions = ft.Container(
             visible=False,
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[
-                ft.Text("Cantidad neta", size=13, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
-                ft.Container(width=120, content=edit_field),
-            ],
+            padding=ft.Padding.only(left=16, right=16, top=4, bottom=10),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.END,
+                spacing=8,
+                controls=[cancel_btn, save_btn],
+            ),
         )
 
-        def _recalculate_display(amount: float):
-            val_21 = amount * 0.21
-            val_79 = amount * 0.79
-            val_fondo = val_79 * (fund_pct / 100)
-            val_sost = amount - val_21 - val_fondo
-            txt_envio.value = _format_currency(val_21)
-            txt_restante.value = _format_currency(val_79)
-            txt_fondo.value = _format_currency(val_fondo)
-            txt_sost.value = _format_currency(val_sost)
+        def _data_row(label: str, value_ctrl: ft.Control, is_amount: bool = False):
+            right = ft.Row(spacing=0, tight=True, controls=[txt_amount, edit_field]) if is_amount else value_ctrl
+            return ft.Container(
+                padding=ft.Padding.symmetric(vertical=12, horizontal=16),
+                border=ft.Border.only(bottom=ft.BorderSide(0.5, c["divider"])),
+                content=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Text(label, size=13, weight=ft.FontWeight.W_400, color=c["on_surface_variant"]),
+                        right,
+                    ],
+                ),
+            )
 
-        def _on_edit_field_change(e):
+        def _recalculate(amount: float):
+            val_21    = amount * 0.21
+            val_79    = amount * 0.79
+            val_fondo = val_79 * (fund_pct / 100)
+            txt_envio.value    = _format_currency(val_21)
+            txt_restante.value = _format_currency(val_79)
+            txt_fondo.value    = _format_currency(val_fondo)
+            txt_sost.value     = _format_currency(amount - val_21 - val_fondo)
+
+        def _on_change(e):
             try:
-                amount = float(edit_field.value.replace(",", "."))
-                _recalculate_display(amount)
+                _recalculate(float(edit_field.value.replace(",", ".")))
             except (ValueError, AttributeError):
                 pass
             page.update()
 
-        edit_field.on_change = _on_edit_field_change
+        edit_field.on_change = _on_change
 
         def _enter_edit(e):
-            editing["active"] = True
-            editing["original_amount"] = calc["amount"]
+            state["editing"] = True
+            state["original_amount"] = calc["amount"]
             edit_field.value = str(int(calc["amount"])) if calc["amount"] == int(calc["amount"]) else str(calc["amount"])
-            edit_field.visible = True
-            amount_text_row.visible = False
-            amount_edit_row.visible = True
-            edit_btn.visible = False
-            delete_btn.visible = False
-            save_edit_btn.visible = True
-            cancel_edit_btn.visible = True
+            txt_amount.visible   = False
+            edit_field.visible   = True
+            edit_btn.visible     = False
+            delete_btn.visible   = False
+            edit_actions.visible = True
+            if state["container"]:
+                state["container"].border = ft.Border.only(left=ft.BorderSide(3, c["primary"]))
             page.update()
 
         def _cancel_edit(e):
-            editing["active"] = False
-            edit_field.visible = False
-            amount_text_row.visible = True
-            amount_edit_row.visible = False
-            edit_btn.visible = True
-            delete_btn.visible = True
-            save_edit_btn.visible = False
-            cancel_edit_btn.visible = False
-            # Restore original values
-            txt_amount.value = _format_currency(editing["original_amount"])
-            _recalculate_display(editing["original_amount"])
+            state["editing"] = False
+            txt_amount.visible   = True
+            edit_field.visible   = False
+            edit_btn.visible     = True
+            delete_btn.visible   = True
+            edit_actions.visible = False
+            txt_amount.value = _format_currency(state["original_amount"])
+            _recalculate(state["original_amount"])
+            if state["container"]:
+                state["container"].border = None
             page.update()
 
         def _save_edit(e):
             from utils.conflicts import conflict_count
             if conflict_count() > 0:
-                snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de editar"), open=True)
-                page.overlay.append(snack)
+                page.overlay.append(ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de editar"), open=True))
                 page.update()
                 return
             try:
@@ -547,38 +521,35 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
             except (ValueError, AttributeError):
                 return
             update_calculation(calc_id, new_amount)
-            # Update local display
             calc["amount"] = new_amount
             txt_amount.value = _format_currency(new_amount)
-            _recalculate_display(new_amount)
-            # Exit edit mode
-            editing["active"] = False
-            edit_field.visible = False
-            amount_text_row.visible = True
-            amount_edit_row.visible = False
-            edit_btn.visible = True
-            delete_btn.visible = True
-            save_edit_btn.visible = False
-            cancel_edit_btn.visible = False
+            _recalculate(new_amount)
+            state["editing"] = False
+            txt_amount.visible   = True
+            edit_field.visible   = False
+            edit_btn.visible     = True
+            delete_btn.visible   = True
+            edit_actions.visible = False
+            if state["container"]:
+                state["container"].border = None
             page.update()
 
         def _confirm_delete(e):
             from utils.conflicts import conflict_count
             if conflict_count() > 0:
-                snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True)
-                page.overlay.append(snack)
+                page.overlay.append(ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True))
                 page.update()
                 return
 
-            def _do_delete(e):
+            def _do_delete(ev):
                 delete_calculation(calc_id)
                 page.pop_dialog()
                 on_refresh()
 
-            def _cancel_delete(e):
+            def _cancel_delete(ev):
                 page.pop_dialog()
 
-            dlg = ft.AlertDialog(
+            page.show_dialog(ft.AlertDialog(
                 modal=True,
                 title=ft.Text("Eliminar cálculo", size=17, weight=ft.FontWeight.W_600),
                 content=ft.Text("¿Estás seguro de que deseas eliminar este cálculo?"),
@@ -587,74 +558,60 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh):
                     ft.FilledTonalButton("Eliminar", on_click=_do_delete),
                 ],
                 actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            )
-            page.show_dialog(dlg)
+            ))
 
-        edit_btn.on_click = _enter_edit
-        cancel_edit_btn.on_click = _cancel_edit
-        save_edit_btn.on_click = _save_edit
+        edit_btn.on_click   = _enter_edit
+        cancel_btn.on_click = _cancel_edit
+        save_btn.on_click   = _save_edit
         delete_btn.on_click = _confirm_delete
 
-        def _value_row(label: str, value_ctrl: ft.Text):
-            return ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                controls=[
-                    ft.Text(label, size=13, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
-                    value_ctrl,
-                ],
-            )
-
-        return ft.Container(
-            bgcolor=c["card_bg"],
-            border_radius=14,
-            padding=ft.Padding.symmetric(vertical=10, horizontal=16),
-            margin=ft.Margin.only(bottom=12),
+        item = ft.Container(
+            bgcolor=ft.Colors.TRANSPARENT,
             content=ft.Column(
-                spacing=8,
+                spacing=0,
                 controls=[
-                    # Header: date + action buttons
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[
-                            ft.Text(
-                                _format_date(calc.get("created_at", "")),
-                                size=14,
-                                weight=ft.FontWeight.W_700,
-                                color=c["on_surface"],
-                            ),
-                            ft.Row(
-                                spacing=0,
-                                tight=True,
-                                controls=[save_edit_btn, cancel_edit_btn, edit_btn, delete_btn],
-                            ),
-                        ],
+                    # ── Date header + action icons ──────────────
+                    ft.Container(
+                        padding=ft.Padding.only(left=16, right=4, top=14, bottom=4),
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Text(
+                                    _format_date(calc.get("created_at", "")),
+                                    size=12,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["on_surface_variant"],
+                                ),
+                                ft.Row(spacing=0, tight=True, controls=[edit_btn, delete_btn]),
+                            ],
+                        ),
                     ),
-                    ft.Divider(height=1, color=c["divider"]),
-                    # Amount (text or edit)
-                    amount_text_row,
-                    amount_edit_row,
-                    # Other values
-                    _value_row("Envío (21%)", txt_envio),
-                    _value_row("Restante", txt_restante),
-                    _value_row(f"Fondo local ({fund_pct}%)", txt_fondo),
-                    _value_row("Sostenimiento", txt_sost),
+                    # ── Data rows ───────────────────────────────
+                    _data_row("Cantidad neta", txt_amount, is_amount=True),
+                    _data_row("Envío (21%)", txt_envio),
+                    _data_row("Restante", txt_restante),
+                    _data_row(f"Fondo local ({fund_pct}%)", txt_fondo),
+                    _data_row("Sostenimiento", txt_sost),
+                    # ── Edit actions (visible only when editing) ─
+                    edit_actions,
+                    ft.Container(height=16),
                 ],
             ),
         )
-
-    cards = [_build_card(calc) for calc in calculations]
+        state["container"] = item
+        return item
 
     return ft.SafeArea(
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(top=8, left=24, right=24, bottom=24),
+            padding=ft.Padding.only(top=4, bottom=24),
             content=ft.Column(
                 expand=True,
                 spacing=0,
                 scroll=ft.ScrollMode.AUTO,
-                controls=cards,
+                controls=[_build_item(calc) for calc in calculations],
             ),
         ),
     )
