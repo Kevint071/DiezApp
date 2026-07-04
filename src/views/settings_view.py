@@ -43,6 +43,7 @@ def apply_settings_appbar(page: ft.Page, on_navigate_back, colors_fn):
         title_spacing=0,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
+        elevation_on_scroll=0,
     )
 
 

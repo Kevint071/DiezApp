@@ -180,6 +180,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
                 center_title=False,
                 bgcolor=ft.Colors.TRANSPARENT,
                 elevation=0,
+                elevation_on_scroll=0,
             )
             page.controls.clear()
             page.add(_build_breakdown_view(page, colors_fn, month_idx, state["year"], _back_to_summary))
@@ -208,6 +209,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
+            elevation_on_scroll=0,
         )
         page.controls.clear()
         page.add(build_monthly_summary_view(page, colors_fn, on_back))

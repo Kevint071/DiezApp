@@ -258,6 +258,7 @@ def main(page: ft.Page):
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
+            elevation_on_scroll=0,
             actions=actions,
         )
         nav_bar.bgcolor = _colors(page)["surface"]

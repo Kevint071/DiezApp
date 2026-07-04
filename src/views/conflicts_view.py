@@ -93,6 +93,7 @@ def _apply_appbar(page: ft.Page, title: str, on_back):
         title_spacing=0,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
+        elevation_on_scroll=0,
     )
 
 
@@ -149,6 +150,7 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
         title_spacing=0,
         bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
+        elevation_on_scroll=0,
         actions=[ft.Container(padding=ft.Padding.only(right=12), content=save_btn)],
     )
 
