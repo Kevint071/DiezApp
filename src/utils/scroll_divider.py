@@ -27,7 +27,7 @@ def make_scroll_divider_handler(divider: ft.Container, colors: dict):
     def _handler(e: ft.OnScrollEvent):
         # Only reveal the divider after the body has moved a little. This
         # avoids the short flash that could look like a dark line in light mode.
-        target = colors["divider"] if e.pixels > 1 else ft.Colors.TRANSPARENT
+        target = colors["header_divider"] if e.pixels > 1 else ft.Colors.TRANSPARENT
         if divider.bgcolor != target:
             divider.bgcolor = target
             divider.update()
