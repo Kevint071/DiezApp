@@ -69,7 +69,7 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         list_content = ft.Container(
             expand=True,
             alignment=ft.Alignment.TOP_CENTER,
-            padding=ft.Padding.only(top=60),
+            padding=ft.Padding.only(top=72),
             content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
