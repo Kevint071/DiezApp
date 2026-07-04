@@ -382,6 +382,8 @@ def main(page: ft.Page):
         if prev == 1:
             _navigate_to_saved()
         elif prev == 3:
+            _navigate_to_notes()
+        elif prev == 4:
             _navigate_to_settings()
         else:
             _navigate_to_main()
@@ -399,6 +401,8 @@ def main(page: ft.Page):
             _navigate_to_pdf_export()
             return
         elif idx == 3:
+            _navigate_to_notes()
+        elif idx == 4:
             _navigate_to_settings()
         nav_state["prev_index"] = idx
 
@@ -426,6 +430,11 @@ def main(page: ft.Page):
                 label="Exportar",
             ),
             ft.NavigationBarDestination(
+                icon=ft.Icons.STICKY_NOTE_2_OUTLINED,
+                selected_icon=ft.Icons.STICKY_NOTE_2_ROUNDED,
+                label="Notas",
+            ),
+            ft.NavigationBarDestination(
                 icon=ft.Icons.SETTINGS_OUTLINED,
                 selected_icon=ft.Icons.SETTINGS_ROUNDED,
                 label="Ajustes",
@@ -449,6 +458,36 @@ def main(page: ft.Page):
         _apply_appbar("Cálculos guardados")
         page.controls.clear()
         page.add(build_saved_calculations_view(page, _colors, _navigate_to_saved))
+
+    def _navigate_to_notes():
+        from views.notes_view import build_notes_view
+        _apply_appbar("Notas")
+        page.controls.clear()
+        page.add(build_notes_view(page, _colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes))
+
+    def _navigate_to_new_note():
+        from views.notes_view import build_new_note_view
+        from utils.notes import add_note
+
+        def _on_save(content):
+            add_note(content)
+            _navigate_to_notes()
+
+        _apply_appbar("Nueva nota", show_back=True, on_back=_navigate_to_notes)
+        page.controls.clear()
+        page.add(build_new_note_view(page, _colors, _on_save))
+
+    def _navigate_to_note_detail(note_id):
+        from views.notes_view import build_note_detail_view
+        from utils.notes import load_notes
+
+        note = next((n for n in load_notes() if n["id"] == note_id), None)
+        if note is None:
+            _navigate_to_notes()
+            return
+        _apply_appbar("Nota", show_back=True, on_back=_navigate_to_notes)
+        page.controls.clear()
+        page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes))
 
     def _navigate_to_calc():
         lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"
