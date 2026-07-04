@@ -233,7 +233,7 @@ def main(page: ft.Page):
 
     save_btn.on_click = _save_calculation
 
-    def _apply_appbar(title="Inicio", show_back=False, on_back=None):
+    def _apply_appbar(title="Inicio", show_back=False, on_back=None, actions=None):
         light = _is_light(page)
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
         leading = None
@@ -258,8 +258,14 @@ def main(page: ft.Page):
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
+            actions=actions,
         )
         nav_bar.bgcolor = _colors(page)["surface"]
+
+    def _set_appbar_actions(actions):
+        if page.appbar:
+            page.appbar.actions = actions
+            page.update()
 
     # ── Navigation ───────────────────────────────────────
     calc_btn = ft.FilledButton(
@@ -487,7 +493,7 @@ def main(page: ft.Page):
             return
         _apply_appbar("Nota", show_back=True, on_back=_navigate_to_notes)
         page.controls.clear()
-        page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes))
+        page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes, _set_appbar_actions))
 
     def _navigate_to_calc():
         lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"

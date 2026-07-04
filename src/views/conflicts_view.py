@@ -3,23 +3,59 @@ from datetime import datetime
 
 from utils.conflicts import load_conflicts, save_conflicts, clear_conflicts
 from utils.storage import load_calculations, save_calculations
+from utils.notes import load_notes, save_notes
 from utils.theme import ON_SURFACE_LIGHT, ON_SURFACE_DARK
 
-# Persistent resolution state across navigations
-_conflict_choices: dict = {}
-_conflict_resolved: set = set()
-_conflict_fingerprint: list = []
+# Per-kind configuration: how to load/save items, their unique id field, and
+# which fields to render in the comparison cards. This lets the same
+# conflict-resolution UI be reused for any importable data type.
+_KIND_CONFIG = {
+    "calculations": {
+        "title": "Resolver conflictos",
+        "load": load_calculations,
+        "save": save_calculations,
+        "id_field": "id",
+        "fields": [
+            ("Monto", "amount", "currency"),
+            ("Envio (21%)", "envio_21", "currency"),
+            ("Fondo local", "fondo_local", "currency"),
+            ("Sostenimiento", "sostenimiento", "currency"),
+            ("Porcentaje fondo", "fund_percentage", "percent"),
+        ],
+    },
+    "notes": {
+        "title": "Resolver conflictos de notas",
+        "load": load_notes,
+        "save": save_notes,
+        "id_field": "id",
+        "fields": [
+            ("Contenido", "content", "text"),
+        ],
+    },
+}
+
+# Persistent resolution state across navigations, keyed by kind
+_conflict_state: dict = {}
 
 
-def _reset_conflict_state() -> None:
-    global _conflict_choices, _conflict_resolved, _conflict_fingerprint
-    _conflict_choices = {}
-    _conflict_resolved = set()
-    _conflict_fingerprint = []
+def _get_conflict_state(kind: str) -> dict:
+    return _conflict_state.setdefault(kind, {"choices": {}, "resolved": set(), "fingerprint": []})
+
+
+def _reset_conflict_state(kind: str) -> None:
+    _conflict_state[kind] = {"choices": {}, "resolved": set(), "fingerprint": []}
 
 
 def _format_currency(value: float) -> str:
     return f"${value:,.0f}".replace(",", ".")
+
+
+def _format_field(value, field_type: str) -> str:
+    if field_type == "currency":
+        return _format_currency(value or 0)
+    if field_type == "percent":
+        return f"{value}%"
+    return str(value) if value is not None else ""
 
 
 def _format_date(date_str: str) -> str:
@@ -60,15 +96,15 @@ def _apply_appbar(page: ft.Page, title: str, on_back):
     )
 
 
-def apply_conflicts_appbar(page: ft.Page, on_back):
-    _apply_appbar(page, "Resolver conflictos", on_back)
+def apply_conflicts_appbar(page: ft.Page, on_back, kind: str = "calculations"):
+    _apply_appbar(page, _KIND_CONFIG[kind]["title"], on_back)
 
 
 # ═══════════════════════════════════════════════════════════════════
 # Detail view — shows comparison for a single conflict
 # ═══════════════════════════════════════════════════════════════════
 
-def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts: list, choices: dict, resolved_set: set, on_back_to_grid):
+def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts: list, choices: dict, resolved_set: set, on_back_to_grid, kind: str = "calculations"):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
     conflict = conflicts[index]
@@ -117,15 +153,11 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
     )
 
     cards_column = ft.Column(spacing=16)
+    field_defs = _KIND_CONFIG[kind]["fields"]
 
-    def _build_card(title: str, calc: dict, version: str):
+    def _build_card(title: str, item: dict, version: str):
         is_selected = selected["version"] == version
-        amount = calc.get("amount", 0)
-        envio = calc.get("envio_21", 0)
-        fondo = calc.get("fondo_local", 0)
-        sost = calc.get("sostenimiento", 0)
-        fund_pct = calc.get("fund_percentage", 1)
-        date_str = _format_date(calc.get("created_at", ""))
+        date_str = _format_date(item.get("created_at", ""))
 
         def _row(label: str, value: str):
             return ft.Container(
@@ -140,6 +172,19 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
                 ),
             )
 
+        def _text_block(label: str, value: str):
+            return ft.Container(
+                padding=ft.Padding.symmetric(vertical=8, horizontal=16),
+                border=ft.Border(bottom=ft.BorderSide(1, c["divider"])),
+                content=ft.Column(
+                    spacing=4,
+                    controls=[
+                        ft.Text(label, size=13, color=c["on_surface_variant"]),
+                        ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=c["on_surface"]),
+                    ],
+                ),
+            )
+
         def _on_tap(e):
             selected["version"] = version
             _refresh_cards()
@@ -147,6 +192,15 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
         radio_icon = ft.Icons.RADIO_BUTTON_CHECKED_ROUNDED if is_selected else ft.Icons.RADIO_BUTTON_UNCHECKED_ROUNDED
         radio_color = c["primary"] if is_selected else c["on_surface_variant"]
         border_color = c["primary"] if is_selected else ft.Colors.TRANSPARENT
+
+        field_rows = []
+        for label, key, ftype in field_defs:
+            value = item.get(key)
+            if ftype == "text":
+                field_rows.append(_text_block(label, str(value) if value is not None else ""))
+            else:
+                field_rows.append(_row(label, _format_field(value, ftype)))
+        field_rows.append(_row("Fecha", date_str))
 
         return ft.Container(
             bgcolor=c["card_bg"],
@@ -169,21 +223,7 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
                         ),
                     ),
                     ft.Container(height=8),
-                    _row("Monto", _format_currency(amount)),
-                    _row("Envio (21%)", _format_currency(envio)),
-                    _row("Fondo local", _format_currency(fondo)),
-                    _row("Sostenimiento", _format_currency(sost)),
-                    _row("Porcentaje fondo", f"{fund_pct}%"),
-                    ft.Container(
-                        padding=ft.Padding.symmetric(vertical=8, horizontal=16),
-                        content=ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            controls=[
-                                ft.Text("Fecha", size=13, color=c["on_surface_variant"]),
-                                ft.Text(date_str, size=13, weight=ft.FontWeight.W_600, color=c["on_surface"]),
-                            ],
-                        ),
-                    ),
+                    *field_rows,
                 ],
             ),
         )
@@ -216,9 +256,10 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
 # Grid view — numbered tiles for each conflict
 # ═══════════════════════════════════════════════════════════════════
 
-def build_conflicts_view(page: ft.Page, colors_fn, on_back):
+def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calculations"):
     c = colors_fn(page)
-    data = load_conflicts()
+    cfg = _KIND_CONFIG[kind]
+    data = load_conflicts(kind)
     conflicts = data.get("conflicts", [])
     pending_add = data.get("pending_add", [])
 
@@ -251,22 +292,22 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back):
             ),
         )
 
-    global _conflict_choices, _conflict_resolved, _conflict_fingerprint
-    current_fp = [conflict.get("existing", {}).get("id") for conflict in conflicts]
-    if current_fp != _conflict_fingerprint:
-        _conflict_fingerprint = current_fp
-        _conflict_choices = {i: "existing" for i in range(len(conflicts))}
-        _conflict_resolved = set()
-    choices = _conflict_choices
-    resolved_set = _conflict_resolved
+    state = _get_conflict_state(kind)
+    current_fp = [conflict.get("existing", {}).get(cfg["id_field"]) for conflict in conflicts]
+    if current_fp != state["fingerprint"]:
+        state["fingerprint"] = current_fp
+        state["choices"] = {i: "existing" for i in range(len(conflicts))}
+        state["resolved"] = set()
+    choices = state["choices"]
+    resolved_set = state["resolved"]
 
     def _navigate_to_detail(index: int):
         _apply_appbar(page, f"Conflicto {index + 1}", _show_grid)
         page.controls.clear()
-        page.add(_build_conflict_detail_view(page, colors_fn, index, conflicts, choices, resolved_set, _show_grid))
+        page.add(_build_conflict_detail_view(page, colors_fn, index, conflicts, choices, resolved_set, _show_grid, kind))
 
     def _show_grid():
-        apply_conflicts_appbar(page, on_back)
+        apply_conflicts_appbar(page, on_back, kind)
         page.controls.clear()
         page.add(_build_grid_content())
 
@@ -412,43 +453,44 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back):
         )
 
     def _resolve_all(e):
-        existing_calcs = load_calculations()
-        existing_map = {calc["id"]: calc for calc in existing_calcs if "id" in calc}
+        id_field = cfg["id_field"]
+        existing_items = cfg["load"]()
+        existing_map = {item[id_field]: item for item in existing_items if id_field in item}
 
         unresolved = []
         n_applied = 0
         for i, conflict in enumerate(conflicts):
             if i in resolved_set:
-                calc_id = conflict["existing"]["id"]
+                item_id = conflict["existing"][id_field]
                 choice = choices.get(i, "existing")
                 if choice == "imported":
-                    existing_map[calc_id] = conflict["imported"]
+                    existing_map[item_id] = conflict["imported"]
                 n_applied += 1
             else:
                 unresolved.append(conflict)
 
-        resolved = [existing_map.get(calc.get("id"), calc) for calc in existing_calcs]
+        resolved = [existing_map.get(item.get(id_field), item) for item in existing_items]
 
         if not unresolved:
             resolved = resolved + pending_add
-            save_calculations(resolved)
-            clear_conflicts()
+            cfg["save"](resolved)
+            clear_conflicts(kind)
             msg = f"{n_applied} conflictos resueltos, {len(pending_add)} nuevos agregados"
         else:
-            save_calculations(resolved)
-            save_conflicts(unresolved, pending_add)
+            cfg["save"](resolved)
+            save_conflicts(unresolved, pending_add, kind)
             msg = f"{n_applied} resueltos, {len(unresolved)} pendientes"
 
         snack = ft.SnackBar(content=ft.Text(msg), open=True)
         page.overlay.append(snack)
-        _reset_conflict_state()
+        _reset_conflict_state(kind)
         on_back()
 
     def _discard_all(e):
-        clear_conflicts()
+        clear_conflicts(kind)
         snack = ft.SnackBar(content=ft.Text("Importación descartada"), open=True)
         page.overlay.append(snack)
-        _reset_conflict_state()
+        _reset_conflict_state(kind)
         on_back()
 
     return _build_grid_content()

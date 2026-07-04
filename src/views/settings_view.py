@@ -402,6 +402,212 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         on_click=_navigate_to_conflicts if n_conflicts > 0 else lambda e: None,
     )
 
+    # ── Notes backup (export / import / conflicts) ─────────────────
+    async def _export_notes_backup(e):
+        from utils.notes import load_notes
+        notes = load_notes()
+        if not notes:
+            snack = ft.SnackBar(content=ft.Text("No hay notas guardadas"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+        now = datetime.now()
+        file_name = now.strftime("notas_%Y_%m_%d_%H_%M_%S.json")
+        tmp_dir = tempfile.gettempdir()
+        output_path = os.path.join(tmp_dir, file_name)
+        data = {"notes": notes}
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        share = ft.Share()
+        await share.share_files(
+            [ft.ShareFile.from_path(output_path, name=file_name)],
+            title="Exportar notas",
+        )
+
+    notes_backup_cell = _settings_cell(
+        icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
+        title="Exportar notas",
+        subtitle="JSON",
+        colors=c,
+        on_click=_export_notes_backup,
+    )
+
+    notes_import_state = {"mode": "merge"}
+
+    notes_radio_group = ft.RadioGroup(
+        value="merge",
+        content=ft.Column(
+            tight=True,
+            spacing=4,
+            controls=[
+                ft.Radio(value="replace", label="Reemplazar todo", fill_color=c["primary"]),
+                ft.Radio(value="merge", label="Mezclar con existentes", fill_color=c["primary"]),
+            ],
+        ),
+        on_change=lambda e: notes_import_state.update(mode=e.control.value),
+    )
+
+    def _close_notes_import_dialog(e):
+        page.pop_dialog()
+
+    notes_file_picker = ft.FilePicker()
+    page.services.append(notes_file_picker)
+    page.update()
+
+    def _notes_differ(a: dict, b: dict) -> bool:
+        return a.get("content") != b.get("content")
+
+    async def _confirm_notes_import(e):
+        page.pop_dialog()
+        files = await notes_file_picker.pick_files(
+            dialog_title="Seleccionar archivo JSON",
+            allowed_extensions=["json"],
+            allow_multiple=False,
+        )
+        if not files:
+            return
+        picked = files[0]
+        raw = None
+        if picked.bytes:
+            raw = picked.bytes.decode("utf-8")
+        elif picked.path:
+            with open(picked.path, "r", encoding="utf-8") as f:
+                raw = f.read()
+        if not raw:
+            return
+        try:
+            imported = json.loads(raw)
+            imported_notes = imported.get("notes", [])
+        except (json.JSONDecodeError, AttributeError):
+            snack = ft.SnackBar(content=ft.Text("Archivo JSON inválido"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+
+        if not imported_notes:
+            snack = ft.SnackBar(content=ft.Text("El archivo no contiene notas"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+
+        from utils.notes import load_notes, save_notes
+        from utils.conflicts import save_conflicts
+
+        if notes_import_state["mode"] == "replace":
+            save_notes(imported_notes)
+            snack = ft.SnackBar(content=ft.Text(f"{len(imported_notes)} notas importadas (reemplazo)"), open=True)
+            page.overlay.append(snack)
+            page.update()
+        else:
+            # Merge mode - detect conflicts by id
+            existing = load_notes()
+            existing_map = {note["id"]: note for note in existing if "id" in note}
+            conflicts = []
+            to_add = []
+            for imp_note in imported_notes:
+                imp_id = imp_note.get("id")
+                if imp_id and imp_id in existing_map:
+                    ex_note = existing_map[imp_id]
+                    if _notes_differ(ex_note, imp_note):
+                        conflicts.append({"existing": ex_note, "imported": imp_note})
+                else:
+                    to_add.append(imp_note)
+
+            if conflicts:
+                save_conflicts(conflicts, to_add, kind="notes")
+                snack = ft.SnackBar(
+                    content=ft.Text(f"{len(conflicts)} conflictos detectados. Resuélvelos abajo."),
+                    open=True,
+                )
+                page.overlay.append(snack)
+                navigate_to_settings()
+            else:
+                merged = existing + to_add
+                save_notes(merged)
+                snack = ft.SnackBar(
+                    content=ft.Text(f"{len(to_add)} notas nuevas agregadas"),
+                    open=True,
+                )
+                page.overlay.append(snack)
+                page.update()
+
+    notes_import_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Importar notas", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Text("¿Cómo deseas importar?", size=14, color=c["on_surface_variant"]),
+                notes_radio_group,
+            ],
+        ),
+        actions=[
+            ft.TextButton("Cancelar", on_click=_close_notes_import_dialog),
+            ft.FilledTonalButton("Aceptar", on_click=_confirm_notes_import),
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+    )
+
+    def _open_notes_import_dialog(e):
+        from utils.conflicts import conflict_count
+        if conflict_count(kind="notes") > 0:
+            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de importar"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+        notes_radio_group.value = "merge"
+        notes_import_state["mode"] = "merge"
+        page.show_dialog(notes_import_dialog)
+
+    notes_import_cell = _settings_cell(
+        icon=ft.Icons.FILE_UPLOAD_OUTLINED,
+        title="Importar notas",
+        subtitle="JSON",
+        colors=c,
+        on_click=_open_notes_import_dialog,
+    )
+
+    from utils.conflicts import conflict_count as _notes_conflict_count
+    n_notes_conflicts = _notes_conflict_count(kind="notes")
+
+    def _navigate_to_notes_conflicts(e):
+        from views.conflicts_view import build_conflicts_view, apply_conflicts_appbar
+        apply_conflicts_appbar(page, navigate_to_settings, kind="notes")
+        page.controls.clear()
+        page.add(build_conflicts_view(page, colors_fn, on_back=navigate_to_settings, kind="notes"))
+
+    notes_conflicts_cell = _settings_cell(
+        icon=ft.Icons.SYNC_PROBLEM_OUTLINED,
+        title="Resolver conflictos",
+        subtitle=f"{n_notes_conflicts} pendientes" if n_notes_conflicts > 0 else "Sin conflictos",
+        colors=c,
+        on_click=_navigate_to_notes_conflicts if n_notes_conflicts > 0 else lambda e: None,
+    )
+
+    notes_backup_group = ft.Container(
+        bgcolor=c["card_bg"],
+        border_radius=16,
+        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
+        content=ft.Column(
+            spacing=0,
+            controls=[
+                notes_backup_cell,
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+                    content=ft.Divider(height=1, color=c["divider"]),
+                ),
+                notes_import_cell,
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+                    content=ft.Divider(height=1, color=c["divider"]),
+                ),
+                notes_conflicts_cell,
+            ],
+        ),
+    )
+
     backup_group = ft.Container(
         bgcolor=c["card_bg"],
         border_radius=16,
@@ -447,6 +653,13 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
                         color=c["on_surface_variant"],
                     ),
                     backup_group,
+                    ft.Text(
+                        "Notas",
+                        size=13,
+                        weight=ft.FontWeight.W_600,
+                        color=c["on_surface_variant"],
+                    ),
+                    notes_backup_group,
                 ],
             ),
         ),

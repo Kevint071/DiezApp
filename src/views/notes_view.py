@@ -4,7 +4,7 @@ from datetime import datetime
 from utils.theme import FOCUS_LIGHT, FOCUS_DARK, OUTLINE_LIGHT_INPUT
 from utils.notes import load_notes, delete_note, update_note
 
-PREVIEW_LIMIT = 140
+PREVIEW_LIMIT = 100
 
 
 def _format_date(date_str: str) -> str:
@@ -19,7 +19,11 @@ def _truncate(text: str) -> str:
     text = text.strip()
     if len(text) <= PREVIEW_LIMIT:
         return text
-    return text[:PREVIEW_LIMIT].rstrip() + "…"
+    truncated = text[:PREVIEW_LIMIT].rstrip()
+    last_space = truncated.rfind(" ")
+    if last_space > 0:
+        truncated = truncated[:last_space]
+    return truncated.rstrip() + "…"
 
 
 def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
@@ -38,28 +42,9 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
         width=float("inf"),
     )
 
-    def _confirm_delete(note_id: str):
-        def _do_delete(ev):
-            delete_note(note_id)
-            page.pop_dialog()
-            on_refresh()
-
-        def _cancel_delete(ev):
-            page.pop_dialog()
-
-        page.show_dialog(ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Eliminar nota", size=17, weight=ft.FontWeight.W_600),
-            content=ft.Text("¿Estás seguro de que deseas eliminar esta nota?"),
-            actions=[
-                ft.TextButton("Cancelar", on_click=_cancel_delete),
-                ft.FilledTonalButton("Eliminar", on_click=_do_delete),
-            ],
-            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-        ))
-
     def _build_item(note: dict):
         return ft.Container(
+            width=float("inf"),
             bgcolor=c["card_bg"],
             border_radius=12,
             padding=ft.Padding.all(16),
@@ -69,21 +54,9 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
             content=ft.Column(
                 spacing=8,
                 controls=[
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[
-                            ft.Text(
-                                _format_date(note.get("created_at", "")),
-                                size=12, weight=ft.FontWeight.W_600, color=c["on_surface_variant"],
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=18,
-                                tooltip="Eliminar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-                                width=32, height=32,
-                                on_click=lambda e, nid=note["id"]: _confirm_delete(nid),
-                            ),
-                        ],
+                    ft.Text(
+                        _format_date(note.get("created_at", "")),
+                        size=12, weight=ft.FontWeight.W_600, color=c["on_surface_variant"],
                     ),
                     ft.Text(
                         _truncate(note.get("content", "")),
@@ -159,6 +132,12 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
     err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
 
     def _save(e):
+        from utils.conflicts import conflict_count
+        if conflict_count(kind="notes") > 0:
+            err_txt.value = "Resuelve los conflictos antes de guardar"
+            err_txt.visible = True
+            page.update()
+            return
         text = (content_field.value or "").strip()
         if not text:
             err_txt.value = "Escribe algo antes de guardar"
@@ -196,43 +175,42 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
     )
 
 
-def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete):
+def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_header_actions):
     c = colors_fn(page)
 
     state = {"editing": False}
 
-    date_lbl = ft.Text(
-        _format_date(note.get("created_at", "")),
-        size=12, weight=ft.FontWeight.W_600, color=c["on_surface_variant"],
-    )
+    _initial_lines = max(1, note.get("content", "").count("\n") + 1)
 
     content_text = ft.Text(
         note.get("content", ""), size=15, weight=ft.FontWeight.W_400,
         color=c["on_surface"], selectable=True,
+        width=float("inf"),
+        style=ft.TextStyle(height=1.3),
     )
     content_field = ft.TextField(
         value=note.get("content", ""),
         multiline=True,
-        min_lines=8,
+        min_lines=_initial_lines,
         max_lines=20,
-        expand=True,
+        width=float("inf"),
         border=ft.InputBorder.NONE,
         content_padding=ft.Padding.all(0),
+        dense=True,
         text_size=15,
-        text_style=ft.TextStyle(weight=ft.FontWeight.W_400, color=c["on_surface"]),
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3),
+        strut_style=ft.StrutStyle(size=15, height=1.3, weight=ft.FontWeight.W_400, force_strut_height=True),
         cursor_color=c["primary"],
         visible=False,
     )
 
     content_box = ft.Container(
-        expand=True,
+        width=float("inf"),
         bgcolor=ft.Colors.TRANSPARENT,
         border=ft.Border.all(1, c["outline"]),
         border_radius=16,
         padding=ft.Padding.all(20),
         content=ft.Column(
-            expand=True,
-            scroll=ft.ScrollMode.AUTO,
             controls=[content_text, content_field],
         ),
     )
@@ -240,6 +218,13 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete):
     err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
 
     def _confirm_delete(e):
+        from utils.conflicts import conflict_count
+        if conflict_count(kind="notes") > 0:
+            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
+
         def _do_delete(ev):
             delete_note(note["id"])
             page.pop_dialog()
@@ -259,57 +244,29 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete):
             actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         ))
 
-    edit_btn = ft.IconButton(
-        icon=ft.Icons.EDIT_OUTLINED, icon_color=c["primary"], icon_size=20,
-        tooltip="Editar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-    )
-    delete_icon_btn = ft.IconButton(
-        icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=20,
-        tooltip="Eliminar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-        on_click=_confirm_delete,
-    )
-    save_btn = ft.FilledButton(
-        "Guardar cambios",
-        style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
-        ),
-        visible=False,
-    )
-    cancel_btn = ft.TextButton(
-        "Cancelar",
-        style=ft.ButtonStyle(color=c["on_surface_variant"]),
-        visible=False,
-    )
-    edit_actions = ft.Row(
-        alignment=ft.MainAxisAlignment.END,
-        spacing=8,
-        controls=[cancel_btn, save_btn],
-    )
-    toolbar = ft.Row(spacing=0, tight=True, controls=[edit_btn, delete_icon_btn])
-
     def _enter_edit(e):
+        from utils.conflicts import conflict_count
+        if conflict_count(kind="notes") > 0:
+            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de editar"), open=True)
+            page.overlay.append(snack)
+            page.update()
+            return
         state["editing"] = True
         content_field.value = note.get("content", "")
         content_text.visible = False
         content_field.visible = True
-        toolbar.visible = False
-        save_btn.visible = True
-        cancel_btn.visible = True
         content_box.border = ft.Border.all(1.5, c["primary"])
         err_txt.visible = False
+        set_header_actions(edit_actions)
         page.update()
 
     def _cancel_edit(e):
         state["editing"] = False
         content_text.visible = True
         content_field.visible = False
-        toolbar.visible = True
-        save_btn.visible = False
-        cancel_btn.visible = False
         content_box.border = ft.Border.all(1, c["outline"])
         err_txt.visible = False
+        set_header_actions(view_actions)
         page.update()
 
     def _save_edit(e):
@@ -325,16 +282,49 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete):
         state["editing"] = False
         content_text.visible = True
         content_field.visible = False
-        toolbar.visible = True
-        save_btn.visible = False
-        cancel_btn.visible = False
         content_box.border = ft.Border.all(1, c["outline"])
         err_txt.visible = False
+        set_header_actions(view_actions)
         page.update()
 
-    edit_btn.on_click = _enter_edit
-    cancel_btn.on_click = _cancel_edit
-    save_btn.on_click = _save_edit
+    view_actions = [
+        ft.Container(
+            padding=ft.Padding.only(right=8),
+            content=ft.Row(
+                spacing=0,
+                controls=[
+                    ft.IconButton(
+                        icon=ft.Icons.EDIT_OUTLINED, icon_color=c["on_surface"], icon_size=20,
+                        tooltip="Editar", on_click=_enter_edit,
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=20,
+                        tooltip="Eliminar", on_click=_confirm_delete,
+                    ),
+                ],
+            ),
+        ),
+    ]
+    edit_actions = [
+        ft.Container(
+            padding=ft.Padding.only(right=8),
+            content=ft.Row(
+                spacing=0,
+                controls=[
+                    ft.IconButton(
+                        icon=ft.Icons.CHECK_CIRCLE, icon_color=c["primary"], icon_size=22,
+                        tooltip="Guardar cambios", on_click=_save_edit,
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.CANCEL, icon_color=c["on_surface_variant"], icon_size=22,
+                        tooltip="Descartar cambios", on_click=_cancel_edit,
+                    ),
+                ],
+            ),
+        ),
+    ]
+
+    set_header_actions(view_actions)
 
     return ft.SafeArea(
         expand=True,
@@ -342,17 +332,11 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete):
             expand=True,
             padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
             content=ft.Column(
-                expand=True,
                 spacing=16,
+                scroll=ft.ScrollMode.AUTO,
                 controls=[
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[date_lbl, toolbar],
-                    ),
                     content_box,
                     err_txt,
-                    edit_actions,
                 ],
             ),
         ),
