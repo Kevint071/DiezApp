@@ -2,6 +2,7 @@ import flet as ft
 from datetime import datetime
 
 from utils.notes import load_notes, delete_note, update_note
+from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 PREVIEW_LIMIT = 100
 
@@ -439,24 +440,34 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
 
     set_header_actions(view_actions)
 
+    divider = build_scroll_divider()
     return ft.SafeArea(
         expand=True,
         content=ft.Container(
             expand=True,
             padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
+                expand=True,
                 spacing=0,
-                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    ft.Container(
-                        margin=ft.Margin.symmetric(horizontal=24),
-                        content=ft.Column(
-                            spacing=16,
-                            controls=[
-                                note_column,
-                                err_txt,
-                            ],
-                        ),
+                    divider,
+                    ft.Column(
+                        expand=True,
+                        spacing=0,
+                        scroll=ft.Scrollbar(thickness=6, radius=4),
+                        on_scroll=make_scroll_divider_handler(divider, c),
+                        controls=[
+                            ft.Container(
+                                margin=ft.Margin.symmetric(horizontal=24),
+                                content=ft.Column(
+                                    spacing=16,
+                                    controls=[
+                                        note_column,
+                                        err_txt,
+                                    ],
+                                ),
+                            ),
+                        ],
                     ),
                 ],
             ),

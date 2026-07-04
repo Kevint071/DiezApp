@@ -15,20 +15,21 @@ from utils.theme import (
     ON_SURFACE_VARIANT_LIGHT,
     OUTLINE_LIGHT,
     OUTLINE_LIGHT_INPUT,
-    DIVIDER_LIGHT,
+    HEADER_DIVIDER_LIGHT,
     SURFACE_DARK,
     SURFACE_VARIANT_DARK,
     ON_SURFACE_DARK,
     ON_SURFACE_VARIANT_DARK,
     OUTLINE_DARK,
     OUTLINE_DARK_INPUT,
-    DIVIDER_DARK,
+    HEADER_DIVIDER_DARK,
     PRIMARY_DARK,
     HERO_BG_DARK,
     PRIMARY_LIGHT,
     FOCUS_LIGHT,
     FOCUS_DARK,
 )
+from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 # settings_view and storage are lazy-imported on first use to speed up startup
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
@@ -66,7 +67,7 @@ def _colors(page: ft.Page):
         on_surface=ON_SURFACE_LIGHT if light else ON_SURFACE_DARK,
         on_surface_variant=ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
         outline=OUTLINE_LIGHT if light else OUTLINE_DARK,
-        divider=DIVIDER_LIGHT if light else DIVIDER_DARK,
+        divider=HEADER_DIVIDER_LIGHT if light else HEADER_DIVIDER_DARK,
         card_bg=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
         hero_bg=PRIMARY_CONTAINER if light else HERO_BG_DARK,
         hero_fg=ON_PRIMARY_CONTAINER if light else "#A7F3D0",
@@ -281,6 +282,8 @@ def main(page: ft.Page):
     )
 
     def _build_calc_content():
+        c = _colors(page)
+        divider = build_scroll_divider()
         return ft.SafeArea(
             expand=True,
             content=ft.Container(
@@ -289,21 +292,29 @@ def main(page: ft.Page):
                 content=ft.Column(
                     expand=True,
                     spacing=0,
-                    scroll=ft.Scrollbar(thickness=6, radius=4),
                     controls=[
-                        ft.Container(
+                        divider,
+                        ft.Column(
                             expand=True,
-                            margin=ft.Margin.symmetric(horizontal=24),
-                            content=ft.Column(
-                                expand=True,
-                                spacing=20,
-                                controls=[
-                                    input_amount,
-                                    calc_btn,
-                                    results_container,
-                                    save_btn,
-                                ],
-                            ),
+                            spacing=0,
+                            scroll=ft.Scrollbar(thickness=6, radius=4),
+                            on_scroll=make_scroll_divider_handler(divider, c),
+                            controls=[
+                                ft.Container(
+                                    expand=True,
+                                    margin=ft.Margin.symmetric(horizontal=24),
+                                    content=ft.Column(
+                                        expand=True,
+                                        spacing=20,
+                                        controls=[
+                                            input_amount,
+                                            calc_btn,
+                                            results_container,
+                                            save_btn,
+                                        ],
+                                    ),
+                                ),
+                            ],
                         ),
                     ],
                 ),
@@ -344,6 +355,7 @@ def main(page: ft.Page):
 
     def _build_main_content():
         c = _colors(page)
+        divider = build_scroll_divider()
         return ft.SafeArea(
             expand=True,
             content=ft.Container(
@@ -351,31 +363,39 @@ def main(page: ft.Page):
                 padding=ft.Padding.only(left=0, right=0, top=4, bottom=24),
                 content=ft.Column(
                     expand=True,
-                    spacing=16,
-                    scroll=ft.Scrollbar(thickness=6, radius=4),
+                    spacing=0,
                     controls=[
-                        ft.Container(
+                        divider,
+                        ft.Column(
                             expand=True,
-                            margin=ft.Margin.symmetric(horizontal=24),
-                            content=ft.Column(
-                                expand=True,
-                                spacing=16,
-                                controls=[
-                                    ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
-                                    _build_home_card(
-                                        ft.Icons.PIE_CHART_OUTLINE_ROUNDED,
-                                        "Distribución porcentual",
-                                        "Calcula envío, fondo local y sostenimiento",
-                                        lambda e: _navigate_to_calc(),
+                            spacing=16,
+                            scroll=ft.Scrollbar(thickness=6, radius=4),
+                            on_scroll=make_scroll_divider_handler(divider, c),
+                            controls=[
+                                ft.Container(
+                                    expand=True,
+                                    margin=ft.Margin.symmetric(horizontal=24),
+                                    content=ft.Column(
+                                        expand=True,
+                                        spacing=16,
+                                        controls=[
+                                            ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+                                            _build_home_card(
+                                                ft.Icons.PIE_CHART_OUTLINE_ROUNDED,
+                                                "Distribución porcentual",
+                                                "Calcula envío, fondo local y sostenimiento",
+                                                lambda e: _navigate_to_calc(),
+                                            ),
+                                            _build_home_card(
+                                                ft.Icons.CALENDAR_MONTH_ROUNDED,
+                                                "Resumen mensual",
+                                                "Sumatoria de envíos (21%) por mes",
+                                                lambda e: _navigate_to_monthly(),
+                                            ),
+                                        ],
                                     ),
-                                    _build_home_card(
-                                        ft.Icons.CALENDAR_MONTH_ROUNDED,
-                                        "Resumen mensual",
-                                        "Sumatoria de envíos (21%) por mes",
-                                        lambda e: _navigate_to_monthly(),
-                                    ),
-                                ],
-                            ),
+                                ),
+                            ],
                         ),
                     ],
                 ),

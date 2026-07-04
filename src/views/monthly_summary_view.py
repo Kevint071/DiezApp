@@ -2,6 +2,7 @@ import flet as ft
 from datetime import datetime
 
 from utils.storage import load_calculations
+from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 
 MONTHS = [
@@ -106,6 +107,7 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
         )
     ]
 
+    divider = build_scroll_divider()
     return ft.SafeArea(
         expand=True,
         content=ft.Container(
@@ -114,23 +116,31 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
             content=ft.Column(
                 expand=True,
                 spacing=0,
-                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    ft.Container(
+                    divider,
+                    ft.Column(
                         expand=True,
-                        margin=ft.Margin.symmetric(horizontal=24),
-                        content=ft.Column(
-                            spacing=0,
-                            controls=[
-                                ft.Text(
-                                    f"{MONTHS[month_idx]} {year}",
-                                    size=15,
-                                    weight=ft.FontWeight.W_600,
-                                    color=c["on_surface"],
+                        spacing=0,
+                        scroll=ft.Scrollbar(thickness=6, radius=4),
+                        on_scroll=make_scroll_divider_handler(divider, c),
+                        controls=[
+                            ft.Container(
+                                expand=True,
+                                margin=ft.Margin.symmetric(horizontal=24),
+                                content=ft.Column(
+                                    spacing=0,
+                                    controls=[
+                                        ft.Text(
+                                            f"{MONTHS[month_idx]} {year}",
+                                            size=15,
+                                            weight=ft.FontWeight.W_600,
+                                            color=c["on_surface"],
+                                        ),
+                                        ft.Container(height=16),
+                                    ] + content_controls,
                                 ),
-                                ft.Container(height=16),
-                            ] + content_controls,
-                        ),
+                            ),
+                        ],
                     ),
                 ],
             ),
@@ -315,6 +325,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
         ],
     )
 
+    divider = build_scroll_divider()
     return ft.SafeArea(
         expand=True,
         content=ft.Container(
@@ -323,27 +334,35 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
             content=ft.Column(
                 expand=True,
                 spacing=0,
-                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    ft.Container(
+                    divider,
+                    ft.Column(
                         expand=True,
-                        margin=ft.Margin.symmetric(horizontal=24),
-                        content=ft.Column(
-                            expand=True,
-                            spacing=20,
-                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                            controls=[
-                                year_selector,
-                                ft.Text(
-                                    "Selecciona un mes",
-                                    size=13,
-                                    weight=ft.FontWeight.W_400,
-                                    color=c["on_surface_variant"],
+                        spacing=0,
+                        scroll=ft.Scrollbar(thickness=6, radius=4),
+                        on_scroll=make_scroll_divider_handler(divider, c),
+                        controls=[
+                            ft.Container(
+                                expand=True,
+                                margin=ft.Margin.symmetric(horizontal=24),
+                                content=ft.Column(
+                                    expand=True,
+                                    spacing=20,
+                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                    controls=[
+                                        year_selector,
+                                        ft.Text(
+                                            "Selecciona un mes",
+                                            size=13,
+                                            weight=ft.FontWeight.W_400,
+                                            color=c["on_surface_variant"],
+                                        ),
+                                        months_grid,
+                                        result_container,
+                                    ],
                                 ),
-                                months_grid,
-                                result_container,
-                            ],
-                        ),
+                            ),
+                        ],
                     ),
                 ],
             ),

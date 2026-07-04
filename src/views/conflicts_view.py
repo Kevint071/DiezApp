@@ -5,6 +5,7 @@ from utils.conflicts import load_conflicts, save_conflicts, clear_conflicts
 from utils.storage import load_calculations, save_calculations
 from utils.notes import load_notes, save_notes
 from utils.theme import ON_SURFACE_LIGHT, ON_SURFACE_DARK
+from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 # Per-kind configuration: how to load/save items, their unique id field, and
 # which fields to render in the comparison cards. This lets the same
@@ -239,6 +240,7 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
 
     _refresh_cards()
 
+    divider = build_scroll_divider()
     return ft.SafeArea(
         expand=True,
         content=ft.Container(
@@ -247,9 +249,17 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
             content=ft.Column(
                 expand=True,
                 spacing=0,
-                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    ft.Container(expand=True, margin=ft.Margin.symmetric(horizontal=24), content=cards_column),
+                    divider,
+                    ft.Column(
+                        expand=True,
+                        spacing=0,
+                        scroll=ft.Scrollbar(thickness=6, radius=4),
+                        on_scroll=make_scroll_divider_handler(divider, c),
+                        controls=[
+                            ft.Container(expand=True, margin=ft.Margin.symmetric(horizontal=24), content=cards_column),
+                        ],
+                    ),
                 ],
             ),
         ),
@@ -434,6 +444,7 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
             width=float("inf"),
         )
 
+        divider = build_scroll_divider()
         return ft.SafeArea(
             expand=True,
             content=ft.Container(
@@ -442,24 +453,32 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
                 content=ft.Column(
                     expand=True,
                     spacing=0,
-                    scroll=ft.Scrollbar(thickness=6, radius=4),
                     controls=[
-                        ft.Container(
+                        divider,
+                        ft.Column(
                             expand=True,
-                            margin=ft.Margin.symmetric(horizontal=24),
-                            content=ft.Column(
-                                expand=True,
-                                spacing=16,
-                                controls=[
-                                    header,
-                                    ft.Column(spacing=12, controls=rows),
-                                    ft.Container(height=4),
-                                    progress_text,
-                                    ft.Container(expand=True),
-                                    resolve_btn,
-                                    discard_btn,
-                                ],
-                            ),
+                            spacing=0,
+                            scroll=ft.Scrollbar(thickness=6, radius=4),
+                            on_scroll=make_scroll_divider_handler(divider, c),
+                            controls=[
+                                ft.Container(
+                                    expand=True,
+                                    margin=ft.Margin.symmetric(horizontal=24),
+                                    content=ft.Column(
+                                        expand=True,
+                                        spacing=16,
+                                        controls=[
+                                            header,
+                                            ft.Column(spacing=12, controls=rows),
+                                            ft.Container(height=4),
+                                            progress_text,
+                                            ft.Container(expand=True),
+                                            resolve_btn,
+                                            discard_btn,
+                                        ],
+                                    ),
+                                ),
+                            ],
                         ),
                     ],
                 ),
