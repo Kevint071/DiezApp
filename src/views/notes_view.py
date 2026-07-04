@@ -278,6 +278,8 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         value=original["title"],
         hint_text="Título",
         width=float("inf"),
+        multiline=True,
+        min_lines=1,
         border=ft.InputBorder.NONE,
         content_padding=ft.Padding.only(bottom=8),
         dense=True,
