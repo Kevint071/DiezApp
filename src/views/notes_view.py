@@ -26,7 +26,7 @@ def _truncate(text: str) -> str:
     return truncated.rstrip() + "…"
 
 
-def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
+def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_header_actions=None):
     c = colors_fn(page)
     notes = load_notes()
 
@@ -36,10 +36,9 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
         on_click=lambda e: on_add(),
         style=ft.ButtonStyle(
             shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+            padding=ft.Padding.symmetric(vertical=12, horizontal=16),
+            text_style=ft.TextStyle(size=13, weight=ft.FontWeight.W_600),
         ),
-        width=float("inf"),
     )
 
     def _build_item(note: dict):
@@ -92,6 +91,17 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
             controls=[_build_item(n) for n in notes],
         )
 
+    if set_header_actions is not None:
+        set_header_actions([
+            ft.Container(
+                padding=ft.Padding.only(right=24),
+                content=ft.Container(
+                    width=140,
+                    content=add_btn,
+                ),
+            )
+        ])
+
     return ft.SafeArea(
         expand=True,
         content=ft.Container(
@@ -101,7 +111,6 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh):
                 expand=True,
                 spacing=16,
                 controls=[
-                    add_btn,
                     list_content,
                 ],
             ),

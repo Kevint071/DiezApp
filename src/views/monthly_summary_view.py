@@ -55,11 +55,11 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
                         ft.Row(
                             spacing=12,
                             controls=[
-                                ft.Text(date_str, size=12, color=c["on_surface_variant"], width=40),
-                                ft.Text(_format_currency(envio), size=13, weight=ft.FontWeight.W_500, color=c["on_surface"]),
+                                ft.Text(date_str, size=12, color=c["on_surface_variant"], no_wrap=True),
+                                ft.Text(_format_currency(envio), size=13, weight=ft.FontWeight.W_500, color=c["on_surface"], no_wrap=True),
                             ],
                         ),
-                        ft.Text(_format_currency(running_total), size=13, weight=ft.FontWeight.W_600, color=c["primary"]),
+                        ft.Text(_format_currency(running_total), size=13, weight=ft.FontWeight.W_600, color=c["primary"], no_wrap=True),
                     ],
                 ),
             )
@@ -74,11 +74,11 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
                 ft.Row(
                     spacing=12,
                     controls=[
-                        ft.Text("Fecha", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], width=40),
-                        ft.Text("21%", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"]),
+                        ft.Text("Fecha", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], no_wrap=True),
+                        ft.Text("21%", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], no_wrap=True),
                     ],
                 ),
-                ft.Text("Acumulado", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"]),
+                ft.Text("Acumulado", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], no_wrap=True),
             ],
         ),
     )

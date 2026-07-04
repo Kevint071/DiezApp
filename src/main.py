@@ -469,7 +469,7 @@ def main(page: ft.Page):
         from views.notes_view import build_notes_view
         _apply_appbar("Notas")
         page.controls.clear()
-        page.add(build_notes_view(page, _colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes))
+        page.add(build_notes_view(page, _colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes, _set_appbar_actions))
 
     def _navigate_to_new_note():
         from views.notes_view import build_new_note_view
