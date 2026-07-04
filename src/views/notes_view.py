@@ -266,63 +266,83 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
     )
 
 
-def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_header_actions):
+def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_header_actions, register_leave_guard=None):
     c = colors_fn(page)
 
-    state = {"editing": False}
+    state = {"dirty": False}
+    original = {"title": note.get("title", ""), "content": note.get("content", "")}
 
     _initial_lines = max(1, note.get("content", "").count("\n") + 1)
-    _has_title = bool((note.get("title") or "").strip())
 
-    title_text = ft.Text(
-        note.get("title", ""), size=20, weight=ft.FontWeight.W_500,
-        color=c["on_surface"], selectable=True,
-        width=float("inf"),
-        visible=_has_title,
-    )
     title_field = ft.TextField(
-        value=note.get("title", ""),
+        value=original["title"],
         hint_text="Título",
         width=float("inf"),
         border=ft.InputBorder.NONE,
-        content_padding=ft.Padding.only(bottom=4),
+        content_padding=ft.Padding.only(bottom=8),
         dense=True,
         text_size=20,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
         hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
         cursor_color=c["primary"],
-        visible=False,
     )
 
-    content_text = ft.Text(
-        note.get("content", ""), size=15, weight=ft.FontWeight.W_400,
-        color=c["on_surface"], selectable=True,
-        width=float("inf"),
-        style=ft.TextStyle(height=1.3),
-    )
     content_field = ft.TextField(
-        value=note.get("content", ""),
+        value=original["content"],
         hint_text="Nota",
         multiline=True,
         min_lines=max(6, _initial_lines),
         width=float("inf"),
         border=ft.InputBorder.NONE,
-        content_padding=ft.Padding.all(0),
+        content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
         text_size=15,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3),
         hint_style=ft.TextStyle(size=15, color=c["on_surface_variant"]),
         strut_style=ft.StrutStyle(size=15, height=1.3, weight=ft.FontWeight.W_400, force_strut_height=True),
         cursor_color=c["primary"],
-        visible=False,
     )
 
     note_column = ft.Column(
         width=float("inf"),
         spacing=16,
-        controls=[title_text, title_field, content_text, content_field],
+        controls=[title_field, content_field],
     )
 
     err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
+
+    def _build_actions():
+        controls = []
+        if state["dirty"]:
+            controls.append(
+                ft.IconButton(
+                    icon=ft.Icons.CHECK, icon_color="#4CAF50", icon_size=22,
+                    tooltip="Guardar cambios", on_click=_save_edit,
+                )
+            )
+        controls.append(
+            ft.IconButton(
+                icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=20,
+                tooltip="Eliminar", on_click=_confirm_delete,
+            )
+        )
+        return [
+            ft.Container(
+                padding=ft.Padding.only(right=8),
+                content=ft.Row(spacing=0, controls=controls),
+            ),
+        ]
+
+    def _is_dirty() -> bool:
+        return (title_field.value or "") != original["title"] or (content_field.value or "") != original["content"]
+
+    def _on_field_change(e):
+        dirty = _is_dirty()
+        if dirty != state["dirty"]:
+            state["dirty"] = dirty
+            set_header_actions(_build_actions())
+
+    title_field.on_change = _on_field_change
+    content_field.on_change = _on_field_change
 
     def _confirm_delete(e):
         from utils.conflicts import conflict_count
@@ -351,94 +371,76 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
             actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         ))
 
-    def _enter_edit(e):
-        from utils.conflicts import conflict_count
-        if conflict_count(kind="notes") > 0:
-            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de editar"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-        state["editing"] = True
-        title_field.value = note.get("title", "")
-        content_field.value = note.get("content", "")
-        title_text.visible = False
-        title_field.visible = True
-        content_text.visible = False
-        content_field.visible = True
-        err_txt.visible = False
-        set_header_actions(edit_actions)
-        page.update()
-
-    def _cancel_edit(e):
-        state["editing"] = False
-        title_text.visible = bool((note.get("title") or "").strip())
-        title_field.visible = False
-        content_text.visible = True
-        content_field.visible = False
-        err_txt.visible = False
-        set_header_actions(view_actions)
-        page.update()
-
-    def _save_edit(e):
+    def _perform_save() -> bool:
         title = (title_field.value or "").strip()
         text = (content_field.value or "").strip()
         if not text:
             err_txt.value = "La nota no puede estar vacía"
             err_txt.visible = True
             page.update()
-            return
+            return False
         update_note(note["id"], text, title)
         note["content"] = text
         note["title"] = title
-        content_text.value = text
-        title_text.value = title
-        state["editing"] = False
-        title_text.visible = bool(title)
-        title_field.visible = False
-        content_text.visible = True
-        content_field.visible = False
+        original["title"] = title
+        original["content"] = text
+        title_field.value = title
+        content_field.value = text
         err_txt.visible = False
-        set_header_actions(view_actions)
-        page.update()
+        state["dirty"] = False
+        set_header_actions(_build_actions())
+        return True
 
-    view_actions = [
-        ft.Container(
-            padding=ft.Padding.only(right=8),
-            content=ft.Row(
-                spacing=0,
-                controls=[
-                    ft.IconButton(
-                        icon=ft.Icons.EDIT_OUTLINED, icon_color="#4CAF50", icon_size=20,
-                        tooltip="Editar", on_click=_enter_edit,
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=20,
-                        tooltip="Eliminar", on_click=_confirm_delete,
-                    ),
-                ],
-            ),
-        ),
-    ]
-    edit_actions = [
-        ft.Container(
-            padding=ft.Padding.only(right=8),
-            content=ft.Row(
-                spacing=0,
-                controls=[
-                    ft.IconButton(
-                        icon=ft.Icons.CHECK, icon_color="#4CAF50", icon_size=22,
-                        tooltip="Guardar cambios", on_click=_save_edit,
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.CLOSE, icon_color="#D32F2F", icon_size=22,
-                        tooltip="Descartar cambios", on_click=_cancel_edit,
-                    ),
-                ],
-            ),
-        ),
-    ]
+    def _save_edit(e):
+        _perform_save()
 
-    set_header_actions(view_actions)
+    def _discard_changes():
+        title_field.value = original["title"]
+        content_field.value = original["content"]
+        err_txt.visible = False
+        state["dirty"] = False
+        set_header_actions(_build_actions())
+
+    def _leave_guard(proceed, cancel):
+        if not state["dirty"]:
+            proceed()
+            return
+
+        resolved = {"value": False}
+
+        def _handle_save(ev):
+            resolved["value"] = True
+            page.pop_dialog()
+            if _perform_save():
+                proceed()
+            else:
+                cancel()
+
+        def _handle_discard(ev):
+            resolved["value"] = True
+            page.pop_dialog()
+            _discard_changes()
+            proceed()
+
+        def _handle_dismiss(ev):
+            if not resolved["value"]:
+                cancel()
+
+        page.show_dialog(ft.AlertDialog(
+            title=ft.Text("Cambios sin guardar", size=17, weight=ft.FontWeight.W_600),
+            content=ft.Text("Tienes cambios sin guardar en esta nota. ¿Deseas guardarlos o descartarlos?"),
+            actions=[
+                ft.TextButton("Descartar", on_click=_handle_discard),
+                ft.FilledButton("Guardar", on_click=_handle_save),
+            ],
+            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            on_dismiss=_handle_dismiss,
+        ))
+
+    if register_leave_guard is not None:
+        register_leave_guard(_leave_guard)
+
+    set_header_actions(_build_actions())
 
     divider = build_scroll_divider()
     return ft.SafeArea(

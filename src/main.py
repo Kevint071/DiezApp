@@ -89,6 +89,19 @@ def main(page: ft.Page):
     page.theme = LIGHT_THEME
     page.dark_theme = DARK_THEME
 
+    # ── Leave guard (unsaved-changes protection) ─────────
+    leave_guard = {"check": None}
+
+    def _register_leave_guard(fn):
+        leave_guard["check"] = fn
+
+    def _guard_navigation(proceed, cancel=None):
+        guard = leave_guard["check"]
+        if guard:
+            guard(proceed, cancel or (lambda: None))
+        else:
+            proceed()
+
     # ── Result texts ─────────────────────────────────────
     txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
     txt_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
@@ -235,6 +248,7 @@ def main(page: ft.Page):
     save_btn.on_click = _save_calculation
 
     def _apply_appbar(title="Inicio", show_back=False, on_back=None, actions=None):
+        leave_guard["check"] = None
         light = _is_light(page)
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
         leading = None
@@ -244,7 +258,7 @@ def main(page: ft.Page):
                 height=40,
                 alignment=ft.Alignment(-1, 0),
                 padding=ft.Padding.only(left=14),
-                on_click=lambda e: on_back(),
+                on_click=lambda e, _on_back=on_back: _guard_navigation(_on_back),
                 content=ft.Image(
                     src="chevron-left.svg",
                     width=24,
@@ -439,20 +453,30 @@ def main(page: ft.Page):
 
     def _on_nav_change(e):
         idx = e.control.selected_index
-        nav_state["selected_index"] = idx
-        if idx == 0:
-            _navigate_to_main()
-        elif idx == 1:
-            _navigate_to_saved()
-        elif idx == 2:
-            nav_bar.selected_index = 2
-            _navigate_to_pdf_export()
-            return
-        elif idx == 3:
-            _navigate_to_notes()
-        elif idx == 4:
-            _navigate_to_settings()
-        nav_state["prev_index"] = idx
+        prev_idx = nav_state["selected_index"]
+
+        def _perform():
+            nav_state["selected_index"] = idx
+            if idx == 0:
+                _navigate_to_main()
+            elif idx == 1:
+                _navigate_to_saved()
+            elif idx == 2:
+                nav_bar.selected_index = 2
+                _navigate_to_pdf_export()
+                nav_state["prev_index"] = idx
+                return
+            elif idx == 3:
+                _navigate_to_notes()
+            elif idx == 4:
+                _navigate_to_settings()
+            nav_state["prev_index"] = idx
+
+        def _cancel():
+            nav_bar.selected_index = prev_idx
+            page.update()
+
+        _guard_navigation(_perform, _cancel)
 
     nav_bar = ft.NavigationBar(
         selected_index=0,
@@ -535,7 +559,7 @@ def main(page: ft.Page):
             return
         _apply_appbar("Nota", show_back=True, on_back=_navigate_to_notes)
         page.controls.clear()
-        page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes, _set_appbar_actions))
+        page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes, _set_appbar_actions, _register_leave_guard))
 
     def _navigate_to_calc():
         lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"
