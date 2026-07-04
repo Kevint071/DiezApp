@@ -241,12 +241,14 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
                 expand=True,
                 spacing=0,
-                scroll=ft.ScrollMode.AUTO,
-                controls=[cards_column],
+                scroll=ft.Scrollbar(thickness=6, radius=4),
+                controls=[
+                    ft.Container(expand=True, margin=ft.Margin.symmetric(horizontal=24), content=cards_column),
+                ],
             ),
         ),
     )
@@ -434,19 +436,29 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
             expand=True,
             content=ft.Container(
                 expand=True,
-                padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
                 content=ft.Column(
                     expand=True,
-                    spacing=16,
-                    scroll=ft.ScrollMode.AUTO,
+                    spacing=0,
+                    scroll=ft.Scrollbar(thickness=6, radius=4),
                     controls=[
-                        header,
-                        ft.Column(spacing=12, controls=rows),
-                        ft.Container(height=4),
-                        progress_text,
-                        ft.Container(expand=True),
-                        resolve_btn,
-                        discard_btn,
+                        ft.Container(
+                            expand=True,
+                            margin=ft.Margin.symmetric(horizontal=24),
+                            content=ft.Column(
+                                expand=True,
+                                spacing=16,
+                                controls=[
+                                    header,
+                                    ft.Column(spacing=12, controls=rows),
+                                    ft.Container(height=4),
+                                    progress_text,
+                                    ft.Container(expand=True),
+                                    resolve_btn,
+                                    discard_btn,
+                                ],
+                            ),
+                        ),
                     ],
                 ),
             ),

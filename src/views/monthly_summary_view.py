@@ -110,20 +110,29 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
                 expand=True,
                 spacing=0,
-                scroll=ft.ScrollMode.AUTO,
+                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    ft.Text(
-                        f"{MONTHS[month_idx]} {year}",
-                        size=15,
-                        weight=ft.FontWeight.W_600,
-                        color=c["on_surface"],
+                    ft.Container(
+                        expand=True,
+                        margin=ft.Margin.symmetric(horizontal=24),
+                        content=ft.Column(
+                            spacing=0,
+                            controls=[
+                                ft.Text(
+                                    f"{MONTHS[month_idx]} {year}",
+                                    size=15,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["on_surface"],
+                                ),
+                                ft.Container(height=16),
+                            ] + content_controls,
+                        ),
                     ),
-                    ft.Container(height=16),
-                ] + content_controls,
+                ],
             ),
         ),
     )
@@ -305,21 +314,35 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
     )
 
     return ft.SafeArea(
+        expand=True,
         content=ft.Container(
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            expand=True,
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
-                spacing=20,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                expand=True,
+                spacing=0,
+                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    year_selector,
-                    ft.Text(
-                        "Selecciona un mes",
-                        size=13,
-                        weight=ft.FontWeight.W_400,
-                        color=c["on_surface_variant"],
+                    ft.Container(
+                        expand=True,
+                        margin=ft.Margin.symmetric(horizontal=24),
+                        content=ft.Column(
+                            expand=True,
+                            spacing=20,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                year_selector,
+                                ft.Text(
+                                    "Selecciona un mes",
+                                    size=13,
+                                    weight=ft.FontWeight.W_400,
+                                    color=c["on_surface_variant"],
+                                ),
+                                months_grid,
+                                result_container,
+                            ],
+                        ),
                     ),
-                    months_grid,
-                    result_container,
                 ],
             ),
         ),

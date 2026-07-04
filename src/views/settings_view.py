@@ -634,33 +634,41 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(top=12, left=24, right=24, bottom=24),
+            padding=ft.Padding.only(top=12, left=0, right=0, bottom=24),
             content=ft.Column(
                 expand=True,
-                spacing=12,
-                scroll=ft.ScrollMode.AUTO,
+                spacing=0,
+                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    ft.Text(
-                        "General",
-                        size=13,
-                        weight=ft.FontWeight.W_600,
-                        color=c["on_surface_variant"],
+                    ft.Container(
+                        margin=ft.Margin.symmetric(horizontal=24),
+                        content=ft.Column(
+                            spacing=12,
+                            controls=[
+                                ft.Text(
+                                    "General",
+                                    size=13,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["on_surface_variant"],
+                                ),
+                                settings_group,
+                                ft.Text(
+                                    "Copia de seguridad",
+                                    size=13,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["on_surface_variant"],
+                                ),
+                                backup_group,
+                                ft.Text(
+                                    "Notas",
+                                    size=13,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["on_surface_variant"],
+                                ),
+                                notes_backup_group,
+                            ],
+                        ),
                     ),
-                    settings_group,
-                    ft.Text(
-                        "Copia de seguridad",
-                        size=13,
-                        weight=ft.FontWeight.W_600,
-                        color=c["on_surface_variant"],
-                    ),
-                    backup_group,
-                    ft.Text(
-                        "Notas",
-                        size=13,
-                        weight=ft.FontWeight.W_600,
-                        color=c["on_surface_variant"],
-                    ),
-                    notes_backup_group,
                 ],
             ),
         ),

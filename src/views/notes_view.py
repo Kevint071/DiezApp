@@ -73,7 +73,7 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
             bgcolor=c["card_bg"],
             border_radius=12,
             padding=ft.Padding.all(16),
-            margin=ft.Margin.only(bottom=12),
+            margin=ft.Margin.only(right=24, left=24, bottom=12),
             ink=True,
             on_click=lambda e, n=note: on_open(n["id"]),
             content=ft.Column(
@@ -110,7 +110,7 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         return ft.Column(
             expand=True,
             spacing=0,
-            scroll=ft.ScrollMode.AUTO,
+            scroll=ft.Scrollbar(thickness=6, radius=4),
             controls=[_build_item(n) for n in filtered],
         )
 
@@ -169,12 +169,12 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
                 expand=True,
                 spacing=16,
                 controls=[
-                    search_field,
+                    ft.Container(margin=ft.Margin.symmetric(horizontal=24), content=search_field),
                     results_container,
                 ],
             ),
@@ -188,7 +188,8 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
     title_field = ft.TextField(
         hint_text="Título",
         border=ft.InputBorder.NONE,
-        content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
+        content_padding=ft.Padding.only(bottom=8),
+        dense=True,
         text_size=20,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
         hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
@@ -286,8 +287,8 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         content_padding=ft.Padding.only(bottom=4),
         dense=True,
         text_size=20,
-        text_style=ft.TextStyle(weight=ft.FontWeight.W_700, color=c["on_surface"]),
-        hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_700, color=c["on_surface_variant"]),
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
+        hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
         cursor_color=c["primary"],
         visible=False,
     )
@@ -302,12 +303,10 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         value=note.get("content", ""),
         hint_text="Nota",
         multiline=True,
-        min_lines=_initial_lines,
-        max_lines=20,
+        min_lines=max(6, _initial_lines),
         width=float("inf"),
         border=ft.InputBorder.NONE,
         content_padding=ft.Padding.all(0),
-        dense=True,
         text_size=15,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3),
         hint_style=ft.TextStyle(size=15, color=c["on_surface_variant"]),
@@ -318,7 +317,7 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
 
     note_column = ft.Column(
         width=float("inf"),
-        spacing=6,
+        spacing=16,
         controls=[title_text, title_field, content_text, content_field],
     )
 
@@ -408,7 +407,7 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
                 spacing=0,
                 controls=[
                     ft.IconButton(
-                        icon=ft.Icons.EDIT_OUTLINED, icon_color=c["on_surface"], icon_size=20,
+                        icon=ft.Icons.EDIT_OUTLINED, icon_color="#4CAF50", icon_size=20,
                         tooltip="Editar", on_click=_enter_edit,
                     ),
                     ft.IconButton(
@@ -426,11 +425,11 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
                 spacing=0,
                 controls=[
                     ft.IconButton(
-                        icon=ft.Icons.CHECK_CIRCLE, icon_color=c["primary"], icon_size=22,
+                        icon=ft.Icons.CHECK, icon_color="#4CAF50", icon_size=22,
                         tooltip="Guardar cambios", on_click=_save_edit,
                     ),
                     ft.IconButton(
-                        icon=ft.Icons.CANCEL, icon_color=c["on_surface_variant"], icon_size=22,
+                        icon=ft.Icons.CLOSE, icon_color="#D32F2F", icon_size=22,
                         tooltip="Descartar cambios", on_click=_cancel_edit,
                     ),
                 ],
@@ -444,13 +443,21 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
-                spacing=16,
-                scroll=ft.ScrollMode.AUTO,
+                spacing=0,
+                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    note_column,
-                    err_txt,
+                    ft.Container(
+                        margin=ft.Margin.symmetric(horizontal=24),
+                        content=ft.Column(
+                            spacing=16,
+                            controls=[
+                                note_column,
+                                err_txt,
+                            ],
+                        ),
+                    ),
                 ],
             ),
         ),

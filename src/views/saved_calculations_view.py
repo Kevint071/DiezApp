@@ -262,56 +262,66 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
             content=ft.Column(
                 expand=True,
-                spacing=16,
-                scroll=ft.ScrollMode.AUTO,
+                spacing=0,
+                scroll=ft.Scrollbar(thickness=6, radius=4),
                 controls=[
-                    # ── Date range chips ────────────────────────
-                    ft.Row(
-                        spacing=12,
-                        controls=[
-                            _chip(ft.Icons.CALENDAR_TODAY_OUTLINED, "Desde", start_val),
-                            _chip(ft.Icons.EVENT_OUTLINED, "Hasta", end_val),
-                        ],
-                    ),
-                    # ── Calendar card ───────────────────────────
                     ft.Container(
-                        bgcolor=c["card_bg"],
-                        border_radius=16,
-                        padding=ft.Padding.only(top=12, bottom=16, left=4, right=4),
+                        expand=True,
+                        margin=ft.Margin.symmetric(horizontal=24),
                         content=ft.Column(
-                            spacing=8,
+                            expand=True,
+                            spacing=16,
                             controls=[
+                                # ── Date range chips ────────────────────────
                                 ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                    spacing=12,
                                     controls=[
-                                        ft.IconButton(
-                                            icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
-                                            icon_color=c["on_surface"],
-                                            icon_size=22,
-                                            on_click=_prev,
-                                            style=ft.ButtonStyle(padding=ft.Padding.all(8)),
-                                        ),
-                                        month_lbl,
-                                        ft.IconButton(
-                                            icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
-                                            icon_color=c["on_surface"],
-                                            icon_size=22,
-                                            on_click=_next,
-                                            style=ft.ButtonStyle(padding=ft.Padding.all(8)),
-                                        ),
+                                        _chip(ft.Icons.CALENDAR_TODAY_OUTLINED, "Desde", start_val),
+                                        _chip(ft.Icons.EVENT_OUTLINED, "Hasta", end_val),
                                     ],
                                 ),
-                                grid_box,
+                                # ── Calendar card ───────────────────────────
+                                ft.Container(
+                                    bgcolor=c["card_bg"],
+                                    border_radius=16,
+                                    padding=ft.Padding.only(top=12, bottom=16, left=4, right=4),
+                                    content=ft.Column(
+                                        spacing=8,
+                                        controls=[
+                                            ft.Row(
+                                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                                controls=[
+                                                    ft.IconButton(
+                                                        icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
+                                                        icon_color=c["on_surface"],
+                                                        icon_size=22,
+                                                        on_click=_prev,
+                                                        style=ft.ButtonStyle(padding=ft.Padding.all(8)),
+                                                    ),
+                                                    month_lbl,
+                                                    ft.IconButton(
+                                                        icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
+                                                        icon_color=c["on_surface"],
+                                                        icon_size=22,
+                                                        on_click=_next,
+                                                        style=ft.ButtonStyle(padding=ft.Padding.all(8)),
+                                                    ),
+                                                ],
+                                            ),
+                                            grid_box,
+                                        ],
+                                    ),
+                                ),
+                                err_txt,
+                                ft.Container(expand=True),
+                                export_btn,
                             ],
                         ),
                     ),
-                    err_txt,
-                    ft.Container(expand=True),
-                    export_btn,
                 ],
             ),
         ),
@@ -600,7 +610,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             border=ft.Border.all(1, c["outline"]),
             border_radius=12,
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-            margin=ft.Margin.only(bottom=12),
+            margin=ft.Margin.only(right=16, bottom=12),
             content=ft.Column(
                 spacing=0,
                 controls=[
@@ -639,7 +649,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
     items_column = ft.Column(
         expand=True,
         spacing=0,
-        scroll=ft.ScrollMode.AUTO,
+        scroll=ft.Scrollbar(thickness=6, radius=4),
         controls=[_build_item(calc) for calc in calculations],
     )
 
@@ -648,7 +658,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             expand=True,
             content=ft.Container(
                 expand=True,
-                padding=ft.Padding.only(top=4, left=16, right=16, bottom=24),
+                padding=ft.Padding.only(top=4, left=16, right=0, bottom=24),
                 content=items_column,
             ),
         )
@@ -680,11 +690,11 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
         content=ft.Column(
             expand=True,
             spacing=0,
-            scroll=ft.ScrollMode.AUTO,
+            scroll=ft.Scrollbar(thickness=6, radius=4),
             controls=[
                 ft.Container(
                     expand=True,
-                    padding=ft.Padding.only(top=4, left=16, right=16, bottom=0),
+                    padding=ft.Padding.only(top=4, left=16, right=0, bottom=0),
                     content=items_column,
                 ),
                 ft.Container(

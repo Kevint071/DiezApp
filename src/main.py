@@ -284,16 +284,26 @@ def main(page: ft.Page):
             expand=True,
             content=ft.Container(
                 expand=True,
-                padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
                 content=ft.Column(
                     expand=True,
-                    spacing=20,
-                    scroll=ft.ScrollMode.AUTO,
+                    spacing=0,
+                    scroll=ft.Scrollbar(thickness=6, radius=4),
                     controls=[
-                        input_amount,
-                        calc_btn,
-                        results_container,
-                        save_btn,
+                        ft.Container(
+                            expand=True,
+                            margin=ft.Margin.symmetric(horizontal=24),
+                            content=ft.Column(
+                                expand=True,
+                                spacing=20,
+                                controls=[
+                                    input_amount,
+                                    calc_btn,
+                                    results_container,
+                                    save_btn,
+                                ],
+                            ),
+                        ),
                     ],
                 ),
             ),
@@ -337,24 +347,34 @@ def main(page: ft.Page):
             expand=True,
             content=ft.Container(
                 expand=True,
-                padding=ft.Padding.only(left=24, right=24, top=4, bottom=24),
+                padding=ft.Padding.only(left=0, right=0, top=4, bottom=24),
                 content=ft.Column(
                     expand=True,
                     spacing=16,
-                    scroll=ft.ScrollMode.AUTO,
+                    scroll=ft.Scrollbar(thickness=6, radius=4),
                     controls=[
-                        ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
-                        _build_home_card(
-                            ft.Icons.PIE_CHART_OUTLINE_ROUNDED,
-                            "Distribución porcentual",
-                            "Calcula envío, fondo local y sostenimiento",
-                            lambda e: _navigate_to_calc(),
-                        ),
-                        _build_home_card(
-                            ft.Icons.CALENDAR_MONTH_ROUNDED,
-                            "Resumen mensual",
-                            "Sumatoria de envíos (21%) por mes",
-                            lambda e: _navigate_to_monthly(),
+                        ft.Container(
+                            expand=True,
+                            margin=ft.Margin.symmetric(horizontal=24),
+                            content=ft.Column(
+                                expand=True,
+                                spacing=16,
+                                controls=[
+                                    ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+                                    _build_home_card(
+                                        ft.Icons.PIE_CHART_OUTLINE_ROUNDED,
+                                        "Distribución porcentual",
+                                        "Calcula envío, fondo local y sostenimiento",
+                                        lambda e: _navigate_to_calc(),
+                                    ),
+                                    _build_home_card(
+                                        ft.Icons.CALENDAR_MONTH_ROUNDED,
+                                        "Resumen mensual",
+                                        "Sumatoria de envíos (21%) por mes",
+                                        lambda e: _navigate_to_monthly(),
+                                    ),
+                                ],
+                            ),
                         ),
                     ],
                 ),
