@@ -10,7 +10,7 @@ CALCULATIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath
 
 def load_calculations() -> list:
     try:
-        with open(CALCULATIONS_FILE, "r") as f:
+        with open(CALCULATIONS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data.get("calculations", [])
     except (FileNotFoundError, json.JSONDecodeError):
@@ -22,8 +22,9 @@ def save_calculations(calculations: list):
     dir_name = os.path.dirname(CALCULATIONS_FILE)
     fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
     try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
         os.replace(tmp_path, CALCULATIONS_FILE)
     except Exception:
         if os.path.exists(tmp_path):

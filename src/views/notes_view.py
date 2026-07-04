@@ -1,7 +1,6 @@
 import flet as ft
 from datetime import datetime
 
-from utils.theme import FOCUS_LIGHT, FOCUS_DARK, OUTLINE_LIGHT_INPUT
 from utils.notes import load_notes, delete_note, update_note
 
 PREVIEW_LIMIT = 100
@@ -36,12 +35,33 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         on_click=lambda e: on_add(),
         style=ft.ButtonStyle(
             shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=12, horizontal=16),
+            padding=ft.Padding.symmetric(vertical=8, horizontal=10),
             text_style=ft.TextStyle(size=13, weight=ft.FontWeight.W_600),
         ),
     )
 
     def _build_item(note: dict):
+        title = (note.get("title") or "").strip()
+        content_controls = [
+            ft.Text(
+                _format_date(note.get("created_at", "")),
+                size=12, weight=ft.FontWeight.W_600, color=c["on_surface_variant"],
+            ),
+        ]
+        if title:
+            content_controls.append(
+                ft.Text(
+                    title, size=15, weight=ft.FontWeight.W_700, color=c["on_surface"],
+                    max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                )
+            )
+        content_controls.append(
+            ft.Text(
+                _truncate(note.get("content", "")),
+                size=14, weight=ft.FontWeight.W_400,
+                color=c["on_surface_variant"] if title else c["on_surface"],
+            )
+        )
         return ft.Container(
             width=float("inf"),
             bgcolor=c["card_bg"],
@@ -51,17 +71,8 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
             ink=True,
             on_click=lambda e, n=note: on_open(n["id"]),
             content=ft.Column(
-                spacing=8,
-                controls=[
-                    ft.Text(
-                        _format_date(note.get("created_at", "")),
-                        size=12, weight=ft.FontWeight.W_600, color=c["on_surface_variant"],
-                    ),
-                    ft.Text(
-                        _truncate(note.get("content", "")),
-                        size=14, weight=ft.FontWeight.W_400, color=c["on_surface"],
-                    ),
-                ],
+                spacing=6,
+                controls=content_controls,
             ),
         )
 
@@ -95,10 +106,7 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         set_header_actions([
             ft.Container(
                 padding=ft.Padding.only(right=24),
-                content=ft.Container(
-                    width=140,
-                    content=add_btn,
-                ),
+                content=add_btn,
             )
         ])
 
@@ -119,23 +127,31 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
 
 
 def build_new_note_view(page: ft.Page, colors_fn, on_save):
-    light = page.theme_mode == ft.ThemeMode.LIGHT
     c = colors_fn(page)
-    focus_color = FOCUS_LIGHT if light else FOCUS_DARK
-    input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
+
+    title_field = ft.TextField(
+        hint_text="Título",
+        border=ft.InputBorder.NONE,
+        content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
+        text_size=20,
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
+        hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+        cursor_color=c["primary"],
+        autofocus=True,
+    )
 
     content_field = ft.TextField(
-        hint_text="Escribe tu nota...",
+        hint_text="Nota",
         multiline=True,
         min_lines=10,
         max_lines=20,
         expand=True,
-        border_radius=12,
-        border_color=input_border,
-        focused_border_color=focus_color,
-        content_padding=ft.Padding.all(16),
+        border=ft.InputBorder.NONE,
+        content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
         text_size=14,
-        autofocus=True,
+        text_style=ft.TextStyle(color=c["on_surface"]),
+        hint_style=ft.TextStyle(size=14, color=c["on_surface_variant"]),
+        cursor_color=c["primary"],
     )
 
     err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
@@ -147,13 +163,14 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
             err_txt.visible = True
             page.update()
             return
+        title = (title_field.value or "").strip()
         text = (content_field.value or "").strip()
         if not text:
             err_txt.value = "Escribe algo antes de guardar"
             err_txt.visible = True
             page.update()
             return
-        on_save(text)
+        on_save(title, text)
 
     save_btn = ft.FilledButton(
         "Guardar nota",
@@ -175,7 +192,14 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
                 expand=True,
                 spacing=16,
                 controls=[
-                    content_field,
+                    ft.Column(
+                        expand=True,
+                        spacing=0,
+                        controls=[
+                            title_field,
+                            content_field,
+                        ],
+                    ),
                     err_txt,
                     save_btn,
                 ],
@@ -190,6 +214,27 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
     state = {"editing": False}
 
     _initial_lines = max(1, note.get("content", "").count("\n") + 1)
+    _has_title = bool((note.get("title") or "").strip())
+
+    title_text = ft.Text(
+        note.get("title", ""), size=20, weight=ft.FontWeight.W_500,
+        color=c["on_surface"], selectable=True,
+        width=float("inf"),
+        visible=_has_title,
+    )
+    title_field = ft.TextField(
+        value=note.get("title", ""),
+        hint_text="Título",
+        width=float("inf"),
+        border=ft.InputBorder.NONE,
+        content_padding=ft.Padding.only(bottom=4),
+        dense=True,
+        text_size=20,
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_700, color=c["on_surface"]),
+        hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_700, color=c["on_surface_variant"]),
+        cursor_color=c["primary"],
+        visible=False,
+    )
 
     content_text = ft.Text(
         note.get("content", ""), size=15, weight=ft.FontWeight.W_400,
@@ -199,6 +244,7 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
     )
     content_field = ft.TextField(
         value=note.get("content", ""),
+        hint_text="Nota",
         multiline=True,
         min_lines=_initial_lines,
         max_lines=20,
@@ -208,20 +254,16 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         dense=True,
         text_size=15,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3),
+        hint_style=ft.TextStyle(size=15, color=c["on_surface_variant"]),
         strut_style=ft.StrutStyle(size=15, height=1.3, weight=ft.FontWeight.W_400, force_strut_height=True),
         cursor_color=c["primary"],
         visible=False,
     )
 
-    content_box = ft.Container(
+    note_column = ft.Column(
         width=float("inf"),
-        bgcolor=ft.Colors.TRANSPARENT,
-        border=ft.Border.all(1, c["outline"]),
-        border_radius=16,
-        padding=ft.Padding.all(20),
-        content=ft.Column(
-            controls=[content_text, content_field],
-        ),
+        spacing=6,
+        controls=[title_text, title_field, content_text, content_field],
     )
 
     err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
@@ -261,37 +303,44 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
             page.update()
             return
         state["editing"] = True
+        title_field.value = note.get("title", "")
         content_field.value = note.get("content", "")
+        title_text.visible = False
+        title_field.visible = True
         content_text.visible = False
         content_field.visible = True
-        content_box.border = ft.Border.all(1.5, c["primary"])
         err_txt.visible = False
         set_header_actions(edit_actions)
         page.update()
 
     def _cancel_edit(e):
         state["editing"] = False
+        title_text.visible = bool((note.get("title") or "").strip())
+        title_field.visible = False
         content_text.visible = True
         content_field.visible = False
-        content_box.border = ft.Border.all(1, c["outline"])
         err_txt.visible = False
         set_header_actions(view_actions)
         page.update()
 
     def _save_edit(e):
+        title = (title_field.value or "").strip()
         text = (content_field.value or "").strip()
         if not text:
             err_txt.value = "La nota no puede estar vacía"
             err_txt.visible = True
             page.update()
             return
-        update_note(note["id"], text)
+        update_note(note["id"], text, title)
         note["content"] = text
+        note["title"] = title
         content_text.value = text
+        title_text.value = title
         state["editing"] = False
+        title_text.visible = bool(title)
+        title_field.visible = False
         content_text.visible = True
         content_field.visible = False
-        content_box.border = ft.Border.all(1, c["outline"])
         err_txt.visible = False
         set_header_actions(view_actions)
         page.update()
@@ -344,7 +393,7 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
                 spacing=16,
                 scroll=ft.ScrollMode.AUTO,
                 controls=[
-                    content_box,
+                    note_column,
                     err_txt,
                 ],
             ),

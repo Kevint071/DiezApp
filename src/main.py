@@ -341,6 +341,7 @@ def main(page: ft.Page):
                 content=ft.Column(
                     expand=True,
                     spacing=16,
+                    scroll=ft.ScrollMode.AUTO,
                     controls=[
                         ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
                         _build_home_card(
@@ -475,8 +476,8 @@ def main(page: ft.Page):
         from views.notes_view import build_new_note_view
         from utils.notes import add_note
 
-        def _on_save(content):
-            add_note(content)
+        def _on_save(title, content):
+            add_note(content, title)
             _navigate_to_notes()
 
         _apply_appbar("Nueva nota", show_back=True, on_back=_navigate_to_notes)
