@@ -671,11 +671,18 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             expand=True,
             content=ft.Container(
                 expand=True,
-                padding=ft.Padding.only(top=4, left=16, right=0, bottom=24),
+                padding=ft.Padding.only(top=4, bottom=24),
                 content=ft.Column(
                     expand=True,
                     spacing=0,
-                    controls=[divider, items_column],
+                    controls=[
+                        divider,
+                        ft.Container(
+                            expand=True,
+                            padding=ft.Padding.only(left=16),
+                            content=items_column,
+                        ),
+                    ],
                 ),
             ),
         )
