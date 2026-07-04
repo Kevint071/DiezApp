@@ -40,6 +40,12 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         ),
     )
 
+    def _matches_query(note: dict, query: str) -> bool:
+        q = query.strip().lower()
+        if not q:
+            return True
+        return q in (note.get("title") or "").lower() or q in (note.get("content") or "").lower()
+
     def _build_item(note: dict):
         title = (note.get("title") or "").strip()
         content_controls = [
@@ -76,31 +82,80 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
             ),
         )
 
-    if not notes:
-        list_content = ft.Container(
+    def _build_empty_state(icon, message: str):
+        return ft.Container(
             expand=True,
             alignment=ft.Alignment.TOP_CENTER,
             padding=ft.Padding.only(top=72),
             content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    ft.Icon(ft.Icons.STICKY_NOTE_2_OUTLINED, size=48, color=c["on_surface_variant"]),
+                    ft.Icon(icon, size=48, color=c["on_surface_variant"]),
                     ft.Container(height=12),
                     ft.Text(
-                        "No hay notas guardadas",
+                        message,
                         size=16, weight=ft.FontWeight.W_500, color=c["on_surface_variant"],
                         text_align=ft.TextAlign.CENTER,
                     ),
                 ],
             ),
         )
-    else:
-        list_content = ft.Column(
+
+    def _build_list_content(query: str):
+        if not notes:
+            return _build_empty_state(ft.Icons.STICKY_NOTE_2_OUTLINED, "No hay notas guardadas")
+        filtered = [n for n in notes if _matches_query(n, query)]
+        if not filtered:
+            return _build_empty_state(ft.Icons.SEARCH_OFF_ROUNDED, "No se encontraron notas")
+        return ft.Column(
             expand=True,
             spacing=0,
             scroll=ft.ScrollMode.AUTO,
-            controls=[_build_item(n) for n in notes],
+            controls=[_build_item(n) for n in filtered],
         )
+
+    results_container = ft.Container(expand=True, content=_build_list_content(""))
+
+    def _clear_search(e):
+        search_field.value = ""
+        clear_btn.visible = False
+        results_container.content = _build_list_content("")
+        page.update()
+
+    def _on_search_change(e):
+        query = search_field.value or ""
+        clear_btn.visible = bool(query)
+        results_container.content = _build_list_content(query)
+        page.update()
+
+    clear_btn = ft.IconButton(
+        icon=ft.Icons.CLOSE_ROUNDED,
+        icon_size=18,
+        icon_color=c["on_surface_variant"],
+        tooltip="Limpiar búsqueda",
+        visible=False,
+        style=ft.ButtonStyle(padding=ft.Padding.all(4)),
+        on_click=_clear_search,
+    )
+
+    search_field = ft.TextField(
+        hint_text="Buscar por título o contenido",
+        hint_style=ft.TextStyle(size=14, color=c["on_surface_variant"]),
+        text_style=ft.TextStyle(size=14, color=c["on_surface"]),
+        prefix_icon=ft.Icons.SEARCH_ROUNDED,
+        suffix=clear_btn,
+        width=float("inf"),
+        border_radius=12,
+        filled=True,
+        bgcolor=c["card_bg"],
+        border_color=c["card_bg"],
+        focused_border_color=c["input_focused"],
+        content_padding=ft.Padding.symmetric(vertical=10, horizontal=14),
+        dense=True,
+        cursor_color=c["primary"],
+        on_change=_on_search_change,
+        visible=bool(notes),
+    )
 
     if set_header_actions is not None:
         set_header_actions([
@@ -119,7 +174,8 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
                 expand=True,
                 spacing=16,
                 controls=[
-                    list_content,
+                    search_field,
+                    results_container,
                 ],
             ),
         ),
