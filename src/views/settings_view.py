@@ -638,6 +638,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             content=ft.Column(
                 expand=True,
                 spacing=12,
+                scroll=ft.ScrollMode.AUTO,
                 controls=[
                     ft.Text(
                         "General",

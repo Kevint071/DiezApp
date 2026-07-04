@@ -266,6 +266,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
             content=ft.Column(
                 expand=True,
                 spacing=16,
+                scroll=ft.ScrollMode.AUTO,
                 controls=[
                     # ── Date range chips ────────────────────────
                     ft.Row(
@@ -679,6 +680,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
         content=ft.Column(
             expand=True,
             spacing=0,
+            scroll=ft.ScrollMode.AUTO,
             controls=[
                 ft.Container(
                     expand=True,
