@@ -117,15 +117,19 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
 
     results_container = ft.Container(expand=True, content=_build_list_content(""))
 
+    def _set_clear_btn_active(active: bool):
+        clear_btn.opacity = 1 if active else 0
+        clear_btn.disabled = not active
+
     def _clear_search(e):
         search_field.value = ""
-        clear_btn.visible = False
+        _set_clear_btn_active(False)
         results_container.content = _build_list_content("")
         page.update()
 
     def _on_search_change(e):
         query = search_field.value or ""
-        clear_btn.visible = bool(query)
+        _set_clear_btn_active(bool(query))
         results_container.content = _build_list_content(query)
         page.update()
 
@@ -134,8 +138,10 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         icon_size=18,
         icon_color=c["on_surface_variant"],
         tooltip="Limpiar búsqueda",
-        visible=False,
+        opacity=0,
+        disabled=True,
         style=ft.ButtonStyle(padding=ft.Padding.all(4)),
+        size_constraints=ft.BoxConstraints(min_width=32, min_height=32, max_width=32, max_height=32),
         on_click=_clear_search,
     )
 
@@ -144,18 +150,30 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         hint_style=ft.TextStyle(size=14, color=c["on_surface_variant"]),
         text_style=ft.TextStyle(size=14, color=c["on_surface"]),
         prefix_icon=ft.Icons.SEARCH_ROUNDED,
-        suffix=clear_btn,
         width=float("inf"),
         border_radius=12,
         filled=True,
         bgcolor=c["card_bg"],
         border_color=c["card_bg"],
         focused_border_color=c["input_focused"],
-        content_padding=ft.Padding.symmetric(vertical=10, horizontal=14),
+        content_padding=ft.Padding.only(top=10, bottom=10, left=14, right=44),
         dense=True,
         cursor_color=c["primary"],
         on_change=_on_search_change,
         visible=bool(notes),
+    )
+
+    search_field_stack = ft.Stack(
+        controls=[
+            search_field,
+            ft.Container(
+                content=clear_btn,
+                alignment=ft.Alignment.CENTER,
+                right=4,
+                top=0,
+                bottom=0,
+            ),
+        ],
     )
 
     if set_header_actions is not None:
@@ -175,7 +193,7 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
                 expand=True,
                 spacing=16,
                 controls=[
-                    ft.Container(margin=ft.Margin.symmetric(horizontal=24), content=search_field),
+                    ft.Container(margin=ft.Margin.symmetric(horizontal=24), content=search_field_stack),
                     results_container,
                 ],
             ),
