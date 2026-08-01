@@ -60,7 +60,7 @@ def read_calculations(path: str) -> list:
             "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
             "sostenimiento, fund_percentage FROM calculations"
         ).fetchall()
-    except Exception as exc:  # noqa: BLE001 - surface any malformed file as ValueError
+    except Exception as exc:
         raise ValueError("Archivo de respaldo inválido") from exc
     return [dict(zip(CALC_COLUMNS, row)) for row in rows]
 
@@ -72,6 +72,6 @@ def read_notes(path: str) -> list:
         rows = conn.execute(
             "SELECT id, title, content, created_at FROM notes"
         ).fetchall()
-    except Exception as exc:  # noqa: BLE001 - surface any malformed file as ValueError
+    except Exception as exc:
         raise ValueError("Archivo de respaldo inválido") from exc
     return [dict(zip(NOTE_COLUMNS, row)) for row in rows]
