@@ -1,4 +1,4 @@
-"""Central local database module (single SQLite-compatible file via pyturso).
+"""Central local database module (single SQLite file via the stdlib ``sqlite3``).
 
 All local app data (calculations, notes, settings and pending import
 conflicts) lives in ONE local file: ``src/app.db``. Every other module must
@@ -9,17 +9,18 @@ The database starts empty on first launch. Legacy ``saved_calculations.json``,
 ``notes.json`` and ``settings.json`` files are intentionally NOT read, imported,
 renamed or deleted.
 
-Uses ``pyturso`` (import name ``turso``), a local SQLite-compatible engine.
-Everything is 100% local — there is no cloud sync layer.
+Uses the Python standard library ``sqlite3`` module — no external dependency.
+Everything is 100% local — there is no cloud sync layer. PRAGMAs are tuned
+for a local-only, single-process desktop/mobile app (WAL journaling,
+NORMAL synchronous durability, and a larger page cache).
 
 Only ONE connection to ``app.db`` ever exists for the life of the process
 (this module's singleton).
 """
 
 import os
+import sqlite3
 import threading
-
-import turso
 
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src/
 DB_PATH = os.path.join(_BASE_DIR, "app.db")
@@ -36,10 +37,20 @@ def get_connection():
     global _conn
     with _lock:
         if _conn is None:
-            conn = turso.connect(DB_PATH)
+            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            _apply_pragmas(conn)
             _init_schema(conn)
             _conn = conn
         return _conn
+
+
+def _apply_pragmas(conn):
+    """Tune SQLite for a local-only, single-process app."""
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA cache_size = -20000")  # ~20 MB page cache
+    conn.execute("PRAGMA temp_store = MEMORY")
+    conn.execute("PRAGMA foreign_keys = ON")
 
 
 def _init_schema(conn):
@@ -87,9 +98,7 @@ def run_migrations(conn):
     row = conn.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
     current = row[0] if row is not None else 0
 
-    if current < 1:
-        # v1 is the baseline schema created by _init_schema.
-        current = 1
+    current = max(current, 1)
 
     # Future migrations go here:
     #   if current < 2: ...; current = 2

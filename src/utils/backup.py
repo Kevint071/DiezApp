@@ -5,8 +5,7 @@ sharing or importing. They are SEPARATE from the app's single local database
 (`app.db`) and are never opened through ``utils.db``.
 """
 
-import turso
-
+import sqlite3
 
 CALC_COLUMNS = [
     "id",
@@ -23,7 +22,7 @@ NOTE_COLUMNS = ["id", "title", "content", "created_at"]
 
 
 def export_calculations(path: str, calculations: list):
-    conn = turso.connect(path)
+    conn = sqlite3.connect(path)
     conn.execute("DROP TABLE IF EXISTS calculations")
     conn.execute(
         "CREATE TABLE calculations ("
@@ -40,7 +39,7 @@ def export_calculations(path: str, calculations: list):
 
 
 def export_notes(path: str, notes: list):
-    conn = turso.connect(path)
+    conn = sqlite3.connect(path)
     conn.execute("DROP TABLE IF EXISTS notes")
     conn.execute(
         "CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, created_at TEXT)"
@@ -56,7 +55,7 @@ def export_notes(path: str, notes: list):
 def read_calculations(path: str) -> list:
     """Read calculations from a backup `.db`. Raises ValueError if invalid."""
     try:
-        conn = turso.connect(path)
+        conn = sqlite3.connect(path)
         rows = conn.execute(
             "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
             "sostenimiento, fund_percentage FROM calculations"
@@ -69,7 +68,7 @@ def read_calculations(path: str) -> list:
 def read_notes(path: str) -> list:
     """Read notes from a backup `.db`. Raises ValueError if invalid."""
     try:
-        conn = turso.connect(path)
+        conn = sqlite3.connect(path)
         rows = conn.execute(
             "SELECT id, title, content, created_at FROM notes"
         ).fetchall()
