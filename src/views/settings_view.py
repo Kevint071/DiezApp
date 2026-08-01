@@ -1,17 +1,17 @@
 import os
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 
 import flet as ft
 
-from utils.theme import (
-    FOCUS_LIGHT,
-    FOCUS_DARK,
-    OUTLINE_LIGHT_INPUT,
-    SURFACE_LIGHT,
-    SURFACE_DARK,
-)
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
+from utils.theme import (
+    FOCUS_DARK,
+    FOCUS_LIGHT,
+    OUTLINE_LIGHT_INPUT,
+    SURFACE_DARK,
+    SURFACE_LIGHT,
+)
 
 
 def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn):
@@ -178,39 +178,119 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         ),
     )
 
-    # ── Backup section ─────────────────────────────────────────────
-    async def _export_json_backup(e):
-        from utils.storage import load_calculations
-        from utils.backup import export_calculations
-        calculations = load_calculations()
-        if not calculations:
-            snack = ft.SnackBar(content=ft.Text("No hay cálculos guardados"), open=True)
-            page.overlay.append(snack)
+    # ── Backup section (export / import / conflicts, calcs + notes) ─
+    def _show_snack(msg: str, keep_open: bool = True):
+        snack = ft.SnackBar(content=ft.Text(msg), open=True)
+        page.overlay.append(snack)
+        if keep_open:
             page.update()
+
+    def _calcs_differ(a: dict, b: dict) -> bool:
+        keys = ["amount", "envio_21", "restante", "fondo_local", "sostenimiento", "fund_percentage"]
+        return any(a.get(k) != b.get(k) for k in keys)
+
+    def _notes_differ(a: dict, b: dict) -> bool:
+        return a.get("content") != b.get("content")
+
+    # ── Export dialog (notas / cálculos / ambas) ────────────────────
+    export_target_state = {"target": "both"}
+
+    export_target_group = ft.RadioGroup(
+        value="both",
+        content=ft.Column(
+            tight=True,
+            spacing=4,
+            controls=[
+                ft.Radio(value="notes", label="Notas", fill_color=c["primary"]),
+                ft.Radio(value="calcs", label="Cálculos", fill_color=c["primary"]),
+                ft.Radio(value="both", label="Ambas", fill_color=c["primary"]),
+            ],
+        ),
+        on_change=lambda e: export_target_state.update(target=e.control.value),
+    )
+
+    def _close_export_dialog(e):
+        page.pop_dialog()
+
+    async def _confirm_export(e):
+        page.pop_dialog()
+        from utils.backup import export_calculations, export_notes
+        from utils.notes import load_notes
+        from utils.storage import load_calculations
+
+        target = export_target_state["target"]
+        calcs = load_calculations() if target in ("calcs", "both") else []
+        notes = load_notes() if target in ("notes", "both") else []
+
+        if not calcs and not notes:
+            _show_snack("No hay datos guardados para exportar")
             return
-        now = datetime.now()
-        file_name = now.strftime("calculos_%Y_%m_%d_%H_%M_%S.db")
-        tmp_dir = tempfile.gettempdir()
-        output_path = os.path.join(tmp_dir, file_name)
-        export_calculations(output_path, calculations)
+
+        now = datetime.now(UTC).astimezone()
+        file_name = now.strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
+        output_path = os.path.join(tempfile.gettempdir(), file_name)
+        if target in ("calcs", "both"):
+            export_calculations(output_path, calcs)
+        if target in ("notes", "both"):
+            export_notes(output_path, notes)
+
         share = ft.Share()
         await share.share_files(
             [ft.ShareFile.from_path(output_path, name=file_name)],
             title="Exportar copia de seguridad",
         )
 
-    backup_cell = _settings_cell(
-        icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
-        title="Exportar cálculos",
-        subtitle="SQLite",
-        colors=c,
-        on_click=_export_json_backup,
+    export_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Exportar", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Text("¿Qué deseas exportar?", size=14, color=c["on_surface_variant"]),
+                export_target_group,
+            ],
+        ),
+        actions=[
+            ft.TextButton("Cancelar", on_click=_close_export_dialog),
+            ft.FilledTonalButton("Exportar", on_click=_confirm_export),
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
-    # ── Import ─────────────────────────────────────────────────────
+    def _open_export_dialog(e):
+        export_target_group.value = "both"
+        export_target_state["target"] = "both"
+        page.show_dialog(export_dialog)
+
+    backup_cell = _settings_cell(
+        icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
+        title="Exportar",
+        subtitle="SQLite",
+        colors=c,
+        on_click=_open_export_dialog,
+    )
+
+    # ── Import dialog (notas / cálculos / ambas + reemplazar / mezclar) ─
+    import_target_state = {"target": "both"}
     import_state = {"mode": "merge"}
 
-    radio_group = ft.RadioGroup(
+    import_target_group = ft.RadioGroup(
+        value="both",
+        content=ft.Column(
+            tight=True,
+            spacing=4,
+            controls=[
+                ft.Radio(value="notes", label="Notas", fill_color=c["primary"]),
+                ft.Radio(value="calcs", label="Cálculos", fill_color=c["primary"]),
+                ft.Radio(value="both", label="Ambas", fill_color=c["primary"]),
+            ],
+        ),
+        on_change=lambda e: import_target_state.update(target=e.control.value),
+    )
+
+    import_mode_group = ft.RadioGroup(
         value="merge",
         content=ft.Column(
             tight=True,
@@ -220,11 +300,8 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
                 ft.Radio(value="merge", label="Mezclar con existentes", fill_color=c["primary"]),
             ],
         ),
-        on_change=lambda e: _on_radio_change(e),
+        on_change=lambda e: import_state.update(mode=e.control.value),
     )
-
-    def _on_radio_change(e):
-        import_state["mode"] = e.control.value
 
     def _close_import_dialog(e):
         page.pop_dialog()
@@ -233,12 +310,71 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     page.services.append(file_picker)
     page.update()
 
-    def _calcs_differ(a: dict, b: dict) -> bool:
-        keys = ["amount", "envio_21", "restante", "fondo_local", "sostenimiento", "fund_percentage"]
-        return any(a.get(k) != b.get(k) for k in keys)
+    def _process_calc_import(imported_calcs: list, mode: str) -> dict:
+        from utils.conflicts import save_conflicts
+        from utils.storage import load_calculations, save_calculations
+
+        if mode == "replace":
+            save_calculations(imported_calcs)
+            return {"added": len(imported_calcs), "conflicts": 0}
+
+        existing = load_calculations()
+        existing_map = {calc["id"]: calc for calc in existing if "id" in calc}
+        conflicts = []
+        to_add = []
+        for imp_calc in imported_calcs:
+            imp_id = imp_calc.get("id")
+            if imp_id and imp_id in existing_map:
+                if _calcs_differ(existing_map[imp_id], imp_calc):
+                    conflicts.append({"existing": existing_map[imp_id], "imported": imp_calc})
+            else:
+                to_add.append(imp_calc)
+
+        if conflicts:
+            save_conflicts(conflicts, to_add, kind="calculations")
+        else:
+            save_calculations(existing + to_add)
+        return {"added": len(to_add), "conflicts": len(conflicts)}
+
+    def _process_notes_import(imported_notes: list, mode: str) -> dict:
+        from utils.conflicts import save_conflicts
+        from utils.notes import load_notes, save_notes
+
+        if mode == "replace":
+            save_notes(imported_notes)
+            return {"added": len(imported_notes), "conflicts": 0}
+
+        existing = load_notes()
+        existing_map = {note["id"]: note for note in existing if "id" in note}
+        conflicts = []
+        to_add = []
+        for imp_note in imported_notes:
+            imp_id = imp_note.get("id")
+            if imp_id and imp_id in existing_map:
+                if _notes_differ(existing_map[imp_id], imp_note):
+                    conflicts.append({"existing": existing_map[imp_id], "imported": imp_note})
+            else:
+                to_add.append(imp_note)
+
+        if conflicts:
+            save_conflicts(conflicts, to_add, kind="notes")
+        else:
+            save_notes(existing + to_add)
+        return {"added": len(to_add), "conflicts": len(conflicts)}
 
     async def _confirm_import(e):
         page.pop_dialog()
+        from utils.conflicts import conflict_count
+
+        target = import_target_state["target"]
+        mode = import_state["mode"]
+
+        if (target in ("calcs", "both") and conflict_count() > 0) or (
+            target in ("notes", "both") and conflict_count(kind="notes") > 0
+        ):
+            _show_snack("Resuelve los conflictos antes de importar")
+            return
+
         files = await file_picker.pick_files(
             dialog_title="Seleccionar archivo SQLite",
             allowed_extensions=["db"],
@@ -256,77 +392,73 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             source_path = tmp_written
         if not source_path:
             return
+
+        from utils.backup import read_calculations, read_notes
+
+        imported_calcs, imported_notes = [], []
         try:
-            from utils.backup import read_calculations
-            imported_calcs = read_calculations(source_path)
+            if target in ("calcs", "both"):
+                try:
+                    imported_calcs = read_calculations(source_path)
+                except ValueError:
+                    if target == "calcs":
+                        raise
+            if target in ("notes", "both"):
+                try:
+                    imported_notes = read_notes(source_path)
+                except ValueError:
+                    if target == "notes":
+                        raise
         except ValueError:
-            snack = ft.SnackBar(content=ft.Text("Archivo SQLite inválido"), open=True)
-            page.overlay.append(snack)
-            page.update()
+            _show_snack("Archivo SQLite inválido")
             return
         finally:
             if tmp_written and os.path.exists(tmp_written):
                 os.unlink(tmp_written)
 
-        if not imported_calcs:
-            snack = ft.SnackBar(content=ft.Text("El archivo no contiene cálculos"), open=True)
-            page.overlay.append(snack)
-            page.update()
+        if not imported_calcs and not imported_notes:
+            _show_snack("El archivo no contiene datos para importar")
             return
 
-        from utils.storage import load_calculations, save_calculations
-        from utils.conflicts import save_conflicts
-
-        if import_state["mode"] == "replace":
-            save_calculations(imported_calcs)
-            snack = ft.SnackBar(content=ft.Text(f"{len(imported_calcs)} cálculos importados (reemplazo)"), open=True)
-            page.overlay.append(snack)
-            page.update()
-        else:
-            # Merge mode - detect conflicts by id
-            existing = load_calculations()
-            existing_map = {calc["id"]: calc for calc in existing if "id" in calc}
-            conflicts = []
-            to_add = []
-            for imp_calc in imported_calcs:
-                imp_id = imp_calc.get("id")
-                if imp_id and imp_id in existing_map:
-                    ex_calc = existing_map[imp_id]
-                    if _calcs_differ(ex_calc, imp_calc):
-                        conflicts.append({"existing": ex_calc, "imported": imp_calc})
-                else:
-                    to_add.append(imp_calc)
-
-            if conflicts:
-                # Save conflicts to file for later resolution
-                save_conflicts(conflicts, to_add)
-                snack = ft.SnackBar(
-                    content=ft.Text(f"{len(conflicts)} conflictos detectados. Resuélvelos abajo."),
-                    open=True,
-                )
-                page.overlay.append(snack)
-                navigate_to_settings()
+        messages = []
+        has_conflicts = False
+        if imported_calcs:
+            result = _process_calc_import(imported_calcs, mode)
+            if result["conflicts"]:
+                has_conflicts = True
+                messages.append(f"{result['conflicts']} conflictos de cálculos")
+            elif mode == "replace":
+                messages.append(f"{len(imported_calcs)} cálculos importados")
             else:
-                # No conflicts, just add new ones
-                merged = existing + to_add
-                save_calculations(merged)
-                snack = ft.SnackBar(
-                    content=ft.Text(f"{len(to_add)} cálculos nuevos agregados"),
-                    open=True,
-                )
-                page.overlay.append(snack)
-                page.update()
+                messages.append(f"{result['added']} cálculos nuevos agregados")
+        if imported_notes:
+            result = _process_notes_import(imported_notes, mode)
+            if result["conflicts"]:
+                has_conflicts = True
+                messages.append(f"{result['conflicts']} conflictos de notas")
+            elif mode == "replace":
+                messages.append(f"{len(imported_notes)} notas importadas")
+            else:
+                messages.append(f"{result['added']} notas nuevas agregadas")
+
+        if has_conflicts:
+            messages.append("Resuélvelos abajo")
+        _show_snack(". ".join(messages), keep_open=False)
+        navigate_to_settings()
 
     import_dialog = ft.AlertDialog(
         modal=True,
-        title=ft.Text("Importar cálculos", size=17, weight=ft.FontWeight.W_600),
+        title=ft.Text("Importar", size=17, weight=ft.FontWeight.W_600),
         content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
         content=ft.Column(
             tight=True,
             spacing=8,
             controls=[
+                ft.Text("¿Qué deseas importar?", size=14, color=c["on_surface_variant"]),
+                import_target_group,
+                ft.Container(height=4),
                 ft.Text("¿Cómo deseas importar?", size=14, color=c["on_surface_variant"]),
-                radio_group,
+                import_mode_group,
             ],
         ),
         actions=[
@@ -337,249 +469,85 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     )
 
     def _open_import_dialog(e):
-        from utils.conflicts import conflict_count
-        if conflict_count() > 0:
-            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de importar"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-        radio_group.value = "merge"
+        import_target_group.value = "both"
+        import_target_state["target"] = "both"
+        import_mode_group.value = "merge"
         import_state["mode"] = "merge"
         page.show_dialog(import_dialog)
 
     import_cell = _settings_cell(
         icon=ft.Icons.FILE_UPLOAD_OUTLINED,
-        title="Importar cálculos",
+        title="Importar",
         subtitle="SQLite",
         colors=c,
         on_click=_open_import_dialog,
     )
 
-    # ── Conflict resolution ────────────────────────────────────────
+    # ── Conflict resolution (single entry point for calcs + notes) ──
     from utils.conflicts import conflict_count
-    n_conflicts = conflict_count()
+    n_calc_conflicts = conflict_count()
+    n_notes_conflicts = conflict_count(kind="notes")
+    n_total_conflicts = n_calc_conflicts + n_notes_conflicts
 
-    def _navigate_to_conflicts(e):
-        from views.conflicts_view import build_conflicts_view, apply_conflicts_appbar
-        apply_conflicts_appbar(page, navigate_to_settings)
+    def _go_to_conflicts(kind: str):
+        from views.conflicts_view import apply_conflicts_appbar, build_conflicts_view
+        apply_conflicts_appbar(page, navigate_to_settings, kind=kind)
         page.controls.clear()
-        page.add(build_conflicts_view(page, colors_fn, on_back=navigate_to_settings))
+        page.add(build_conflicts_view(page, colors_fn, on_back=navigate_to_settings, kind=kind))
+
+    def _select_conflict_kind(kind):
+        def _handler(e):
+            page.pop_dialog()
+            _go_to_conflicts(kind)
+        return _handler
+
+    def _conflict_kind_option(label, icon, subtitle, kind):
+        return ft.Container(
+            on_click=_select_conflict_kind(kind),
+            border_radius=12,
+            padding=ft.Padding.symmetric(vertical=10, horizontal=14),
+            content=ft.Row(
+                spacing=12,
+                controls=[
+                    ft.Icon(icon, size=20, color=c["on_surface_variant"]),
+                    ft.Column(
+                        spacing=0,
+                        controls=[
+                            ft.Text(label, size=15, weight=ft.FontWeight.W_500, color=c["on_surface"]),
+                            ft.Text(subtitle, size=12, color=c["on_surface_variant"]),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+    conflicts_chooser_dialog = ft.AlertDialog(
+        title=ft.Text("Resolver conflictos", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=20, right=20, top=12, bottom=8),
+        content=ft.Column(
+            tight=True,
+            spacing=6,
+            controls=[
+                _conflict_kind_option("Cálculos", ft.Icons.CALCULATE_OUTLINED, f"{n_calc_conflicts} pendientes", "calculations"),
+                _conflict_kind_option("Notas", ft.Icons.NOTE_OUTLINED, f"{n_notes_conflicts} pendientes", "notes"),
+            ],
+        ),
+    )
+
+    def _open_conflicts_entry(e):
+        if n_calc_conflicts > 0 and n_notes_conflicts > 0:
+            page.show_dialog(conflicts_chooser_dialog)
+        elif n_calc_conflicts > 0:
+            _go_to_conflicts("calculations")
+        elif n_notes_conflicts > 0:
+            _go_to_conflicts("notes")
 
     conflicts_cell = _settings_cell(
         icon=ft.Icons.SYNC_PROBLEM_OUTLINED,
         title="Resolver conflictos",
-        subtitle=f"{n_conflicts} pendientes" if n_conflicts > 0 else "Sin conflictos",
+        subtitle=f"{n_total_conflicts} pendientes" if n_total_conflicts > 0 else "Sin conflictos",
         colors=c,
-        on_click=_navigate_to_conflicts if n_conflicts > 0 else lambda e: None,
-    )
-
-    # ── Notes backup (export / import / conflicts) ─────────────────
-    async def _export_notes_backup(e):
-        from utils.notes import load_notes
-        from utils.backup import export_notes
-        notes = load_notes()
-        if not notes:
-            snack = ft.SnackBar(content=ft.Text("No hay notas guardadas"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-        now = datetime.now()
-        file_name = now.strftime("notas_%Y_%m_%d_%H_%M_%S.db")
-        tmp_dir = tempfile.gettempdir()
-        output_path = os.path.join(tmp_dir, file_name)
-        export_notes(output_path, notes)
-        share = ft.Share()
-        await share.share_files(
-            [ft.ShareFile.from_path(output_path, name=file_name)],
-            title="Exportar notas",
-        )
-
-    notes_backup_cell = _settings_cell(
-        icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
-        title="Exportar notas",
-        subtitle="SQLite",
-        colors=c,
-        on_click=_export_notes_backup,
-    )
-
-    notes_import_state = {"mode": "merge"}
-
-    notes_radio_group = ft.RadioGroup(
-        value="merge",
-        content=ft.Column(
-            tight=True,
-            spacing=4,
-            controls=[
-                ft.Radio(value="replace", label="Reemplazar todo", fill_color=c["primary"]),
-                ft.Radio(value="merge", label="Mezclar con existentes", fill_color=c["primary"]),
-            ],
-        ),
-        on_change=lambda e: notes_import_state.update(mode=e.control.value),
-    )
-
-    def _close_notes_import_dialog(e):
-        page.pop_dialog()
-
-    notes_file_picker = ft.FilePicker()
-    page.services.append(notes_file_picker)
-    page.update()
-
-    def _notes_differ(a: dict, b: dict) -> bool:
-        return a.get("content") != b.get("content")
-
-    async def _confirm_notes_import(e):
-        page.pop_dialog()
-        files = await notes_file_picker.pick_files(
-            dialog_title="Seleccionar archivo SQLite",
-            allowed_extensions=["db"],
-            allow_multiple=False,
-        )
-        if not files:
-            return
-        picked = files[0]
-        source_path = picked.path
-        tmp_written = None
-        if not source_path and picked.bytes:
-            fd, tmp_written = tempfile.mkstemp(suffix=".db")
-            with os.fdopen(fd, "wb") as f:
-                f.write(picked.bytes)
-            source_path = tmp_written
-        if not source_path:
-            return
-        try:
-            from utils.backup import read_notes
-            imported_notes = read_notes(source_path)
-        except ValueError:
-            snack = ft.SnackBar(content=ft.Text("Archivo SQLite inválido"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-        finally:
-            if tmp_written and os.path.exists(tmp_written):
-                os.unlink(tmp_written)
-
-        if not imported_notes:
-            snack = ft.SnackBar(content=ft.Text("El archivo no contiene notas"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-
-        from utils.notes import load_notes, save_notes
-        from utils.conflicts import save_conflicts
-
-        if notes_import_state["mode"] == "replace":
-            save_notes(imported_notes)
-            snack = ft.SnackBar(content=ft.Text(f"{len(imported_notes)} notas importadas (reemplazo)"), open=True)
-            page.overlay.append(snack)
-            page.update()
-        else:
-            # Merge mode - detect conflicts by id
-            existing = load_notes()
-            existing_map = {note["id"]: note for note in existing if "id" in note}
-            conflicts = []
-            to_add = []
-            for imp_note in imported_notes:
-                imp_id = imp_note.get("id")
-                if imp_id and imp_id in existing_map:
-                    ex_note = existing_map[imp_id]
-                    if _notes_differ(ex_note, imp_note):
-                        conflicts.append({"existing": ex_note, "imported": imp_note})
-                else:
-                    to_add.append(imp_note)
-
-            if conflicts:
-                save_conflicts(conflicts, to_add, kind="notes")
-                snack = ft.SnackBar(
-                    content=ft.Text(f"{len(conflicts)} conflictos detectados. Resuélvelos abajo."),
-                    open=True,
-                )
-                page.overlay.append(snack)
-                navigate_to_settings()
-            else:
-                merged = existing + to_add
-                save_notes(merged)
-                snack = ft.SnackBar(
-                    content=ft.Text(f"{len(to_add)} notas nuevas agregadas"),
-                    open=True,
-                )
-                page.overlay.append(snack)
-                page.update()
-
-    notes_import_dialog = ft.AlertDialog(
-        modal=True,
-        title=ft.Text("Importar notas", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
-        content=ft.Column(
-            tight=True,
-            spacing=8,
-            controls=[
-                ft.Text("¿Cómo deseas importar?", size=14, color=c["on_surface_variant"]),
-                notes_radio_group,
-            ],
-        ),
-        actions=[
-            ft.TextButton("Cancelar", on_click=_close_notes_import_dialog),
-            ft.FilledTonalButton("Aceptar", on_click=_confirm_notes_import),
-        ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-    )
-
-    def _open_notes_import_dialog(e):
-        from utils.conflicts import conflict_count
-        if conflict_count(kind="notes") > 0:
-            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de importar"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-        notes_radio_group.value = "merge"
-        notes_import_state["mode"] = "merge"
-        page.show_dialog(notes_import_dialog)
-
-    notes_import_cell = _settings_cell(
-        icon=ft.Icons.FILE_UPLOAD_OUTLINED,
-        title="Importar notas",
-        subtitle="SQLite",
-        colors=c,
-        on_click=_open_notes_import_dialog,
-    )
-
-    from utils.conflicts import conflict_count as _notes_conflict_count
-    n_notes_conflicts = _notes_conflict_count(kind="notes")
-
-    def _navigate_to_notes_conflicts(e):
-        from views.conflicts_view import build_conflicts_view, apply_conflicts_appbar
-        apply_conflicts_appbar(page, navigate_to_settings, kind="notes")
-        page.controls.clear()
-        page.add(build_conflicts_view(page, colors_fn, on_back=navigate_to_settings, kind="notes"))
-
-    notes_conflicts_cell = _settings_cell(
-        icon=ft.Icons.SYNC_PROBLEM_OUTLINED,
-        title="Resolver conflictos",
-        subtitle=f"{n_notes_conflicts} pendientes" if n_notes_conflicts > 0 else "Sin conflictos",
-        colors=c,
-        on_click=_navigate_to_notes_conflicts if n_notes_conflicts > 0 else lambda e: None,
-    )
-
-    notes_backup_group = ft.Container(
-        bgcolor=c["card_bg"],
-        border_radius=16,
-        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
-        content=ft.Column(
-            spacing=0,
-            controls=[
-                notes_backup_cell,
-                ft.Container(
-                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
-                    content=ft.Divider(height=1, color=c["divider"]),
-                ),
-                notes_import_cell,
-                ft.Container(
-                    padding=ft.Padding.symmetric(horizontal=18, vertical=0),
-                    content=ft.Divider(height=1, color=c["divider"]),
-                ),
-                notes_conflicts_cell,
-            ],
-        ),
+        on_click=_open_conflicts_entry if n_total_conflicts > 0 else lambda e: None,
     )
 
     backup_group = ft.Container(
@@ -640,13 +608,6 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
                                             color=c["on_surface_variant"],
                                         ),
                                         backup_group,
-                                        ft.Text(
-                                            "Notas",
-                                            size=13,
-                                            weight=ft.FontWeight.W_600,
-                                            color=c["on_surface_variant"],
-                                        ),
-                                        notes_backup_group,
                                     ],
                                 ),
                             ),
