@@ -1,6 +1,4 @@
 import flet as ft
-import json
-import os
 
 from utils.theme import (
     LIGHT_THEME,
@@ -32,28 +30,25 @@ from utils.theme import (
     FOCUS_DARK,
 )
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
+from utils.db import get_setting, set_setting
 # settings_view and storage are lazy-imported on first use to speed up startup
-
-SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 
 
 def load_settings() -> dict:
-    """Load theme_mode and fund_percentage from settings.json."""
+    """Load theme_mode and fund_percentage from the local database."""
     defaults = {"theme_mode": "light", "fund_percentage": 1}
+    theme_mode = get_setting("theme_mode", defaults["theme_mode"])
+    raw_pct = get_setting("fund_percentage", str(defaults["fund_percentage"]))
     try:
-        with open(SETTINGS_FILE, "r") as f:
-            data = json.load(f)
-            return {
-                "theme_mode": data.get("theme_mode", defaults["theme_mode"]),
-                "fund_percentage": data.get("fund_percentage", defaults["fund_percentage"]),
-            }
-    except (FileNotFoundError, json.JSONDecodeError):
-        return defaults
+        fund_percentage = int(raw_pct)
+    except (TypeError, ValueError):
+        fund_percentage = defaults["fund_percentage"]
+    return {"theme_mode": theme_mode, "fund_percentage": fund_percentage}
 
 
 def save_settings(theme_mode: str, fund_percentage: int):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump({"theme_mode": theme_mode, "fund_percentage": fund_percentage}, f)
+    set_setting("theme_mode", theme_mode)
+    set_setting("fund_percentage", str(fund_percentage))
 
 
 def _is_light(page: ft.Page) -> bool:

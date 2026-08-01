@@ -1,35 +1,51 @@
-import json
-import os
 import uuid
-import tempfile
 from datetime import datetime
 
+from utils.db import get_connection
 
-CALCULATIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "saved_calculations.json")
+
+_COLUMNS = [
+    "id",
+    "created_at",
+    "amount",
+    "envio_21",
+    "restante",
+    "fondo_local",
+    "sostenimiento",
+    "fund_percentage",
+]
 
 
 def load_calculations() -> list:
-    try:
-        with open(CALCULATIONS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data.get("calculations", [])
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
+        "sostenimiento, fund_percentage FROM calculations ORDER BY sort_index ASC"
+    ).fetchall()
+    return [dict(zip(_COLUMNS, row)) for row in rows]
 
 
 def save_calculations(calculations: list):
-    data = {"calculations": calculations}
-    dir_name = os.path.dirname(CALCULATIONS_FILE)
-    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        os.replace(tmp_path, CALCULATIONS_FILE)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
+    conn = get_connection()
+    conn.execute("DELETE FROM calculations")
+    for i, calc in enumerate(calculations):
+        conn.execute(
+            "INSERT INTO calculations (id, created_at, amount, envio_21, restante, "
+            "fondo_local, sostenimiento, fund_percentage, sort_index) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                calc.get("id"),
+                calc.get("created_at"),
+                calc.get("amount"),
+                calc.get("envio_21"),
+                calc.get("restante"),
+                calc.get("fondo_local"),
+                calc.get("sostenimiento"),
+                calc.get("fund_percentage"),
+                i,
+            ),
+        )
+    conn.commit()
 
 
 def add_calculation(amount: float, envio_21: float, restante: float, fondo_local: float, sostenimiento: float, fund_percentage: int) -> dict:

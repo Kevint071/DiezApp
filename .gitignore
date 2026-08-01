@@ -9,7 +9,12 @@ wheels/
 # Virtual environments
 .venv
 
+# Local environment config (broker URL, secrets)
+.env
 
 # Openspec
 **opsx**
 **openspec**
+
+# Db
+**app.db**

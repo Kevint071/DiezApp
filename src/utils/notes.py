@@ -1,35 +1,36 @@
-import json
-import os
 import uuid
-import tempfile
 from datetime import datetime
 
+from utils.db import get_connection
 
-NOTES_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "notes.json")
+
+_COLUMNS = ["id", "title", "content", "created_at"]
 
 
 def load_notes() -> list:
-    try:
-        with open(NOTES_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data.get("notes", [])
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, title, content, created_at FROM notes ORDER BY sort_index ASC"
+    ).fetchall()
+    return [dict(zip(_COLUMNS, row)) for row in rows]
 
 
 def save_notes(notes: list):
-    data = {"notes": notes}
-    dir_name = os.path.dirname(NOTES_FILE)
-    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        os.replace(tmp_path, NOTES_FILE)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
+    conn = get_connection()
+    conn.execute("DELETE FROM notes")
+    for i, note in enumerate(notes):
+        conn.execute(
+            "INSERT INTO notes (id, title, content, created_at, sort_index) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                note.get("id"),
+                note.get("title", ""),
+                note.get("content"),
+                note.get("created_at"),
+                i,
+            ),
+        )
+    conn.commit()
 
 
 def add_note(content: str, title: str = "") -> dict:

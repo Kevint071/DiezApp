@@ -1,4 +1,3 @@
-import json
 import os
 import tempfile
 from datetime import datetime
@@ -182,6 +181,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     # ── Backup section ─────────────────────────────────────────────
     async def _export_json_backup(e):
         from utils.storage import load_calculations
+        from utils.backup import export_calculations
         calculations = load_calculations()
         if not calculations:
             snack = ft.SnackBar(content=ft.Text("No hay cálculos guardados"), open=True)
@@ -189,12 +189,10 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             page.update()
             return
         now = datetime.now()
-        file_name = now.strftime("calculos_%Y_%m_%d_%H_%M_%S.json")
+        file_name = now.strftime("calculos_%Y_%m_%d_%H_%M_%S.db")
         tmp_dir = tempfile.gettempdir()
         output_path = os.path.join(tmp_dir, file_name)
-        data = {"calculations": calculations}
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        export_calculations(output_path, calculations)
         share = ft.Share()
         await share.share_files(
             [ft.ShareFile.from_path(output_path, name=file_name)],
@@ -204,7 +202,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     backup_cell = _settings_cell(
         icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
         title="Exportar cálculos",
-        subtitle="JSON",
+        subtitle="SQLite",
         colors=c,
         on_click=_export_json_backup,
     )
@@ -242,29 +240,33 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     async def _confirm_import(e):
         page.pop_dialog()
         files = await file_picker.pick_files(
-            dialog_title="Seleccionar archivo JSON",
-            allowed_extensions=["json"],
+            dialog_title="Seleccionar archivo SQLite",
+            allowed_extensions=["db"],
             allow_multiple=False,
         )
         if not files:
             return
         picked = files[0]
-        raw = None
-        if picked.bytes:
-            raw = picked.bytes.decode("utf-8")
-        elif picked.path:
-            with open(picked.path, "r", encoding="utf-8") as f:
-                raw = f.read()
-        if not raw:
+        source_path = picked.path
+        tmp_written = None
+        if not source_path and picked.bytes:
+            fd, tmp_written = tempfile.mkstemp(suffix=".db")
+            with os.fdopen(fd, "wb") as f:
+                f.write(picked.bytes)
+            source_path = tmp_written
+        if not source_path:
             return
         try:
-            imported = json.loads(raw)
-            imported_calcs = imported.get("calculations", [])
-        except (json.JSONDecodeError, AttributeError):
-            snack = ft.SnackBar(content=ft.Text("Archivo JSON inválido"), open=True)
+            from utils.backup import read_calculations
+            imported_calcs = read_calculations(source_path)
+        except ValueError:
+            snack = ft.SnackBar(content=ft.Text("Archivo SQLite inválido"), open=True)
             page.overlay.append(snack)
             page.update()
             return
+        finally:
+            if tmp_written and os.path.exists(tmp_written):
+                os.unlink(tmp_written)
 
         if not imported_calcs:
             snack = ft.SnackBar(content=ft.Text("El archivo no contiene cálculos"), open=True)
@@ -348,7 +350,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     import_cell = _settings_cell(
         icon=ft.Icons.FILE_UPLOAD_OUTLINED,
         title="Importar cálculos",
-        subtitle="JSON",
+        subtitle="SQLite",
         colors=c,
         on_click=_open_import_dialog,
     )
@@ -374,6 +376,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     # ── Notes backup (export / import / conflicts) ─────────────────
     async def _export_notes_backup(e):
         from utils.notes import load_notes
+        from utils.backup import export_notes
         notes = load_notes()
         if not notes:
             snack = ft.SnackBar(content=ft.Text("No hay notas guardadas"), open=True)
@@ -381,12 +384,10 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             page.update()
             return
         now = datetime.now()
-        file_name = now.strftime("notas_%Y_%m_%d_%H_%M_%S.json")
+        file_name = now.strftime("notas_%Y_%m_%d_%H_%M_%S.db")
         tmp_dir = tempfile.gettempdir()
         output_path = os.path.join(tmp_dir, file_name)
-        data = {"notes": notes}
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        export_notes(output_path, notes)
         share = ft.Share()
         await share.share_files(
             [ft.ShareFile.from_path(output_path, name=file_name)],
@@ -396,7 +397,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     notes_backup_cell = _settings_cell(
         icon=ft.Icons.FILE_DOWNLOAD_OUTLINED,
         title="Exportar notas",
-        subtitle="JSON",
+        subtitle="SQLite",
         colors=c,
         on_click=_export_notes_backup,
     )
@@ -429,29 +430,33 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     async def _confirm_notes_import(e):
         page.pop_dialog()
         files = await notes_file_picker.pick_files(
-            dialog_title="Seleccionar archivo JSON",
-            allowed_extensions=["json"],
+            dialog_title="Seleccionar archivo SQLite",
+            allowed_extensions=["db"],
             allow_multiple=False,
         )
         if not files:
             return
         picked = files[0]
-        raw = None
-        if picked.bytes:
-            raw = picked.bytes.decode("utf-8")
-        elif picked.path:
-            with open(picked.path, "r", encoding="utf-8") as f:
-                raw = f.read()
-        if not raw:
+        source_path = picked.path
+        tmp_written = None
+        if not source_path and picked.bytes:
+            fd, tmp_written = tempfile.mkstemp(suffix=".db")
+            with os.fdopen(fd, "wb") as f:
+                f.write(picked.bytes)
+            source_path = tmp_written
+        if not source_path:
             return
         try:
-            imported = json.loads(raw)
-            imported_notes = imported.get("notes", [])
-        except (json.JSONDecodeError, AttributeError):
-            snack = ft.SnackBar(content=ft.Text("Archivo JSON inválido"), open=True)
+            from utils.backup import read_notes
+            imported_notes = read_notes(source_path)
+        except ValueError:
+            snack = ft.SnackBar(content=ft.Text("Archivo SQLite inválido"), open=True)
             page.overlay.append(snack)
             page.update()
             return
+        finally:
+            if tmp_written and os.path.exists(tmp_written):
+                os.unlink(tmp_written)
 
         if not imported_notes:
             snack = ft.SnackBar(content=ft.Text("El archivo no contiene notas"), open=True)
@@ -533,7 +538,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     notes_import_cell = _settings_cell(
         icon=ft.Icons.FILE_UPLOAD_OUTLINED,
         title="Importar notas",
-        subtitle="JSON",
+        subtitle="SQLite",
         colors=c,
         on_click=_open_notes_import_dialog,
     )
@@ -654,7 +659,17 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
 
 
 def _settings_cell(icon, title, subtitle, colors, on_click):
-    """Helper to build a consistent settings row."""
+    """Helper to build a consistent settings row.
+
+    ``subtitle`` may be a plain string (wrapped in a new ``ft.Text``) or an
+    existing ``ft.Text`` control, so callers that need to update the label
+    later (e.g. live sync status) can keep a reference to it.
+    """
+    subtitle_control = (
+        subtitle
+        if isinstance(subtitle, ft.Text)
+        else ft.Text(subtitle, size=14, color=colors["on_surface_variant"])
+    )
     return ft.Container(
         on_click=on_click,
         padding=ft.Padding.symmetric(vertical=14, horizontal=18),
@@ -671,7 +686,7 @@ def _settings_cell(icon, title, subtitle, colors, on_click):
                 ft.Row(
                     spacing=4,
                     controls=[
-                        ft.Text(subtitle, size=14, color=colors["on_surface_variant"]),
+                        subtitle_control,
                         ft.Icon(ft.Icons.CHEVRON_RIGHT, color=colors["on_surface_variant"], size=20),
                     ],
                 ),
