@@ -1,44 +1,55 @@
+import sqlite3
+
 import flet as ft
 
+from utils.db import get_setting, set_setting
+from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.theme import (
-    LIGHT_THEME,
     DARK_THEME,
-    PRIMARY,
-    ON_PRIMARY,
-    PRIMARY_CONTAINER,
-    ON_PRIMARY_CONTAINER,
-    SURFACE_LIGHT,
-    SURFACE_VARIANT_LIGHT,
-    ON_SURFACE_LIGHT,
-    ON_SURFACE_VARIANT_LIGHT,
-    OUTLINE_LIGHT,
-    OUTLINE_LIGHT_INPUT,
+    DIVIDER_DARK,
     DIVIDER_LIGHT,
+    FOCUS_DARK,
+    FOCUS_LIGHT,
+    HEADER_DIVIDER_DARK,
     HEADER_DIVIDER_LIGHT,
-    SURFACE_DARK,
-    SURFACE_VARIANT_DARK,
+    HERO_BG_DARK,
+    LIGHT_THEME,
+    ON_PRIMARY,
+    ON_PRIMARY_CONTAINER,
     ON_SURFACE_DARK,
+    ON_SURFACE_LIGHT,
     ON_SURFACE_VARIANT_DARK,
+    ON_SURFACE_VARIANT_LIGHT,
     OUTLINE_DARK,
     OUTLINE_DARK_INPUT,
-    DIVIDER_DARK,
-    HEADER_DIVIDER_DARK,
+    OUTLINE_LIGHT,
+    OUTLINE_LIGHT_INPUT,
+    PRIMARY,
+    PRIMARY_CONTAINER,
     PRIMARY_DARK,
-    HERO_BG_DARK,
     PRIMARY_LIGHT,
-    FOCUS_LIGHT,
-    FOCUS_DARK,
+    SURFACE_DARK,
+    SURFACE_LIGHT,
+    SURFACE_VARIANT_DARK,
+    SURFACE_VARIANT_LIGHT,
 )
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.db import get_setting, set_setting
+
 # settings_view and storage are lazy-imported on first use to speed up startup
 
 
 def load_settings() -> dict:
-    """Load theme_mode and fund_percentage from the local database."""
+    """Load theme_mode and fund_percentage from the local database.
+
+    Falls back to defaults (instead of blocking/crashing startup) if the DB
+    is unreachable for any reason, so the first frame always renders.
+    """
     defaults = {"theme_mode": "light", "fund_percentage": 1}
-    theme_mode = get_setting("theme_mode", defaults["theme_mode"])
-    raw_pct = get_setting("fund_percentage", str(defaults["fund_percentage"]))
+    try:
+        theme_mode = get_setting("theme_mode", defaults["theme_mode"])
+        raw_pct = get_setting("fund_percentage", str(defaults["fund_percentage"]))
+    except sqlite3.Error as e:
+        print(f"[startup] failed to read settings from DB, using defaults: {e}")
+        return defaults
     try:
         fund_percentage = int(raw_pct)
     except (TypeError, ValueError):
@@ -58,23 +69,23 @@ def _is_light(page: ft.Page) -> bool:
 def _colors(page: ft.Page):
     """Return a dict of contextual colors for the current theme mode."""
     light = _is_light(page)
-    return dict(
-        surface=SURFACE_LIGHT if light else SURFACE_DARK,
-        surface_variant=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
-        on_surface=ON_SURFACE_LIGHT if light else ON_SURFACE_DARK,
-        on_surface_variant=ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
-        outline=OUTLINE_LIGHT if light else OUTLINE_DARK,
-        divider=DIVIDER_LIGHT if light else DIVIDER_DARK,
-        header_divider=HEADER_DIVIDER_LIGHT if light else HEADER_DIVIDER_DARK,
-        card_bg=SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
-        hero_bg=PRIMARY_CONTAINER if light else HERO_BG_DARK,
-        hero_fg=ON_PRIMARY_CONTAINER if light else "#A7F3D0",
-        input_border=OUTLINE_LIGHT_INPUT if light else OUTLINE_DARK_INPUT,
-        input_focused=FOCUS_LIGHT if light else FOCUS_DARK,
-        primary=PRIMARY if light else PRIMARY_DARK,
-        primary_light=PRIMARY_LIGHT if light else "#34D399",
-        on_primary=ON_PRIMARY if light else "#F1F5F9",
-    )
+    return {
+        "surface": SURFACE_LIGHT if light else SURFACE_DARK,
+        "surface_variant": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
+        "on_surface": ON_SURFACE_LIGHT if light else ON_SURFACE_DARK,
+        "on_surface_variant": ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
+        "outline": OUTLINE_LIGHT if light else OUTLINE_DARK,
+        "divider": DIVIDER_LIGHT if light else DIVIDER_DARK,
+        "header_divider": HEADER_DIVIDER_LIGHT if light else HEADER_DIVIDER_DARK,
+        "card_bg": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
+        "hero_bg": PRIMARY_CONTAINER if light else HERO_BG_DARK,
+        "hero_fg": ON_PRIMARY_CONTAINER if light else "#A7F3D0",
+        "input_border": OUTLINE_LIGHT_INPUT if light else OUTLINE_DARK_INPUT,
+        "input_focused": FOCUS_LIGHT if light else FOCUS_DARK,
+        "primary": PRIMARY if light else PRIMARY_DARK,
+        "primary_light": PRIMARY_LIGHT if light else "#34D399",
+        "on_primary": ON_PRIMARY if light else "#F1F5F9",
+    }
 
 
 def main(page: ft.Page):
@@ -536,8 +547,8 @@ def main(page: ft.Page):
         page.add(build_notes_view(page, _colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes, _set_appbar_actions))
 
     def _navigate_to_new_note():
-        from views.notes_view import build_new_note_view
         from utils.notes import add_note
+        from views.notes_view import build_new_note_view
 
         def _on_save(title, content):
             add_note(content, title)
@@ -548,8 +559,8 @@ def main(page: ft.Page):
         page.add(build_new_note_view(page, _colors, _on_save))
 
     def _navigate_to_note_detail(note_id):
-        from views.notes_view import build_note_detail_view
         from utils.notes import load_notes
+        from views.notes_view import build_note_detail_view
 
         note = next((n for n in load_notes() if n["id"] == note_id), None)
         if note is None:
