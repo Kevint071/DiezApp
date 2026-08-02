@@ -1,4 +1,7 @@
 import sqlite3
+import sys
+import threading
+import traceback
 
 import flet as ft
 
@@ -35,6 +38,42 @@ from utils.theme import (
 )
 
 # settings_view and storage are lazy-imported on first use to speed up startup
+
+_TAG = "[DIEZAPP]"
+
+
+def _log(msg: str):
+    """Print with flush so the message shows up promptly in `adb logcat`."""
+    print(f"{_TAG} {msg}", flush=True)
+
+
+def _log_exception(context: str, exc: BaseException):
+    _log(f"FATAL in {context}: {exc!r}\n{traceback.format_exc()}")
+
+
+def _install_global_exception_hooks():
+    """Make sure ANY uncaught exception (main thread or worker thread) is logged."""
+
+    def _excepthook(exc_type, exc_value, exc_tb):
+        _log(
+            "UNCAUGHT exception on main thread:\n"
+            + "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        )
+
+    def _thread_excepthook(args: threading.ExceptHookArgs):
+        _log(
+            f"UNCAUGHT exception on thread {args.thread.name!r}:\n"
+            + "".join(
+                traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)
+            )
+        )
+
+    sys.excepthook = _excepthook
+    threading.excepthook = _thread_excepthook
+
+
+_install_global_exception_hooks()
+_log("module loaded")
 
 
 def load_settings() -> dict:
@@ -89,17 +128,65 @@ def _colors(page: ft.Page):
 
 
 def main(page: ft.Page):
+    """Entry point Flet calls to build the page. Any exception here (or any
+    hang before the first `page.add`) would otherwise leave the app stuck on
+    the native splash screen with no visible feedback, so everything is
+    guarded and checkpoint-logged to `adb logcat` (grep for the `[DIEZAPP]` tag).
+    """
+    _log("main() called")
+    try:
+        _main(page)
+        _log("main() finished building the page successfully")
+    except Exception as e:
+        _log_exception("main()", e)
+        _show_fatal_error(page, e)
+
+
+def _show_fatal_error(page: ft.Page, exc: BaseException):
+    """Render the traceback directly on-screen as a last resort, in case adb
+    is not attached (this replaces the infinite splash with visible text)."""
+    try:
+        page.controls.clear()
+        page.add(
+            ft.Container(
+                padding=20,
+                content=ft.Column(
+                    scroll=ft.ScrollMode.AUTO,
+                    controls=[
+                        ft.Text(
+                            "Error al iniciar la app",
+                            size=18,
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.RED,
+                        ),
+                        ft.Text(str(exc), selectable=True, size=13),
+                        ft.Text(traceback.format_exc(), selectable=True, size=11),
+                    ],
+                ),
+            )
+        )
+        page.update()
+    except Exception as e:
+        _log_exception("_show_fatal_error()", e)
+
+
+def _main(page: ft.Page):
+    _log("_main() entered: setting page.title/padding")
     page.title = "DiezApp"
     page.padding = ft.Padding.all(0)
 
+    _log("loading settings from DB")
     settings = load_settings()
+    _log(f"settings loaded: {settings}")
     page.theme_mode = ft.ThemeMode.DARK if settings["theme_mode"] == "dark" else ft.ThemeMode.LIGHT
     state = {"fund_percentage": settings["fund_percentage"]}
     page.theme = LIGHT_THEME
     page.dark_theme = DARK_THEME
+    _log("theme applied to page")
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
+    _log("leave guard set up")
 
     def _register_leave_guard(fn):
         leave_guard["check"] = fn
@@ -121,6 +208,7 @@ def main(page: ft.Page):
     lbl_79 = ft.Text("Restante", size=13, weight=ft.FontWeight.W_500)
     lbl_1_of_79 = ft.Text(f"Fondo local ({state['fund_percentage']}%)", size=13, weight=ft.FontWeight.W_500)
     lbl_rest = ft.Text("Sostenimiento", size=13, weight=ft.FontWeight.W_500)
+    _log("result texts/labels created")
 
     # ── Results container (hidden until first calc) ──────
     results_container = ft.Container(visible=False)
@@ -136,8 +224,10 @@ def main(page: ft.Page):
         ),
         width=float("inf"),
     )
+    _log("results_container/save_btn created")
 
     def _build_results():
+        _log("_build_results() entered")
         c = _colors(page)
 
         def _result_tile(label_ctrl: ft.Text, value_ctrl: ft.Text):
@@ -169,6 +259,7 @@ def main(page: ft.Page):
                 _result_tile(lbl_rest, txt_rest),
             ],
         )
+        _log("_build_results() finished")
 
     def _format_input_number(e):
         """Format the input with dots as thousand separators while typing."""
@@ -201,11 +292,14 @@ def main(page: ft.Page):
         on_submit=lambda e: calculate(e),
         on_change=_format_input_number,
     )
+    _log("input_amount field created")
 
     def _apply_input_colors():
+        _log("_apply_input_colors() entered")
         c = _colors(page)
         input_amount.border_color = c["input_border"]
         input_amount.focused_border_color = c["input_focused"]
+        _log("_apply_input_colors() finished")
 
     def format_currency(value: float) -> str:
         return f"${value:,.0f}".replace(",", ".")
@@ -257,6 +351,7 @@ def main(page: ft.Page):
     save_btn.on_click = _save_calculation
 
     def _apply_appbar(title="Inicio", show_back=False, on_back=None, actions=None):
+        _log(f"_apply_appbar({title!r}) entered")
         leave_guard["check"] = None
         light = _is_light(page)
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
@@ -285,7 +380,9 @@ def main(page: ft.Page):
             elevation_on_scroll=0,
             actions=actions,
         )
+        _log("page.appbar assigned, updating nav_bar.bgcolor")
         nav_bar.bgcolor = _colors(page)["surface"]
+        _log("_apply_appbar() finished")
 
     def _set_appbar_actions(actions):
         if page.appbar:
@@ -305,6 +402,7 @@ def main(page: ft.Page):
     )
 
     def _build_calc_content():
+        _log("_build_calc_content() entered")
         c = _colors(page)
         divider = build_scroll_divider()
         return ft.SafeArea(
@@ -377,6 +475,7 @@ def main(page: ft.Page):
         )
 
     def _build_main_content():
+        _log("_build_main_content() entered")
         c = _colors(page)
         divider = build_scroll_divider()
         return ft.SafeArea(
@@ -426,15 +525,18 @@ def main(page: ft.Page):
         )
 
     main_content: ft.SafeArea | None = _build_main_content()
+    _log("initial main_content built")
 
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
 
     def _navigate_to_pdf_export():
+        _log("_navigate_to_pdf_export() entered")
         from views.saved_calculations_view import build_date_range_picker_view
         _apply_appbar("Exportar PDF")
         page.controls.clear()
         page.add(build_date_range_picker_view(page, _colors, on_show_filtered=_navigate_to_filtered_saved))
+        _log("_navigate_to_pdf_export() finished")
 
     def _navigate_to_filtered_saved(start, end):
         from views.saved_calculations_view import build_saved_calculations_view
@@ -522,10 +624,13 @@ def main(page: ft.Page):
             ),
         ],
     )
+    _log("nav_bar built")
 
     page.navigation_bar = nav_bar
+    _log("page.navigation_bar assigned")
 
     def _navigate_to_settings():
+        _log("_navigate_to_settings() entered")
         from views.settings_view import build_settings_view
         input_amount.value = ""
         results_container.visible = False
@@ -533,18 +638,23 @@ def main(page: ft.Page):
         _apply_appbar("Configuración")
         page.controls.clear()
         page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
+        _log("_navigate_to_settings() finished")
 
     def _navigate_to_saved():
+        _log("_navigate_to_saved() entered")
         from views.saved_calculations_view import build_saved_calculations_view
         _apply_appbar("Cálculos guardados")
         page.controls.clear()
         page.add(build_saved_calculations_view(page, _colors, _navigate_to_saved))
+        _log("_navigate_to_saved() finished")
 
     def _navigate_to_notes():
+        _log("_navigate_to_notes() entered")
         from views.notes_view import build_notes_view
         _apply_appbar("Notas")
         page.controls.clear()
         page.add(build_notes_view(page, _colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes, _set_appbar_actions))
+        _log("_navigate_to_notes() finished")
 
     def _navigate_to_new_note():
         from utils.notes import add_note
@@ -571,6 +681,7 @@ def main(page: ft.Page):
         page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes, _set_appbar_actions, _register_leave_guard))
 
     def _navigate_to_calc():
+        _log("_navigate_to_calc() entered")
         lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"
         _apply_appbar("Distribución", show_back=True, on_back=_navigate_to_main)
         _apply_input_colors()
@@ -580,25 +691,37 @@ def main(page: ft.Page):
             _build_results()
             if input_amount.value:
                 calculate(None)
+        _log("_navigate_to_calc() finished")
 
     def _navigate_to_monthly():
+        _log("_navigate_to_monthly() entered")
         from views.monthly_summary_view import build_monthly_summary_view
         _apply_appbar("Resumen mensual", show_back=True, on_back=_navigate_to_main)
         page.controls.clear()
         page.add(build_monthly_summary_view(page, _colors, on_back=_navigate_to_main))
+        _log("_navigate_to_monthly() finished")
 
     def _navigate_to_main():
+        _log("_navigate_to_main() entered")
         nonlocal main_content
         _apply_appbar()
         main_content = _build_main_content()
         page.controls.clear()
         page.add(main_content)
+        _log("_navigate_to_main() finished")
 
     _apply_appbar()
     _apply_input_colors()
 
+    _log("adding main_content to page")
     page.add(main_content)
+    _log("page.add(main_content) returned")
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    try:
+        _log("calling ft.run(main)")
+        ft.run(main)
+    except Exception as e:
+        _log_exception("ft.run(main)", e)
+        raise

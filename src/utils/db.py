@@ -1,9 +1,10 @@
 """Central local database module (single SQLite file via the stdlib ``sqlite3``).
 
 All local app data (calculations, notes, settings and pending import
-conflicts) lives in ONE local file: ``src/app.db``. Every other module must
-go through the connection returned by ``get_connection()`` — no module
-should open its own local ``.db`` file.
+conflicts) lives in ONE local file: ``app.db`` (under Flet's writable
+``FLET_APP_STORAGE_DATA`` directory when available — see ``DB_PATH``).
+Every other module must go through the connection returned by
+``get_connection()`` — no module should open its own local ``.db`` file.
 
 The database starts empty on first launch. Legacy ``saved_calculations.json``,
 ``notes.json`` and ``settings.json`` files are intentionally NOT read, imported,
@@ -23,7 +24,15 @@ import sqlite3
 import threading
 
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src/
-DB_PATH = os.path.join(_BASE_DIR, "app.db")
+# On mobile (Android/iOS), the app's own source/asset directory (``src/``,
+# i.e. ``_BASE_DIR``) is bundled read-only, so SQLite can never create its
+# file/journal there. Flet exposes a writable, persistent-per-app directory
+# via the ``FLET_APP_STORAGE_DATA`` env var on every platform (desktop too) —
+# use it when present, falling back to ``_BASE_DIR`` for plain, non-Flet runs
+# (e.g. scripts, tests).
+_DATA_DIR = os.getenv("FLET_APP_STORAGE_DATA", _BASE_DIR)
+os.makedirs(_DATA_DIR, exist_ok=True)  # e.g. desktop dev's storage/data doesn't pre-exist
+DB_PATH = os.path.join(_DATA_DIR, "app.db")
 
 # Bump when the schema changes and add a migration branch in run_migrations().
 SCHEMA_VERSION = 1
