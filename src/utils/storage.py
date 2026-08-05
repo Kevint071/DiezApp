@@ -48,7 +48,14 @@ def save_calculations(calculations: list):
     conn.commit()
 
 
-def add_calculation(amount: float, envio_21: float, restante: float, fondo_local: float, sostenimiento: float, fund_percentage: int) -> dict:
+def add_calculation(
+    amount: float,
+    envio_21: float,
+    restante: float,
+    fondo_local: float,
+    sostenimiento: float,
+    fund_percentage: int,
+) -> dict:
     calc = {
         "id": str(uuid.uuid4()),
         "created_at": datetime.now().isoformat(),

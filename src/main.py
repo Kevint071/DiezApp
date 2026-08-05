@@ -19,7 +19,7 @@ def main(page: ft.Page):
     guarded and any failure is rendered directly on-screen."""
     try:
         _main(page)
-    except Exception as e: # noqa: BLE001 — guard de último recurso, cualquier error de build debe mostrarse en pantalla
+    except Exception as e:  # noqa: BLE001 — guard de último recurso, cualquier error de build debe mostrarse en pantalla
         _show_fatal_error(page, e)
 
 
@@ -54,7 +54,9 @@ def _main(page: ft.Page):
     page.padding = ft.Padding.all(0)
 
     settings = load_settings()
-    page.theme_mode = ft.ThemeMode.DARK if settings["theme_mode"] == "dark" else ft.ThemeMode.LIGHT
+    page.theme_mode = (
+        ft.ThemeMode.DARK if settings["theme_mode"] == "dark" else ft.ThemeMode.LIGHT
+    )
     state = {"fund_percentage": settings["fund_percentage"]}
     page.theme = LIGHT_THEME
     page.dark_theme = DARK_THEME
@@ -118,12 +120,18 @@ def _main(page: ft.Page):
 
     def _navigate_to_pdf_export():
         from views.saved_calculations_view import build_date_range_picker_view
+
         _apply_appbar("Exportar PDF")
         page.controls.clear()
-        page.add(build_date_range_picker_view(page, get_colors, on_show_filtered=_navigate_to_filtered_saved))
+        page.add(
+            build_date_range_picker_view(
+                page, get_colors, on_show_filtered=_navigate_to_filtered_saved
+            )
+        )
 
     def _navigate_to_filtered_saved(start, end):
         from views.saved_calculations_view import build_saved_calculations_view
+
         _apply_appbar("Vista previa", show_back=True, on_back=_navigate_to_pdf_export)
         nav_bar.selected_index = 2
 
@@ -131,7 +139,11 @@ def _main(page: ft.Page):
             _navigate_to_filtered_saved(start, end)
 
         page.controls.clear()
-        page.add(build_saved_calculations_view(page, get_colors, _refresh, date_range=(start, end)))
+        page.add(
+            build_saved_calculations_view(
+                page, get_colors, _refresh, date_range=(start, end)
+            )
+        )
 
     def _on_back_from_pdf_export():
         prev = nav_state.get("prev_index", 0)
@@ -213,22 +225,38 @@ def _main(page: ft.Page):
 
     def _navigate_to_settings():
         from views.settings_view import build_settings_view
+
         calculator.reset()
         _apply_appbar("Configuración")
         page.controls.clear()
-        page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, get_colors))
+        page.add(
+            build_settings_view(
+                page, state, save_settings, _navigate_to_settings, get_colors
+            )
+        )
 
     def _navigate_to_saved():
         from views.saved_calculations_view import build_saved_calculations_view
+
         _apply_appbar("Cálculos guardados")
         page.controls.clear()
         page.add(build_saved_calculations_view(page, get_colors, _navigate_to_saved))
 
     def _navigate_to_notes():
         from views.notes_view import build_notes_view
+
         _apply_appbar("Notas")
         page.controls.clear()
-        page.add(build_notes_view(page, get_colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes, _set_appbar_actions))
+        page.add(
+            build_notes_view(
+                page,
+                get_colors,
+                _navigate_to_new_note,
+                _navigate_to_note_detail,
+                _navigate_to_notes,
+                _set_appbar_actions,
+            )
+        )
 
     def _navigate_to_new_note():
         from utils.notes import add_note
@@ -252,7 +280,16 @@ def _main(page: ft.Page):
             return
         _apply_appbar("Nota", show_back=True, on_back=_navigate_to_notes)
         page.controls.clear()
-        page.add(build_note_detail_view(page, get_colors, note, _navigate_to_notes, _set_appbar_actions, _register_leave_guard))
+        page.add(
+            build_note_detail_view(
+                page,
+                get_colors,
+                note,
+                _navigate_to_notes,
+                _set_appbar_actions,
+                _register_leave_guard,
+            )
+        )
 
     def _navigate_to_calc():
         _apply_appbar("Distribución", show_back=True, on_back=_navigate_to_main)
@@ -263,24 +300,30 @@ def _main(page: ft.Page):
 
     def _navigate_to_monthly():
         from views.monthly_summary_view import build_monthly_summary_view
+
         _apply_appbar("Resumen mensual", show_back=True, on_back=_navigate_to_main)
         page.controls.clear()
-        page.add(build_monthly_summary_view(page, get_colors, on_back=_navigate_to_main))
+        page.add(
+            build_monthly_summary_view(page, get_colors, on_back=_navigate_to_main)
+        )
 
     def _navigate_to_main():
         nonlocal main_content
         _apply_appbar()
-        main_content = build_home_view(page, get_colors, _navigate_to_calc, _navigate_to_monthly)
+        main_content = build_home_view(
+            page, get_colors, _navigate_to_calc, _navigate_to_monthly
+        )
         page.controls.clear()
         page.add(main_content)
 
     _apply_appbar()
     calculator.prepare_for_show()
 
-    main_content = build_home_view(page, get_colors, _navigate_to_calc, _navigate_to_monthly)
+    main_content = build_home_view(
+        page, get_colors, _navigate_to_calc, _navigate_to_monthly
+    )
     page.add(main_content)
 
 
 if __name__ == "__main__":
     ft.run(main)
-

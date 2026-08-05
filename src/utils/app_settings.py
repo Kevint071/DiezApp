@@ -20,7 +20,7 @@ def load_settings() -> dict:
         return dict(_DEFAULTS)
     try:
         fund_percentage = int(raw_pct)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         fund_percentage = _DEFAULTS["fund_percentage"]
     return {"theme_mode": theme_mode, "fund_percentage": fund_percentage}
 

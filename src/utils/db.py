@@ -31,7 +31,9 @@ _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src/
 # use it when present, falling back to ``_BASE_DIR`` for plain, non-Flet runs
 # (e.g. scripts, tests).
 _DATA_DIR = os.getenv("FLET_APP_STORAGE_DATA", _BASE_DIR)
-os.makedirs(_DATA_DIR, exist_ok=True)  # e.g. desktop dev's storage/data doesn't pre-exist
+os.makedirs(
+    _DATA_DIR, exist_ok=True
+)  # e.g. desktop dev's storage/data doesn't pre-exist
 DB_PATH = os.path.join(_DATA_DIR, "app.db")
 
 # Bump when the schema changes and add a migration branch in run_migrations().
@@ -71,9 +73,7 @@ def _apply_pragmas(conn):
 
 
 def _init_schema(conn):
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)"
-    )
+    conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS calculations (
@@ -128,6 +128,7 @@ def run_migrations(conn):
 
 
 # ── Simple key/value settings helpers ──────────────────────────────
+
 
 def get_setting(key: str, default: str | None = None) -> str | None:
     conn = get_connection()

@@ -20,8 +20,18 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
     today = datetime.today().date()
 
     MONTH_NAMES = [
-        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
     ]
     DAY_NAMES = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]
     CELL = 42
@@ -67,35 +77,60 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         layers = []
         # ── Range band ────────────────────────────────────
         if p == "range":
-            layers.append(ft.Container(
-                width=CELL, height=CELL,
-                bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
-            ))
+            layers.append(
+                ft.Container(
+                    width=CELL,
+                    height=CELL,
+                    bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
+                )
+            )
         elif p == "start" and e:
-            layers.append(ft.Row(spacing=0, controls=[
-                ft.Container(width=half, height=CELL),
-                ft.Container(width=CELL - half, height=CELL,
-                             bgcolor=ft.Colors.with_opacity(0.14, c["primary"])),
-            ]))
+            layers.append(
+                ft.Row(
+                    spacing=0,
+                    controls=[
+                        ft.Container(width=half, height=CELL),
+                        ft.Container(
+                            width=CELL - half,
+                            height=CELL,
+                            bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
+                        ),
+                    ],
+                )
+            )
         elif p == "end":
-            layers.append(ft.Row(spacing=0, controls=[
-                ft.Container(width=half, height=CELL,
-                             bgcolor=ft.Colors.with_opacity(0.14, c["primary"])),
-                ft.Container(width=CELL - half, height=CELL),
-            ]))
+            layers.append(
+                ft.Row(
+                    spacing=0,
+                    controls=[
+                        ft.Container(
+                            width=half,
+                            height=CELL,
+                            bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
+                        ),
+                        ft.Container(width=CELL - half, height=CELL),
+                    ],
+                )
+            )
         # ── Circle ───────────────────────────────────────
         if p in ("start", "end", "solo"):
-            layers.append(ft.Container(
-                width=CELL, height=CELL,
-                border_radius=CELL // 2,
-                bgcolor=c["primary"],
-            ))
+            layers.append(
+                ft.Container(
+                    width=CELL,
+                    height=CELL,
+                    border_radius=CELL // 2,
+                    bgcolor=c["primary"],
+                )
+            )
         elif p == "today":
-            layers.append(ft.Container(
-                width=CELL, height=CELL,
-                border_radius=CELL // 2,
-                border=ft.Border.all(1.5, c["primary"]),
-            ))
+            layers.append(
+                ft.Container(
+                    width=CELL,
+                    height=CELL,
+                    border_radius=CELL // 2,
+                    border=ft.Border.all(1.5, c["primary"]),
+                )
+            )
         # ── Day number ───────────────────────────────────
         if p in ("start", "end", "solo"):
             txt_color = "#FFFFFF" if light else "#064E3B"
@@ -106,15 +141,23 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         else:
             txt_color = c["on_surface"]
             weight = ft.FontWeight.W_400
-        layers.append(ft.Container(
-            width=CELL, height=CELL, alignment=ft.Alignment.CENTER,
-            content=ft.Text(
-                str(d.day), size=13, color=txt_color, weight=weight,
-                text_align=ft.TextAlign.CENTER,
-            ),
-        ))
+        layers.append(
+            ft.Container(
+                width=CELL,
+                height=CELL,
+                alignment=ft.Alignment.CENTER,
+                content=ft.Text(
+                    str(d.day),
+                    size=13,
+                    color=txt_color,
+                    weight=weight,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+            )
+        )
         return ft.Container(
-            width=CELL, height=CELL,
+            width=CELL,
+            height=CELL,
             content=ft.Stack(width=CELL, height=CELL, controls=layers),
             on_click=lambda e, day=d: _on_tap(day),
         )
@@ -123,17 +166,25 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         m = state["month"]
         first_wd = m.weekday()
         days_in = calendar.monthrange(m.year, m.month)[1]
-        raw = [None] * first_wd + [date(m.year, m.month, n) for n in range(1, days_in + 1)]
+        raw = [None] * first_wd + [
+            date(m.year, m.month, n) for n in range(1, days_in + 1)
+        ]
         while len(raw) % 7:
             raw.append(None)
         header = ft.Row(
-            spacing=0, alignment=ft.MainAxisAlignment.CENTER,
+            spacing=0,
+            alignment=ft.MainAxisAlignment.CENTER,
             controls=[
                 ft.Container(
-                    width=CELL, height=28, alignment=ft.Alignment.CENTER,
+                    width=CELL,
+                    height=28,
+                    alignment=ft.Alignment.CENTER,
                     content=ft.Text(
-                        name, size=11, weight=ft.FontWeight.W_600,
-                        color=c["on_surface_variant"], text_align=ft.TextAlign.CENTER,
+                        name,
+                        size=11,
+                        weight=ft.FontWeight.W_600,
+                        color=c["on_surface_variant"],
+                        text_align=ft.TextAlign.CENTER,
                     ),
                 )
                 for name in DAY_NAMES
@@ -141,29 +192,41 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         )
         rows = [header]
         for i in range(0, len(raw), 7):
-            rows.append(ft.Row(
-                spacing=0, alignment=ft.MainAxisAlignment.CENTER,
-                controls=[_cell(d) for d in raw[i:i + 7]],
-            ))
+            rows.append(
+                ft.Row(
+                    spacing=0,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[_cell(d) for d in raw[i : i + 7]],
+                )
+            )
         return ft.Column(spacing=2, controls=rows)
 
     # ── Static controls ───────────────────────────────────
     m0 = state["month"]
     month_lbl = ft.Text(
         f"{MONTH_NAMES[m0.month - 1]} {m0.year}",
-        size=15, weight=ft.FontWeight.W_700, color=c["on_surface"],
+        size=15,
+        weight=ft.FontWeight.W_700,
+        color=c["on_surface"],
     )
     start_val = ft.Text(
-        "Seleccionar", size=14,
-        color=c["on_surface_variant"], weight=ft.FontWeight.W_400,
+        "Seleccionar",
+        size=14,
+        color=c["on_surface_variant"],
+        weight=ft.FontWeight.W_400,
     )
     end_val = ft.Text(
-        "Seleccionar", size=14,
-        color=c["on_surface_variant"], weight=ft.FontWeight.W_400,
+        "Seleccionar",
+        size=14,
+        color=c["on_surface_variant"],
+        weight=ft.FontWeight.W_400,
     )
     grid_box = ft.Container(content=_grid())
     err_txt = ft.Text(
-        "", size=12, color="#DC2626", visible=False,
+        "",
+        size=12,
+        color="#DC2626",
+        visible=False,
         text_align=ft.TextAlign.CENTER,
     )
     export_btn = ft.FilledButton(
@@ -204,12 +267,20 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
 
     def _prev(e):
         m = state["month"]
-        state["month"] = m.replace(month=m.month - 1) if m.month > 1 else m.replace(year=m.year - 1, month=12)
+        state["month"] = (
+            m.replace(month=m.month - 1)
+            if m.month > 1
+            else m.replace(year=m.year - 1, month=12)
+        )
         _refresh()
 
     def _next(e):
         m = state["month"]
-        state["month"] = m.replace(month=m.month + 1) if m.month < 12 else m.replace(year=m.year + 1, month=1)
+        state["month"] = (
+            m.replace(month=m.month + 1)
+            if m.month < 12
+            else m.replace(year=m.year + 1, month=1)
+        )
         _refresh()
 
     def _export(e):
@@ -224,7 +295,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                 if s <= cd <= en:
                     has_calcs = True
                     break
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
         if not has_calcs:
             err_txt.value = "No hay cálculos en el rango seleccionado"
@@ -250,8 +321,12 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
                             ft.Icon(icon, color=c["primary"], size=15),
-                            ft.Text(label, size=11, color=c["on_surface_variant"],
-                                    weight=ft.FontWeight.W_500),
+                            ft.Text(
+                                label,
+                                size=11,
+                                color=c["on_surface_variant"],
+                                weight=ft.FontWeight.W_500,
+                            ),
                         ],
                     ),
                     val_ctrl,
@@ -287,15 +362,25 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                                         ft.Row(
                                             spacing=12,
                                             controls=[
-                                                _chip(ft.Icons.CALENDAR_TODAY_OUTLINED, "Desde", start_val),
-                                                _chip(ft.Icons.EVENT_OUTLINED, "Hasta", end_val),
+                                                _chip(
+                                                    ft.Icons.CALENDAR_TODAY_OUTLINED,
+                                                    "Desde",
+                                                    start_val,
+                                                ),
+                                                _chip(
+                                                    ft.Icons.EVENT_OUTLINED,
+                                                    "Hasta",
+                                                    end_val,
+                                                ),
                                             ],
                                         ),
                                         # ── Calendar card ───────────────────────────
                                         ft.Container(
                                             bgcolor=c["card_bg"],
                                             border_radius=16,
-                                            padding=ft.Padding.only(top=12, bottom=16, left=4, right=4),
+                                            padding=ft.Padding.only(
+                                                top=12, bottom=16, left=4, right=4
+                                            ),
                                             content=ft.Column(
                                                 spacing=8,
                                                 controls=[
@@ -305,18 +390,30 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                                                         controls=[
                                                             ft.IconButton(
                                                                 icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
-                                                                icon_color=c["on_surface"],
+                                                                icon_color=c[
+                                                                    "on_surface"
+                                                                ],
                                                                 icon_size=22,
                                                                 on_click=_prev,
-                                                                style=ft.ButtonStyle(padding=ft.Padding.all(8)),
+                                                                style=ft.ButtonStyle(
+                                                                    padding=ft.Padding.all(
+                                                                        8
+                                                                    )
+                                                                ),
                                                             ),
                                                             month_lbl,
                                                             ft.IconButton(
                                                                 icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
-                                                                icon_color=c["on_surface"],
+                                                                icon_color=c[
+                                                                    "on_surface"
+                                                                ],
                                                                 icon_size=22,
                                                                 on_click=_next,
-                                                                style=ft.ButtonStyle(padding=ft.Padding.all(8)),
+                                                                style=ft.ButtonStyle(
+                                                                    padding=ft.Padding.all(
+                                                                        8
+                                                                    )
+                                                                ),
                                                             ),
                                                         ],
                                                     ),
@@ -338,7 +435,9 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
     )
 
 
-def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, has_calculations: bool):
+def apply_saved_calculations_appbar(
+    page: ft.Page, on_navigate_back, colors_fn, has_calculations: bool
+):
     light = page.theme_mode == ft.ThemeMode.LIGHT
     fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
 
@@ -370,7 +469,9 @@ def apply_saved_calculations_appbar(page: ft.Page, on_navigate_back, colors_fn, 
     )
 
 
-def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_range=None):
+def build_saved_calculations_view(
+    page: ft.Page, colors_fn, on_refresh, date_range=None
+):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
     all_calculations = load_calculations()
@@ -383,13 +484,17 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
                 cd = datetime.fromisoformat(calc.get("created_at", "")).date()
                 if start_date <= cd <= end_date:
                     calculations.append(calc)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
     else:
         calculations = all_calculations
 
     if not calculations:
-        empty_msg = "No hay cálculos en el rango seleccionado" if date_range else "No hay cálculos guardados"
+        empty_msg = (
+            "No hay cálculos en el rango seleccionado"
+            if date_range
+            else "No hay cálculos guardados"
+        )
         return ft.SafeArea(
             expand=True,
             content=ft.Container(
@@ -399,7 +504,11 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
                 content=ft.Column(
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Icon(ft.Icons.CALCULATE_OUTLINED, size=48, color=c["on_surface_variant"]),
+                        ft.Icon(
+                            ft.Icons.CALCULATE_OUTLINED,
+                            size=48,
+                            color=c["on_surface_variant"],
+                        ),
                         ft.Container(height=12),
                         ft.Text(
                             empty_msg,
@@ -420,7 +529,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
         try:
             d = datetime.fromisoformat(date_str)
             return d.strftime("%d/%m/%Y %I:%M %p")
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return date_str
 
     def _build_item(calc: dict):
@@ -428,9 +537,9 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
         fund_pct = calc.get("fund_percentage", 1)
         state = {"editing": False, "original_amount": calc["amount"], "container": None}
 
-        focus_color  = FOCUS_LIGHT if light else FOCUS_DARK
+        focus_color = FOCUS_LIGHT if light else FOCUS_DARK
         input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
-        label_color  = "#475569" if light else "#CBD5E1"
+        label_color = "#475569" if light else "#CBD5E1"
 
         def _fmt_int(n: int) -> str:
             digits = str(int(n))
@@ -441,11 +550,36 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
                 out = d + out
             return out
 
-        txt_amount   = ft.Text(_format_currency(calc["amount"]),       size=14, weight=ft.FontWeight.W_600, color=c["primary"])
-        txt_envio    = ft.Text(_format_currency(calc["envio_21"]),     size=14, weight=ft.FontWeight.W_600, color=c["primary"])
-        txt_restante = ft.Text(_format_currency(calc["restante"]),     size=14, weight=ft.FontWeight.W_600, color=c["primary"])
-        txt_fondo    = ft.Text(_format_currency(calc["fondo_local"]),  size=14, weight=ft.FontWeight.W_600, color=c["primary"])
-        txt_sost     = ft.Text(_format_currency(calc["sostenimiento"]), size=14, weight=ft.FontWeight.W_600, color=c["primary"])
+        txt_amount = ft.Text(
+            _format_currency(calc["amount"]),
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color=c["primary"],
+        )
+        txt_envio = ft.Text(
+            _format_currency(calc["envio_21"]),
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color=c["primary"],
+        )
+        txt_restante = ft.Text(
+            _format_currency(calc["restante"]),
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color=c["primary"],
+        )
+        txt_fondo = ft.Text(
+            _format_currency(calc["fondo_local"]),
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color=c["primary"],
+        )
+        txt_sost = ft.Text(
+            _format_currency(calc["sostenimiento"]),
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color=c["primary"],
+        )
 
         edit_field = ft.TextField(
             value=_fmt_int(int(calc["amount"])),
@@ -458,19 +592,27 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             focused_border_color=focus_color,
             visible=False,
             width=110,
-            height=27
+            height=27,
         )
 
-        edit_btn   = ft.IconButton(
-            icon=ft.Icons.EDIT_OUTLINED, icon_color=c["primary"], icon_size=18,
-            tooltip="Editar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-            width=32, height=32,
+        edit_btn = ft.IconButton(
+            icon=ft.Icons.EDIT_OUTLINED,
+            icon_color=c["primary"],
+            icon_size=18,
+            tooltip="Editar",
+            style=ft.ButtonStyle(padding=ft.Padding.all(6)),
+            width=32,
+            height=32,
             visible=not bool(date_range),
         )
         delete_btn = ft.IconButton(
-            icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=18,
-            tooltip="Eliminar", style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-            width=32, height=32,
+            icon=ft.Icons.DELETE_OUTLINE,
+            icon_color="#D32F2F",
+            icon_size=18,
+            tooltip="Eliminar",
+            style=ft.ButtonStyle(padding=ft.Padding.all(6)),
+            width=32,
+            height=32,
             visible=not bool(date_range),
         )
         save_btn = ft.FilledButton(
@@ -495,32 +637,48 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             ),
         )
 
-        def _data_row(label: str, value_ctrl: ft.Control, is_amount: bool = False, last: bool = False):
-            right = ft.Row(spacing=0, tight=True, controls=[txt_amount, edit_field]) if is_amount else value_ctrl
+        def _data_row(
+            label: str,
+            value_ctrl: ft.Control,
+            is_amount: bool = False,
+            last: bool = False,
+        ):
+            right = (
+                ft.Row(spacing=0, tight=True, controls=[txt_amount, edit_field])
+                if is_amount
+                else value_ctrl
+            )
             return ft.Container(
                 padding=ft.Padding.symmetric(vertical=12, horizontal=16),
-                border=None if last else ft.Border.only(bottom=ft.BorderSide(0.5, c["divider"])),
+                border=None
+                if last
+                else ft.Border.only(bottom=ft.BorderSide(0.5, c["divider"])),
                 content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Text(label, size=13, weight=ft.FontWeight.W_400, color=label_color),
+                        ft.Text(
+                            label,
+                            size=13,
+                            weight=ft.FontWeight.W_400,
+                            color=label_color,
+                        ),
                         right,
                     ],
                 ),
             )
 
         def _recalculate(amount: float):
-            val_21    = amount * 0.21
-            val_79    = amount * 0.79
+            val_21 = amount * 0.21
+            val_79 = amount * 0.79
             val_fondo = val_79 * (fund_pct / 100)
-            txt_envio.value    = _format_currency(val_21)
+            txt_envio.value = _format_currency(val_21)
             txt_restante.value = _format_currency(val_79)
-            txt_fondo.value    = _format_currency(val_fondo)
-            txt_sost.value     = _format_currency(amount - val_21 - val_fondo)
+            txt_fondo.value = _format_currency(val_fondo)
+            txt_sost.value = _format_currency(amount - val_21 - val_fondo)
 
         def _on_change(e):
-            raw    = edit_field.value.replace(".", "").replace(",", "")
+            raw = edit_field.value.replace(".", "").replace(",", "")
             digits = "".join(ch for ch in raw if ch.isdigit())
             if not digits:
                 edit_field.value = ""
@@ -529,7 +687,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             edit_field.value = _fmt_int(int(digits))
             try:
                 _recalculate(float(digits))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 pass
             page.update()
 
@@ -539,10 +697,10 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             state["editing"] = True
             state["original_amount"] = calc["amount"]
             edit_field.value = _fmt_int(int(calc["amount"]))
-            txt_amount.visible   = False
-            edit_field.visible   = True
-            edit_btn.visible     = False
-            delete_btn.visible   = False
+            txt_amount.visible = False
+            edit_field.visible = True
+            edit_btn.visible = False
+            delete_btn.visible = False
             edit_actions.visible = True
             if state["container"]:
                 state["container"].border = ft.Border.all(1.5, c["primary"])
@@ -550,10 +708,10 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
 
         def _cancel_edit(e):
             state["editing"] = False
-            txt_amount.visible   = True
-            edit_field.visible   = False
-            edit_btn.visible     = True
-            delete_btn.visible   = True
+            txt_amount.visible = True
+            edit_field.visible = False
+            edit_btn.visible = True
+            delete_btn.visible = True
             edit_actions.visible = False
             txt_amount.value = _format_currency(state["original_amount"])
             _recalculate(state["original_amount"])
@@ -563,23 +721,29 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
 
         def _save_edit(e):
             from utils.conflicts import conflict_count
+
             if conflict_count() > 0:
-                page.overlay.append(ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de editar"), open=True))
+                page.overlay.append(
+                    ft.SnackBar(
+                        content=ft.Text("Resuelve los conflictos antes de editar"),
+                        open=True,
+                    )
+                )
                 page.update()
                 return
             try:
                 new_amount = float(edit_field.value.replace(".", ""))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 return
             update_calculation(calc_id, new_amount)
             calc["amount"] = new_amount
             txt_amount.value = _format_currency(new_amount)
             _recalculate(new_amount)
             state["editing"] = False
-            txt_amount.visible   = True
-            edit_field.visible   = False
-            edit_btn.visible     = True
-            delete_btn.visible   = True
+            txt_amount.visible = True
+            edit_field.visible = False
+            edit_btn.visible = True
+            delete_btn.visible = True
             edit_actions.visible = False
             if state["container"]:
                 state["container"].border = ft.Border.all(1, c["outline"])
@@ -587,8 +751,14 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
 
         def _confirm_delete(e):
             from utils.conflicts import conflict_count
+
             if conflict_count() > 0:
-                page.overlay.append(ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True))
+                page.overlay.append(
+                    ft.SnackBar(
+                        content=ft.Text("Resuelve los conflictos antes de eliminar"),
+                        open=True,
+                    )
+                )
                 page.update()
                 return
 
@@ -600,20 +770,26 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
             def _cancel_delete(ev):
                 page.pop_dialog()
 
-            page.show_dialog(ft.AlertDialog(
-                modal=True,
-                title=ft.Text("Eliminar cálculo", size=17, weight=ft.FontWeight.W_600),
-                content=ft.Text("¿Estás seguro de que deseas eliminar este cálculo?"),
-                actions=[
-                    ft.TextButton("Cancelar", on_click=_cancel_delete),
-                    ft.FilledTonalButton("Eliminar", on_click=_do_delete),
-                ],
-                actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            ))
+            page.show_dialog(
+                ft.AlertDialog(
+                    modal=True,
+                    title=ft.Text(
+                        "Eliminar cálculo", size=17, weight=ft.FontWeight.W_600
+                    ),
+                    content=ft.Text(
+                        "¿Estás seguro de que deseas eliminar este cálculo?"
+                    ),
+                    actions=[
+                        ft.TextButton("Cancelar", on_click=_cancel_delete),
+                        ft.FilledTonalButton("Eliminar", on_click=_do_delete),
+                    ],
+                    actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                )
+            )
 
-        edit_btn.on_click   = _enter_edit
+        edit_btn.on_click = _enter_edit
         cancel_btn.on_click = _cancel_edit
-        save_btn.on_click   = _save_edit
+        save_btn.on_click = _save_edit
         delete_btn.on_click = _confirm_delete
 
         item = ft.Container(
@@ -638,7 +814,11 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
                                     weight=ft.FontWeight.W_600,
                                     color=c["on_surface_variant"],
                                 ),
-                                ft.Row(spacing=0, tight=True, controls=[edit_btn, delete_btn]),
+                                ft.Row(
+                                    spacing=0,
+                                    tight=True,
+                                    controls=[edit_btn, delete_btn],
+                                ),
                             ],
                         ),
                     ),
@@ -690,6 +870,7 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
     # Filtered mode: show list + export button at bottom
     async def _export_filtered(e):
         from utils.pdf_export import generate_pdf
+
         pdf_path = generate_pdf(calculations)
         share = ft.Share()
         await share.share_files(
@@ -729,7 +910,9 @@ def build_saved_calculations_view(page: ft.Page, colors_fn, on_refresh, date_ran
                             content=items_column,
                         ),
                         ft.Container(
-                            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                            padding=ft.Padding.only(
+                                left=24, right=24, top=8, bottom=24
+                            ),
                             content=export_btn,
                         ),
                     ],

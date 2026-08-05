@@ -14,7 +14,9 @@ from utils.theme import (
 )
 
 
-def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn):
+def build_settings_view(
+    page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn
+):
     """Build the settings view."""
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
@@ -42,8 +44,19 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             content=ft.Row(
                 spacing=12,
                 controls=[
-                    ft.Icon(icon, size=20, color=c["on_primary"] if is_selected else c["on_surface_variant"]),
-                    ft.Text(label, size=15, weight=ft.FontWeight.W_500, color=c["on_primary"] if is_selected else c["on_surface"]),
+                    ft.Icon(
+                        icon,
+                        size=20,
+                        color=c["on_primary"]
+                        if is_selected
+                        else c["on_surface_variant"],
+                    ),
+                    ft.Text(
+                        label,
+                        size=15,
+                        weight=ft.FontWeight.W_500,
+                        color=c["on_primary"] if is_selected else c["on_surface"],
+                    ),
                 ],
             ),
         )
@@ -86,7 +99,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             return
         try:
             val = int(raw)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pct_field.error = "Ingresa un número válido"
             pct_dialog.update()
             return
@@ -116,7 +129,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         raw = pct_field.value.strip()
         try:
             val = int(raw)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pct_field.error = "Ingresa un número válido"
             pct_dialog.update()
             return
@@ -241,7 +254,9 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             tight=True,
             spacing=8,
             controls=[
-                ft.Text("¿Qué deseas exportar?", size=14, color=c["on_surface_variant"]),
+                ft.Text(
+                    "¿Qué deseas exportar?", size=14, color=c["on_surface_variant"]
+                ),
                 export_target_group,
             ],
         ),
@@ -289,8 +304,14 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             tight=True,
             spacing=4,
             controls=[
-                ft.Radio(value="replace", label="Reemplazar todo", fill_color=c["primary"]),
-                ft.Radio(value="merge", label="Mezclar con existentes", fill_color=c["primary"]),
+                ft.Radio(
+                    value="replace", label="Reemplazar todo", fill_color=c["primary"]
+                ),
+                ft.Radio(
+                    value="merge",
+                    label="Mezclar con existentes",
+                    fill_color=c["primary"],
+                ),
             ],
         ),
         on_change=lambda e: import_state.update(mode=e.control.value),
@@ -319,7 +340,9 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             imp_id = imp_calc.get("id")
             if imp_id and imp_id in existing_map:
                 if calcs_differ(existing_map[imp_id], imp_calc):
-                    conflicts.append({"existing": existing_map[imp_id], "imported": imp_calc})
+                    conflicts.append(
+                        {"existing": existing_map[imp_id], "imported": imp_calc}
+                    )
             else:
                 to_add.append(imp_calc)
 
@@ -345,7 +368,9 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             imp_id = imp_note.get("id")
             if imp_id and imp_id in existing_map:
                 if notes_differ(existing_map[imp_id], imp_note):
-                    conflicts.append({"existing": existing_map[imp_id], "imported": imp_note})
+                    conflicts.append(
+                        {"existing": existing_map[imp_id], "imported": imp_note}
+                    )
             else:
                 to_add.append(imp_note)
 
@@ -447,10 +472,14 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             tight=True,
             spacing=8,
             controls=[
-                ft.Text("¿Qué deseas importar?", size=14, color=c["on_surface_variant"]),
+                ft.Text(
+                    "¿Qué deseas importar?", size=14, color=c["on_surface_variant"]
+                ),
                 import_target_group,
                 ft.Container(height=4),
-                ft.Text("¿Cómo deseas importar?", size=14, color=c["on_surface_variant"]),
+                ft.Text(
+                    "¿Cómo deseas importar?", size=14, color=c["on_surface_variant"]
+                ),
                 import_mode_group,
             ],
         ),
@@ -478,20 +507,27 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
 
     # ── Conflict resolution (single entry point for calcs + notes) ──
     from utils.conflicts import conflict_count
+
     n_calc_conflicts = conflict_count()
     n_notes_conflicts = conflict_count(kind="notes")
     n_total_conflicts = n_calc_conflicts + n_notes_conflicts
 
     def _go_to_conflicts(kind: str):
         from views.conflicts_view import apply_conflicts_appbar, build_conflicts_view
+
         apply_conflicts_appbar(page, navigate_to_settings, kind=kind)
         page.controls.clear()
-        page.add(build_conflicts_view(page, colors_fn, on_back=navigate_to_settings, kind=kind))
+        page.add(
+            build_conflicts_view(
+                page, colors_fn, on_back=navigate_to_settings, kind=kind
+            )
+        )
 
     def _select_conflict_kind(kind):
         def _handler(e):
             page.pop_dialog()
             _go_to_conflicts(kind)
+
         return _handler
 
     def _conflict_kind_option(label, icon, subtitle, kind):
@@ -506,7 +542,12 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
                     ft.Column(
                         spacing=0,
                         controls=[
-                            ft.Text(label, size=15, weight=ft.FontWeight.W_500, color=c["on_surface"]),
+                            ft.Text(
+                                label,
+                                size=15,
+                                weight=ft.FontWeight.W_500,
+                                color=c["on_surface"],
+                            ),
                             ft.Text(subtitle, size=12, color=c["on_surface_variant"]),
                         ],
                     ),
@@ -521,8 +562,18 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
             tight=True,
             spacing=6,
             controls=[
-                _conflict_kind_option("Cálculos", ft.Icons.CALCULATE_OUTLINED, f"{n_calc_conflicts} pendientes", "calculations"),
-                _conflict_kind_option("Notas", ft.Icons.NOTE_OUTLINED, f"{n_notes_conflicts} pendientes", "notes"),
+                _conflict_kind_option(
+                    "Cálculos",
+                    ft.Icons.CALCULATE_OUTLINED,
+                    f"{n_calc_conflicts} pendientes",
+                    "calculations",
+                ),
+                _conflict_kind_option(
+                    "Notas",
+                    ft.Icons.NOTE_OUTLINED,
+                    f"{n_notes_conflicts} pendientes",
+                    "notes",
+                ),
             ],
         ),
     )
@@ -538,7 +589,9 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     conflicts_cell = _settings_cell(
         icon=ft.Icons.SYNC_PROBLEM_OUTLINED,
         title="Conflictos",
-        subtitle=f"{n_total_conflicts} pendientes" if n_total_conflicts > 0 else "Sin conflictos",
+        subtitle=f"{n_total_conflicts} pendientes"
+        if n_total_conflicts > 0
+        else "Sin conflictos",
         colors=c,
         on_click=_open_conflicts_entry if n_total_conflicts > 0 else lambda e: None,
     )
@@ -634,14 +687,23 @@ def _settings_cell(icon, title, subtitle, colors, on_click):
                     spacing=14,
                     controls=[
                         ft.Icon(icon, size=22, color=colors["primary"]),
-                        ft.Text(title, size=15, color=colors["on_surface"], weight=ft.FontWeight.W_500),
+                        ft.Text(
+                            title,
+                            size=15,
+                            color=colors["on_surface"],
+                            weight=ft.FontWeight.W_500,
+                        ),
                     ],
                 ),
                 ft.Row(
                     spacing=4,
                     controls=[
                         subtitle_control,
-                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=colors["on_surface_variant"], size=20),
+                        ft.Icon(
+                            ft.Icons.CHEVRON_RIGHT,
+                            color=colors["on_surface_variant"],
+                            size=20,
+                        ),
                     ],
                 ),
             ],

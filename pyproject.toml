@@ -23,6 +23,7 @@ target_arch = ["arm64-v8a"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.16.1",
 ]
 
 [tool.pytest.ini_options]

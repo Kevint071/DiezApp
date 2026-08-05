@@ -42,7 +42,9 @@ _conflict_state: dict = {}
 
 
 def _get_conflict_state(kind: str) -> dict:
-    return _conflict_state.setdefault(kind, {"choices": {}, "resolved": set(), "fingerprint": []})
+    return _conflict_state.setdefault(
+        kind, {"choices": {}, "resolved": set(), "fingerprint": []}
+    )
 
 
 def _reset_conflict_state(kind: str) -> None:
@@ -65,7 +67,7 @@ def _format_date(date_str: str) -> str:
     try:
         d = datetime.fromisoformat(date_str)
         return d.strftime("%d/%m/%Y %H:%M")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return "Sin fecha"
 
 
@@ -108,7 +110,17 @@ def apply_conflicts_appbar(page: ft.Page, on_back, kind: str = "calculations"):
 # Detail view — shows comparison for a single conflict
 # ═══════════════════════════════════════════════════════════════════
 
-def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts: list, choices: dict, resolved_set: set, on_back_to_grid, kind: str = "calculations"):
+
+def _build_conflict_detail_view(
+    page: ft.Page,
+    colors_fn,
+    index: int,
+    conflicts: list,
+    choices: dict,
+    resolved_set: set,
+    on_back_to_grid,
+    kind: str = "calculations",
+):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
     conflict = conflicts[index]
@@ -147,7 +159,9 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
             on_click=lambda e: on_back_to_grid(),
             content=ft.Image(src="chevron-left.svg", width=24, height=24, color=fg),
         ),
-        title=ft.Text(f"Conflicto {index + 1}", color=fg, weight=ft.FontWeight.W_700, size=17),
+        title=ft.Text(
+            f"Conflicto {index + 1}", color=fg, weight=ft.FontWeight.W_700, size=17
+        ),
         center_title=False,
         leading_width=40,
         title_spacing=0,
@@ -172,7 +186,12 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
                         ft.Text(label, size=13, color=c["on_surface_variant"]),
-                        ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=c["on_surface"]),
+                        ft.Text(
+                            value,
+                            size=13,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface"],
+                        ),
                     ],
                 ),
             )
@@ -185,7 +204,12 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
                     spacing=4,
                     controls=[
                         ft.Text(label, size=13, color=c["on_surface_variant"]),
-                        ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=c["on_surface"]),
+                        ft.Text(
+                            value,
+                            size=13,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface"],
+                        ),
                     ],
                 ),
             )
@@ -194,7 +218,11 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
             selected["version"] = version
             _refresh_cards()
 
-        radio_icon = ft.Icons.RADIO_BUTTON_CHECKED_ROUNDED if is_selected else ft.Icons.RADIO_BUTTON_UNCHECKED_ROUNDED
+        radio_icon = (
+            ft.Icons.RADIO_BUTTON_CHECKED_ROUNDED
+            if is_selected
+            else ft.Icons.RADIO_BUTTON_UNCHECKED_ROUNDED
+        )
         radio_color = c["primary"] if is_selected else c["on_surface_variant"]
         border_color = c["primary"] if is_selected else ft.Colors.TRANSPARENT
 
@@ -202,7 +230,9 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
         for label, key, ftype in field_defs:
             value = item.get(key)
             if ftype == "text":
-                field_rows.append(_text_block(label, str(value) if value is not None else ""))
+                field_rows.append(
+                    _text_block(label, str(value) if value is not None else "")
+                )
             else:
                 field_rows.append(_row(label, _format_field(value, ftype)))
         field_rows.append(_row("Fecha", date_str))
@@ -222,7 +252,12 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
                         content=ft.Row(
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             controls=[
-                                ft.Text(title, size=15, weight=ft.FontWeight.W_700, color=c["on_surface"]),
+                                ft.Text(
+                                    title,
+                                    size=15,
+                                    weight=ft.FontWeight.W_700,
+                                    color=c["on_surface"],
+                                ),
                                 ft.Icon(radio_icon, size=22, color=radio_color),
                             ],
                         ),
@@ -259,7 +294,11 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
                         scroll=ft.Scrollbar(thickness=6, radius=4),
                         on_scroll=make_scroll_divider_handler(divider, c),
                         controls=[
-                            ft.Container(expand=True, margin=ft.Margin.symmetric(horizontal=24), content=cards_column),
+                            ft.Container(
+                                expand=True,
+                                margin=ft.Margin.symmetric(horizontal=24),
+                                content=cards_column,
+                            ),
                         ],
                     ),
                 ],
@@ -271,6 +310,7 @@ def _build_conflict_detail_view(page: ft.Page, colors_fn, index: int, conflicts:
 # ═══════════════════════════════════════════════════════════════════
 # Grid view — numbered tiles for each conflict
 # ═══════════════════════════════════════════════════════════════════
+
 
 def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calculations"):
     c = colors_fn(page)
@@ -289,7 +329,11 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
                 content=ft.Column(
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE_ROUNDED, size=48, color=c["primary"]),
+                        ft.Icon(
+                            ft.Icons.CHECK_CIRCLE_OUTLINE_ROUNDED,
+                            size=48,
+                            color=c["primary"],
+                        ),
                         ft.Container(height=12),
                         ft.Text(
                             "Sin conflictos",
@@ -309,7 +353,9 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
         )
 
     state = _get_conflict_state(kind)
-    current_fp = [conflict.get("existing", {}).get(cfg["id_field"]) for conflict in conflicts]
+    current_fp = [
+        conflict.get("existing", {}).get(cfg["id_field"]) for conflict in conflicts
+    ]
     if current_fp != state["fingerprint"]:
         state["fingerprint"] = current_fp
         state["choices"] = {i: "existing" for i in range(len(conflicts))}
@@ -320,7 +366,18 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
     def _navigate_to_detail(index: int):
         _apply_appbar(page, f"Conflicto {index + 1}", _show_grid)
         page.controls.clear()
-        page.add(_build_conflict_detail_view(page, colors_fn, index, conflicts, choices, resolved_set, _show_grid, kind))
+        page.add(
+            _build_conflict_detail_view(
+                page,
+                colors_fn,
+                index,
+                conflicts,
+                choices,
+                resolved_set,
+                _show_grid,
+                kind,
+            )
+        )
 
     def _show_grid():
         apply_conflicts_appbar(page, on_back, kind)
@@ -331,7 +388,11 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
         tiles = []
         for i in range(len(conflicts)):
             is_resolved = i in resolved_set
-            tile_bg = ft.Colors.with_opacity(0.08, c["primary"]) if is_resolved else c["card_bg"]
+            tile_bg = (
+                ft.Colors.with_opacity(0.08, c["primary"])
+                if is_resolved
+                else c["card_bg"]
+            )
 
             tile = ft.Container(
                 width=72,
@@ -354,9 +415,13 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
                             color=c["primary"] if is_resolved else c["on_surface"],
                         ),
                         ft.Icon(
-                            ft.Icons.CHECK_CIRCLE_ROUNDED if is_resolved else ft.Icons.CIRCLE_OUTLINED,
+                            ft.Icons.CHECK_CIRCLE_ROUNDED
+                            if is_resolved
+                            else ft.Icons.CIRCLE_OUTLINED,
                             size=14,
-                            color=c["primary"] if is_resolved else c["on_surface_variant"],
+                            color=c["primary"]
+                            if is_resolved
+                            else c["on_surface_variant"],
                         ),
                     ],
                 ),
@@ -366,7 +431,7 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
         # Grid rows of 4
         rows = []
         for i in range(0, len(tiles), 4):
-            row_tiles = tiles[i:i + 4]
+            row_tiles = tiles[i : i + 4]
             rows.append(
                 ft.Row(
                     spacing=12,
@@ -387,7 +452,9 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
                         border_radius=14,
                         bgcolor=ft.Colors.with_opacity(0.1, c["primary"]),
                         alignment=ft.Alignment.CENTER,
-                        content=ft.Icon(ft.Icons.SYNC_PROBLEM_ROUNDED, color=c["primary"], size=22),
+                        content=ft.Icon(
+                            ft.Icons.SYNC_PROBLEM_ROUNDED, color=c["primary"], size=22
+                        ),
                     ),
                     ft.Column(
                         spacing=2,
@@ -415,7 +482,9 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
             f"{n_resolved} de {len(conflicts)} resueltos",
             size=13,
             weight=ft.FontWeight.W_500,
-            color=c["primary"] if n_resolved == len(conflicts) else c["on_surface_variant"],
+            color=c["primary"]
+            if n_resolved == len(conflicts)
+            else c["on_surface_variant"],
         )
 
         # Buttons
@@ -490,7 +559,9 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
     def _resolve_all(e):
         id_field = cfg["id_field"]
         existing_items = cfg["load"]()
-        existing_map = {item[id_field]: item for item in existing_items if id_field in item}
+        existing_map = {
+            item[id_field]: item for item in existing_items if id_field in item
+        }
 
         unresolved = []
         n_applied = 0
@@ -504,13 +575,17 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
             else:
                 unresolved.append(conflict)
 
-        resolved = [existing_map.get(item.get(id_field), item) for item in existing_items]
+        resolved = [
+            existing_map.get(item.get(id_field), item) for item in existing_items
+        ]
 
         if not unresolved:
             resolved = resolved + pending_add
             cfg["save"](resolved)
             clear_conflicts(kind)
-            msg = f"{n_applied} conflictos resueltos, {len(pending_add)} nuevos agregados"
+            msg = (
+                f"{n_applied} conflictos resueltos, {len(pending_add)} nuevos agregados"
+            )
         else:
             cfg["save"](resolved)
             save_conflicts(unresolved, pending_add, kind)

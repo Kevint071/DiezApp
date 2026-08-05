@@ -30,8 +30,18 @@ def _build_home_card(page: ft.Page, colors_fn, icon, title, subtitle, on_click):
                 ft.Column(
                     spacing=2,
                     controls=[
-                        ft.Text(title, size=15, weight=ft.FontWeight.W_600, color=c["on_surface"]),
-                        ft.Text(subtitle, size=12, weight=ft.FontWeight.W_400, color=c["on_surface_variant"]),
+                        ft.Text(
+                            title,
+                            size=15,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface"],
+                        ),
+                        ft.Text(
+                            subtitle,
+                            size=12,
+                            weight=ft.FontWeight.W_400,
+                            color=c["on_surface_variant"],
+                        ),
                     ],
                 ),
             ],
@@ -65,7 +75,12 @@ def build_home_view(page: ft.Page, colors_fn, on_open_calculator, on_open_monthl
                                     expand=True,
                                     spacing=16,
                                     controls=[
-                                        ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+                                        ft.Text(
+                                            "¿Qué deseas calcular?",
+                                            size=14,
+                                            weight=ft.FontWeight.W_500,
+                                            color=c["on_surface_variant"],
+                                        ),
                                         _build_home_card(
                                             page,
                                             colors_fn,

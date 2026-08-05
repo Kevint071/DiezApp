@@ -1,13 +1,23 @@
+from datetime import UTC, datetime
+
 import flet as ft
-from datetime import datetime
 
-from utils.storage import load_calculations
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-
+from utils.storage import load_calculations
 
 MONTHS = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
 ]
 
 
@@ -23,7 +33,7 @@ def _get_month_calculations(year: int, month: int) -> list:
             calc_date = datetime.fromisoformat(calc.get("created_at", ""))
             if calc_date.year == year and calc_date.month == month:
                 filtered.append(calc)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
     # Oldest first for progressive sum
     filtered.reverse()
@@ -43,7 +53,7 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
         try:
             d = datetime.fromisoformat(calc.get("created_at", ""))
             date_str = d.strftime("%d/%m")
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             date_str = "—"
 
         rows.append(
@@ -56,11 +66,28 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
                         ft.Row(
                             spacing=12,
                             controls=[
-                                ft.Text(date_str, size=12, color=c["on_surface_variant"], no_wrap=True),
-                                ft.Text(_format_currency(envio), size=13, weight=ft.FontWeight.W_500, color=c["on_surface"], no_wrap=True),
+                                ft.Text(
+                                    date_str,
+                                    size=12,
+                                    color=c["on_surface_variant"],
+                                    no_wrap=True,
+                                ),
+                                ft.Text(
+                                    _format_currency(envio),
+                                    size=13,
+                                    weight=ft.FontWeight.W_500,
+                                    color=c["on_surface"],
+                                    no_wrap=True,
+                                ),
                             ],
                         ),
-                        ft.Text(_format_currency(running_total), size=13, weight=ft.FontWeight.W_600, color=c["primary"], no_wrap=True),
+                        ft.Text(
+                            _format_currency(running_total),
+                            size=13,
+                            weight=ft.FontWeight.W_600,
+                            color=c["primary"],
+                            no_wrap=True,
+                        ),
                     ],
                 ),
             )
@@ -75,11 +102,29 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
                 ft.Row(
                     spacing=12,
                     controls=[
-                        ft.Text("Fecha", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], no_wrap=True),
-                        ft.Text("21%", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], no_wrap=True),
+                        ft.Text(
+                            "Fecha",
+                            size=11,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface_variant"],
+                            no_wrap=True,
+                        ),
+                        ft.Text(
+                            "21%",
+                            size=11,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface_variant"],
+                            no_wrap=True,
+                        ),
                     ],
                 ),
-                ft.Text("Acumulado", size=11, weight=ft.FontWeight.W_600, color=c["on_surface_variant"], no_wrap=True),
+                ft.Text(
+                    "Acumulado",
+                    size=11,
+                    weight=ft.FontWeight.W_600,
+                    color=c["on_surface_variant"],
+                    no_wrap=True,
+                ),
             ],
         ),
     )
@@ -93,19 +138,32 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             controls=[
-                ft.Text("Total", size=14, weight=ft.FontWeight.W_600, color=c["hero_fg"]),
-                ft.Text(_format_currency(running_total), size=16, weight=ft.FontWeight.W_700, color=c["hero_fg"]),
+                ft.Text(
+                    "Total", size=14, weight=ft.FontWeight.W_600, color=c["hero_fg"]
+                ),
+                ft.Text(
+                    _format_currency(running_total),
+                    size=16,
+                    weight=ft.FontWeight.W_700,
+                    color=c["hero_fg"],
+                ),
             ],
         ),
     )
 
-    content_controls = [header] + rows + [footer] if rows else [
-        ft.Container(
-            padding=ft.Padding.only(top=40),
-            alignment=ft.Alignment.CENTER,
-            content=ft.Text("Sin cálculos en este mes", size=14, color=c["on_surface_variant"]),
-        )
-    ]
+    content_controls = (
+        [header] + rows + [footer]
+        if rows
+        else [
+            ft.Container(
+                padding=ft.Padding.only(top=40),
+                alignment=ft.Alignment.CENTER,
+                content=ft.Text(
+                    "Sin cálculos en este mes", size=14, color=c["on_surface_variant"]
+                ),
+            )
+        ]
+    )
 
     divider = build_scroll_divider()
     return ft.SafeArea(
@@ -137,7 +195,8 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
                                             color=c["on_surface"],
                                         ),
                                         ft.Container(height=16),
-                                    ] + content_controls,
+                                    ]
+                                    + content_controls,
                                 ),
                             ),
                         ],
@@ -150,7 +209,7 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
 
 def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
     c = colors_fn(page)
-    now = datetime.now()
+    now = datetime.now(UTC).astimezone()
     state = {"year": now.year}
 
     year_text = ft.Text(
@@ -169,8 +228,10 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
     def _on_result_tap(month_idx):
         def handler(e):
             from views.monthly_summary_view import _build_breakdown_view
+
             light = page.theme_mode == ft.ThemeMode.LIGHT
-            from utils.theme import ON_SURFACE_LIGHT, ON_SURFACE_DARK
+            from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
+
             fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
             page.appbar = ft.AppBar(
                 leading=ft.Container(
@@ -186,20 +247,28 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
                     ),
                 ),
                 leading_width=40,
-                title=ft.Text("Desglose", color=fg, weight=ft.FontWeight.W_600, size=18),
+                title=ft.Text(
+                    "Desglose", color=fg, weight=ft.FontWeight.W_600, size=18
+                ),
                 center_title=False,
                 bgcolor=ft.Colors.TRANSPARENT,
                 elevation=0,
                 elevation_on_scroll=0,
             )
             page.controls.clear()
-            page.add(_build_breakdown_view(page, colors_fn, month_idx, state["year"], _back_to_summary))
+            page.add(
+                _build_breakdown_view(
+                    page, colors_fn, month_idx, state["year"], _back_to_summary
+                )
+            )
             page.update()
+
         return handler
 
     def _back_to_summary():
         light = page.theme_mode == ft.ThemeMode.LIGHT
-        from utils.theme import ON_SURFACE_LIGHT, ON_SURFACE_DARK
+        from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
+
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
         page.appbar = ft.AppBar(
             leading=ft.Container(
@@ -215,7 +284,9 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
                 ),
             ),
             leading_width=40,
-            title=ft.Text("Resumen mensual", color=fg, weight=ft.FontWeight.W_600, size=18),
+            title=ft.Text(
+                "Resumen mensual", color=fg, weight=ft.FontWeight.W_600, size=18
+            ),
             center_title=False,
             bgcolor=ft.Colors.TRANSPARENT,
             elevation=0,
@@ -262,6 +333,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
             )
             result_container.visible = True
             page.update()
+
         return handler
 
     def _prev_year(e):

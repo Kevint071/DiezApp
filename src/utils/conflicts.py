@@ -2,7 +2,14 @@ import json
 
 from utils.db import get_connection
 
-CALC_DIFF_FIELDS = ["amount", "envio_21", "restante", "fondo_local", "sostenimiento", "fund_percentage"]
+CALC_DIFF_FIELDS = [
+    "amount",
+    "envio_21",
+    "restante",
+    "fondo_local",
+    "sostenimiento",
+    "fund_percentage",
+]
 NOTE_DIFF_FIELDS = ["title", "content"]
 
 
@@ -24,13 +31,15 @@ def load_conflicts(kind: str = "calculations") -> dict:
         return {"conflicts": [], "pending_add": []}
     try:
         return json.loads(row[0])
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return {"conflicts": [], "pending_add": []}
 
 
 def save_conflicts(conflicts: list, pending_add: list, kind: str = "calculations"):
     conn = get_connection()
-    payload = json.dumps({"conflicts": conflicts, "pending_add": pending_add}, ensure_ascii=False)
+    payload = json.dumps(
+        {"conflicts": conflicts, "pending_add": pending_add}, ensure_ascii=False
+    )
     conn.execute(
         "INSERT INTO pending_conflicts (kind, payload) VALUES (?, ?) "
         "ON CONFLICT(kind) DO UPDATE SET payload = excluded.payload",
@@ -48,4 +57,3 @@ def clear_conflicts(kind: str = "calculations"):
 def conflict_count(kind: str = "calculations") -> int:
     data = load_conflicts(kind)
     return len(data.get("conflicts", []))
-

@@ -17,11 +17,11 @@ def _format_date(date_str: str) -> str:
     try:
         d = datetime.fromisoformat(date_str)
         return d.strftime("%d/%m/%Y %I:%M %p")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         try:
             parts = date_str.split("-")
             return f"{parts[2]}/{parts[1]}/{parts[0]}"
-        except (IndexError, AttributeError):
+        except IndexError, AttributeError:
             return date_str
 
 

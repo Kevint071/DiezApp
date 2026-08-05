@@ -47,7 +47,12 @@ def export_notes(path: str, notes: list):
     for note in notes:
         conn.execute(
             "INSERT INTO notes (id, title, content, created_at) VALUES (?, ?, ?, ?)",
-            (note.get("id"), note.get("title", ""), note.get("content"), note.get("created_at")),
+            (
+                note.get("id"),
+                note.get("title", ""),
+                note.get("content"),
+                note.get("created_at"),
+            ),
         )
     conn.commit()
 

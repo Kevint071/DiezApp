@@ -25,7 +25,9 @@ class CalculatorView:
 
         self.lbl_21 = ft.Text("Envío (21%)", size=13, weight=ft.FontWeight.W_500)
         self.lbl_79 = ft.Text("Restante", size=13, weight=ft.FontWeight.W_500)
-        self.lbl_1_of_79 = ft.Text(self._fund_label(), size=13, weight=ft.FontWeight.W_500)
+        self.lbl_1_of_79 = ft.Text(
+            self._fund_label(), size=13, weight=ft.FontWeight.W_500
+        )
         self.lbl_rest = ft.Text("Sostenimiento", size=13, weight=ft.FontWeight.W_500)
 
         self.results_container = ft.Container(visible=False)
@@ -131,7 +133,7 @@ class CalculatorView:
     def calculate(self, e):
         try:
             amount = float(self.input_amount.value.replace(".", "").replace(",", "."))
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             self.input_amount.error = "Ingresa un número válido"
             self.page.update()
             return
@@ -156,7 +158,9 @@ class CalculatorView:
         from utils.conflicts import conflict_count
 
         if conflict_count() > 0:
-            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de guardar"), open=True)
+            snack = ft.SnackBar(
+                content=ft.Text("Resuelve los conflictos antes de guardar"), open=True
+            )
             self.page.overlay.append(snack)
             self.page.update()
             return
@@ -164,13 +168,15 @@ class CalculatorView:
 
         try:
             amount = float(self.input_amount.value.replace(".", "").replace(",", "."))
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             return
         val_21 = amount * 0.21
         val_79 = amount * 0.79
         val_1_of_79 = val_79 * (self.state["fund_percentage"] / 100)
         val_rest = amount - val_21 - val_1_of_79
-        add_calculation(amount, val_21, val_79, val_1_of_79, val_rest, self.state["fund_percentage"])
+        add_calculation(
+            amount, val_21, val_79, val_1_of_79, val_rest, self.state["fund_percentage"]
+        )
         self.save_btn.visible = False
         self.page.update()
 

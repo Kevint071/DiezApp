@@ -1,7 +1,8 @@
-import flet as ft
 from datetime import datetime
 
-from utils.notes import load_notes, delete_note, update_note
+import flet as ft
+
+from utils.notes import delete_note, load_notes, update_note
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 PREVIEW_LIMIT = 100
@@ -11,7 +12,7 @@ def _format_date(date_str: str) -> str:
     try:
         d = datetime.fromisoformat(date_str)
         return d.strftime("%d/%m/%Y %I:%M %p")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return date_str
 
 
@@ -26,7 +27,9 @@ def _truncate(text: str) -> str:
     return truncated.rstrip() + "…"
 
 
-def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_header_actions=None):
+def build_notes_view(
+    page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_header_actions=None
+):
     c = colors_fn(page)
     notes = load_notes()
 
@@ -45,27 +48,37 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         q = query.strip().lower()
         if not q:
             return True
-        return q in (note.get("title") or "").lower() or q in (note.get("content") or "").lower()
+        return (
+            q in (note.get("title") or "").lower()
+            or q in (note.get("content") or "").lower()
+        )
 
     def _build_item(note: dict):
         title = (note.get("title") or "").strip()
         content_controls = [
             ft.Text(
                 _format_date(note.get("created_at", "")),
-                size=12, weight=ft.FontWeight.W_600, color=c["on_surface_variant"],
+                size=12,
+                weight=ft.FontWeight.W_600,
+                color=c["on_surface_variant"],
             ),
         ]
         if title:
             content_controls.append(
                 ft.Text(
-                    title, size=15, weight=ft.FontWeight.W_700, color=c["on_surface"],
-                    max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                    title,
+                    size=15,
+                    weight=ft.FontWeight.W_700,
+                    color=c["on_surface"],
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
                 )
             )
         content_controls.append(
             ft.Text(
                 _truncate(note.get("content", "")),
-                size=14, weight=ft.FontWeight.W_400,
+                size=14,
+                weight=ft.FontWeight.W_400,
                 color=c["on_surface_variant"] if title else c["on_surface"],
             )
         )
@@ -95,7 +108,9 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
                     ft.Container(height=12),
                     ft.Text(
                         message,
-                        size=16, weight=ft.FontWeight.W_500, color=c["on_surface_variant"],
+                        size=16,
+                        weight=ft.FontWeight.W_500,
+                        color=c["on_surface_variant"],
                         text_align=ft.TextAlign.CENTER,
                     ),
                 ],
@@ -104,10 +119,14 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
 
     def _build_list_content(query: str):
         if not notes:
-            return _build_empty_state(ft.Icons.STICKY_NOTE_2_OUTLINED, "No hay notas guardadas")
+            return _build_empty_state(
+                ft.Icons.STICKY_NOTE_2_OUTLINED, "No hay notas guardadas"
+            )
         filtered = [n for n in notes if _matches_query(n, query)]
         if not filtered:
-            return _build_empty_state(ft.Icons.SEARCH_OFF_ROUNDED, "No se encontraron notas")
+            return _build_empty_state(
+                ft.Icons.SEARCH_OFF_ROUNDED, "No se encontraron notas"
+            )
         return ft.Column(
             expand=True,
             spacing=0,
@@ -141,7 +160,9 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
         opacity=0,
         disabled=True,
         style=ft.ButtonStyle(padding=ft.Padding.all(4)),
-        size_constraints=ft.BoxConstraints(min_width=32, min_height=32, max_width=32, max_height=32),
+        size_constraints=ft.BoxConstraints(
+            min_width=32, min_height=32, max_width=32, max_height=32
+        ),
         on_click=_clear_search,
     )
 
@@ -177,12 +198,14 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
     )
 
     if set_header_actions is not None:
-        set_header_actions([
-            ft.Container(
-                padding=ft.Padding.only(right=24),
-                content=add_btn,
-            )
-        ])
+        set_header_actions(
+            [
+                ft.Container(
+                    padding=ft.Padding.only(right=24),
+                    content=add_btn,
+                )
+            ]
+        )
 
     return ft.SafeArea(
         expand=True,
@@ -193,7 +216,10 @@ def build_notes_view(page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_
                 expand=True,
                 spacing=16,
                 controls=[
-                    ft.Container(margin=ft.Margin.symmetric(horizontal=24), content=search_field_stack),
+                    ft.Container(
+                        margin=ft.Margin.symmetric(horizontal=24),
+                        content=search_field_stack,
+                    ),
                     results_container,
                 ],
             ),
@@ -211,7 +237,9 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
         dense=True,
         text_size=20,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
-        hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+        hint_style=ft.TextStyle(
+            size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]
+        ),
         cursor_color=c["primary"],
         autofocus=True,
     )
@@ -234,6 +262,7 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
 
     def _save(e):
         from utils.conflicts import conflict_count
+
         if conflict_count(kind="notes") > 0:
             err_txt.value = "Resuelve los conflictos antes de guardar"
             err_txt.visible = True
@@ -284,7 +313,14 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
     )
 
 
-def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_header_actions, register_leave_guard=None):
+def build_note_detail_view(
+    page: ft.Page,
+    colors_fn,
+    note: dict,
+    on_delete,
+    set_header_actions,
+    register_leave_guard=None,
+):
     c = colors_fn(page)
 
     state = {"dirty": False}
@@ -303,7 +339,9 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         dense=True,
         text_size=20,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
-        hint_style=ft.TextStyle(size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
+        hint_style=ft.TextStyle(
+            size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]
+        ),
         cursor_color=c["primary"],
     )
 
@@ -316,9 +354,13 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         border=ft.InputBorder.NONE,
         content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
         text_size=15,
-        text_style=ft.TextStyle(weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3),
+        text_style=ft.TextStyle(
+            weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3
+        ),
         hint_style=ft.TextStyle(size=15, color=c["on_surface_variant"]),
-        strut_style=ft.StrutStyle(size=15, height=1.3, weight=ft.FontWeight.W_400, force_strut_height=True),
+        strut_style=ft.StrutStyle(
+            size=15, height=1.3, weight=ft.FontWeight.W_400, force_strut_height=True
+        ),
         cursor_color=c["primary"],
     )
 
@@ -335,14 +377,20 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         if state["dirty"]:
             controls.append(
                 ft.IconButton(
-                    icon=ft.Icons.CHECK, icon_color="#4CAF50", icon_size=22,
-                    tooltip="Guardar cambios", on_click=_save_edit,
+                    icon=ft.Icons.CHECK,
+                    icon_color="#4CAF50",
+                    icon_size=22,
+                    tooltip="Guardar cambios",
+                    on_click=_save_edit,
                 )
             )
         controls.append(
             ft.IconButton(
-                icon=ft.Icons.DELETE_OUTLINE, icon_color="#D32F2F", icon_size=20,
-                tooltip="Eliminar", on_click=_confirm_delete,
+                icon=ft.Icons.DELETE_OUTLINE,
+                icon_color="#D32F2F",
+                icon_size=20,
+                tooltip="Eliminar",
+                on_click=_confirm_delete,
             )
         )
         return [
@@ -353,7 +401,9 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         ]
 
     def _is_dirty() -> bool:
-        return (title_field.value or "") != original["title"] or (content_field.value or "") != original["content"]
+        return (title_field.value or "") != original["title"] or (
+            content_field.value or ""
+        ) != original["content"]
 
     def _on_field_change(e):
         dirty = _is_dirty()
@@ -366,8 +416,11 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
 
     def _confirm_delete(e):
         from utils.conflicts import conflict_count
+
         if conflict_count(kind="notes") > 0:
-            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True)
+            snack = ft.SnackBar(
+                content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True
+            )
             page.overlay.append(snack)
             page.update()
             return
@@ -380,16 +433,18 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
         def _cancel_delete(ev):
             page.pop_dialog()
 
-        page.show_dialog(ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Eliminar nota", size=17, weight=ft.FontWeight.W_600),
-            content=ft.Text("¿Estás seguro de que deseas eliminar esta nota?"),
-            actions=[
-                ft.TextButton("Cancelar", on_click=_cancel_delete),
-                ft.FilledTonalButton("Eliminar", on_click=_do_delete),
-            ],
-            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-        ))
+        page.show_dialog(
+            ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Eliminar nota", size=17, weight=ft.FontWeight.W_600),
+                content=ft.Text("¿Estás seguro de que deseas eliminar esta nota?"),
+                actions=[
+                    ft.TextButton("Cancelar", on_click=_cancel_delete),
+                    ft.FilledTonalButton("Eliminar", on_click=_do_delete),
+                ],
+                actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            )
+        )
 
     def _perform_save() -> bool:
         title = (title_field.value or "").strip()
@@ -446,16 +501,22 @@ def build_note_detail_view(page: ft.Page, colors_fn, note: dict, on_delete, set_
             if not resolved["value"]:
                 cancel()
 
-        page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Cambios sin guardar", size=17, weight=ft.FontWeight.W_600),
-            content=ft.Text("Tienes cambios sin guardar en esta nota. ¿Deseas guardarlos o descartarlos?"),
-            actions=[
-                ft.TextButton("Descartar", on_click=_handle_discard),
-                ft.FilledButton("Guardar", on_click=_handle_save),
-            ],
-            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            on_dismiss=_handle_dismiss,
-        ))
+        page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text(
+                    "Cambios sin guardar", size=17, weight=ft.FontWeight.W_600
+                ),
+                content=ft.Text(
+                    "Tienes cambios sin guardar en esta nota. ¿Deseas guardarlos o descartarlos?"
+                ),
+                actions=[
+                    ft.TextButton("Descartar", on_click=_handle_discard),
+                    ft.FilledButton("Guardar", on_click=_handle_save),
+                ],
+                actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                on_dismiss=_handle_dismiss,
+            )
+        )
 
     if register_leave_guard is not None:
         register_leave_guard(_leave_guard)

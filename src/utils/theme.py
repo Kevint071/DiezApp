@@ -82,12 +82,12 @@ DARK_THEME = ft.Theme(
     ),
 )
 # ── Focus / Input States ───────────────────────────────────────
-FOCUS_LIGHT = "#64748B"       # slate-500 — subtle, neutral focus
-FOCUS_DARK = "#94A3B8"        # slate-400 — visible on dark, not neon
-ERROR_LIGHT = "#FEE2E2"       # red-100 bg
+FOCUS_LIGHT = "#64748B"  # slate-500 — subtle, neutral focus
+FOCUS_DARK = "#94A3B8"  # slate-400 — visible on dark, not neon
+ERROR_LIGHT = "#FEE2E2"  # red-100 bg
 ERROR_TEXT_LIGHT = "#DC2626"  # red-600 text
-ERROR_DARK = "#371520"        # dark red bg
-ERROR_TEXT_DARK = "#FCA5A5"   # red-300 text
+ERROR_DARK = "#371520"  # dark red bg
+ERROR_TEXT_DARK = "#FCA5A5"  # red-300 text
 # ── Helpers ──────────────────────────────────────────────
 APPBAR_BGCOLOR_LIGHT = PRIMARY
 APPBAR_BGCOLOR_DARK = "#0a0c10"
@@ -104,7 +104,9 @@ def get_colors(page: ft.Page) -> dict:
         "surface": SURFACE_LIGHT if light else SURFACE_DARK,
         "surface_variant": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
         "on_surface": ON_SURFACE_LIGHT if light else ON_SURFACE_DARK,
-        "on_surface_variant": ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
+        "on_surface_variant": ON_SURFACE_VARIANT_LIGHT
+        if light
+        else ON_SURFACE_VARIANT_DARK,
         "outline": OUTLINE_LIGHT if light else OUTLINE_DARK,
         "divider": DIVIDER_LIGHT if light else DIVIDER_DARK,
         "header_divider": HEADER_DIVIDER_LIGHT if light else HEADER_DIVIDER_DARK,

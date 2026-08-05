@@ -46,7 +46,9 @@ def add_note(content: str, title: str = "") -> dict:
     return note
 
 
-def update_note(note_id: str, new_content: str, new_title: str | None = None) -> dict | None:
+def update_note(
+    note_id: str, new_content: str, new_title: str | None = None
+) -> dict | None:
     notes = load_notes()
     for note in notes:
         if note["id"] == note_id:
