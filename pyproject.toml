@@ -19,3 +19,12 @@ message = "Cargando..."
 [tool.flet.android]
 # Build only the ARM64 Android variant to keep the APK smaller on modern phones.
 target_arch = ["arm64-v8a"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
