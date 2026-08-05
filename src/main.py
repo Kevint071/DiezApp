@@ -1,151 +1,32 @@
-import sqlite3
-import sys
-import threading
+import contextlib
 import traceback
 
 import flet as ft
 
-from utils.db import get_setting, set_setting
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.theme import (
-    DARK_THEME,
-    DIVIDER_DARK,
-    DIVIDER_LIGHT,
-    FOCUS_DARK,
-    FOCUS_LIGHT,
-    HEADER_DIVIDER_DARK,
-    HEADER_DIVIDER_LIGHT,
-    HERO_BG_DARK,
-    LIGHT_THEME,
-    ON_PRIMARY,
-    ON_PRIMARY_CONTAINER,
-    ON_SURFACE_DARK,
-    ON_SURFACE_LIGHT,
-    ON_SURFACE_VARIANT_DARK,
-    ON_SURFACE_VARIANT_LIGHT,
-    OUTLINE_DARK,
-    OUTLINE_DARK_INPUT,
-    OUTLINE_LIGHT,
-    OUTLINE_LIGHT_INPUT,
-    PRIMARY,
-    PRIMARY_CONTAINER,
-    PRIMARY_DARK,
-    PRIMARY_LIGHT,
-    SURFACE_DARK,
-    SURFACE_LIGHT,
-    SURFACE_VARIANT_DARK,
-    SURFACE_VARIANT_LIGHT,
-)
+from utils.app_settings import load_settings, save_settings
+from utils.theme import DARK_THEME, LIGHT_THEME, get_colors
+from views.calculator_view import CalculatorView
+from views.home_view import build_home_view
 
-# settings_view and storage are lazy-imported on first use to speed up startup
-
-_TAG = "[DIEZAPP]"
-
-
-def _log(msg: str):
-    """Print with flush so the message shows up promptly in `adb logcat`."""
-    print(f"{_TAG} {msg}", flush=True)
-
-
-def _log_exception(context: str, exc: BaseException):
-    _log(f"FATAL in {context}: {exc!r}\n{traceback.format_exc()}")
-
-
-def _install_global_exception_hooks():
-    """Make sure ANY uncaught exception (main thread or worker thread) is logged."""
-
-    def _excepthook(exc_type, exc_value, exc_tb):
-        _log(
-            "UNCAUGHT exception on main thread:\n"
-            + "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        )
-
-    def _thread_excepthook(args: threading.ExceptHookArgs):
-        _log(
-            f"UNCAUGHT exception on thread {args.thread.name!r}:\n"
-            + "".join(
-                traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)
-            )
-        )
-
-    sys.excepthook = _excepthook
-    threading.excepthook = _thread_excepthook
-
-
-_install_global_exception_hooks()
-_log("module loaded")
-
-
-def load_settings() -> dict:
-    """Load theme_mode and fund_percentage from the local database.
-
-    Falls back to defaults (instead of blocking/crashing startup) if the DB
-    is unreachable for any reason, so the first frame always renders.
-    """
-    defaults = {"theme_mode": "light", "fund_percentage": 1}
-    try:
-        theme_mode = get_setting("theme_mode", defaults["theme_mode"])
-        raw_pct = get_setting("fund_percentage", str(defaults["fund_percentage"]))
-    except sqlite3.Error as e:
-        print(f"[startup] failed to read settings from DB, using defaults: {e}")
-        return defaults
-    try:
-        fund_percentage = int(raw_pct)
-    except (TypeError, ValueError):
-        fund_percentage = defaults["fund_percentage"]
-    return {"theme_mode": theme_mode, "fund_percentage": fund_percentage}
-
-
-def save_settings(theme_mode: str, fund_percentage: int):
-    set_setting("theme_mode", theme_mode)
-    set_setting("fund_percentage", str(fund_percentage))
-
-
-def _is_light(page: ft.Page) -> bool:
-    return page.theme_mode == ft.ThemeMode.LIGHT
-
-
-def _colors(page: ft.Page):
-    """Return a dict of contextual colors for the current theme mode."""
-    light = _is_light(page)
-    return {
-        "surface": SURFACE_LIGHT if light else SURFACE_DARK,
-        "surface_variant": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
-        "on_surface": ON_SURFACE_LIGHT if light else ON_SURFACE_DARK,
-        "on_surface_variant": ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
-        "outline": OUTLINE_LIGHT if light else OUTLINE_DARK,
-        "divider": DIVIDER_LIGHT if light else DIVIDER_DARK,
-        "header_divider": HEADER_DIVIDER_LIGHT if light else HEADER_DIVIDER_DARK,
-        "card_bg": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
-        "hero_bg": PRIMARY_CONTAINER if light else HERO_BG_DARK,
-        "hero_fg": ON_PRIMARY_CONTAINER if light else "#A7F3D0",
-        "input_border": OUTLINE_LIGHT_INPUT if light else OUTLINE_DARK_INPUT,
-        "input_focused": FOCUS_LIGHT if light else FOCUS_DARK,
-        "primary": PRIMARY if light else PRIMARY_DARK,
-        "primary_light": PRIMARY_LIGHT if light else "#34D399",
-        "on_primary": ON_PRIMARY if light else "#F1F5F9",
-    }
+# settings_view and other secondary views are lazy-imported on first use to
+# speed up startup.
 
 
 def main(page: ft.Page):
     """Entry point Flet calls to build the page. Any exception here (or any
     hang before the first `page.add`) would otherwise leave the app stuck on
-    the native splash screen with no visible feedback, so everything is
-    guarded and checkpoint-logged to `adb logcat` (grep for the `[DIEZAPP]` tag).
-    """
-    _log("main() called")
+    the native splash screen with no visible feedback, so the build is
+    guarded and any failure is rendered directly on-screen."""
     try:
         _main(page)
-        _log("main() finished building the page successfully")
     except Exception as e: # noqa: BLE001 — guard de último recurso, cualquier error de build debe mostrarse en pantalla
-        _log_exception("main()", e)
         _show_fatal_error(page, e)
 
 
 def _show_fatal_error(page: ft.Page, exc: BaseException):
     """Render the traceback directly on-screen as a last resort, in case adb
     is not attached (this replaces the infinite splash with visible text)."""
-    try:
+    with contextlib.suppress(Exception):
         page.controls.clear()
         page.add(
             ft.Container(
@@ -166,27 +47,20 @@ def _show_fatal_error(page: ft.Page, exc: BaseException):
             )
         )
         page.update()
-    except Exception as e: # noqa: BLE001 — último fallback si hasta el render de error falla
-        _log_exception("_show_fatal_error()", e)
 
 
 def _main(page: ft.Page):
-    _log("_main() entered: setting page.title/padding")
     page.title = "DiezApp"
     page.padding = ft.Padding.all(0)
 
-    _log("loading settings from DB")
     settings = load_settings()
-    _log(f"settings loaded: {settings}")
     page.theme_mode = ft.ThemeMode.DARK if settings["theme_mode"] == "dark" else ft.ThemeMode.LIGHT
     state = {"fund_percentage": settings["fund_percentage"]}
     page.theme = LIGHT_THEME
     page.dark_theme = DARK_THEME
-    _log("theme applied to page")
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
-    _log("leave guard set up")
 
     def _register_leave_guard(fn):
         leave_guard["check"] = fn
@@ -198,163 +72,12 @@ def _main(page: ft.Page):
         else:
             proceed()
 
-    # ── Result texts ─────────────────────────────────────
-    txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
-    txt_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
-    txt_1_of_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
-    txt_rest = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
-
-    lbl_21 = ft.Text("Envío (21%)", size=13, weight=ft.FontWeight.W_500)
-    lbl_79 = ft.Text("Restante", size=13, weight=ft.FontWeight.W_500)
-    lbl_1_of_79 = ft.Text(f"Fondo local ({state['fund_percentage']}%)", size=13, weight=ft.FontWeight.W_500)
-    lbl_rest = ft.Text("Sostenimiento", size=13, weight=ft.FontWeight.W_500)
-    _log("result texts/labels created")
-
-    # ── Results container (hidden until first calc) ──────
-    results_container = ft.Container(visible=False)
-
-    # ── Save button (hidden until first calc) ────────────
-    save_btn = ft.OutlinedButton(
-        "Guardar",
-        visible=False,
-        style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
-        ),
-        width=float("inf"),
-    )
-    _log("results_container/save_btn created")
-
-    def _build_results():
-        _log("_build_results() entered")
-        c = _colors(page)
-
-        def _result_tile(label_ctrl: ft.Text, value_ctrl: ft.Text):
-            label_ctrl.color = c["on_surface_variant"]
-            value_ctrl.color = c["primary"]
-            return ft.Container(
-                bgcolor=c["card_bg"],
-                border_radius=14,
-                padding=ft.Padding.symmetric(vertical=12, horizontal=16),
-                content=ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[label_ctrl, value_ctrl],
-                ),
-            )
-
-        results_container.content = ft.Column(
-            spacing=10,
-            controls=[
-                ft.Container(height=8),
-                ft.Text(
-                    "Distribución",
-                    size=14,
-                    weight=ft.FontWeight.W_600,
-                    color=c["on_surface_variant"],
-                ),
-                _result_tile(lbl_21, txt_21),
-                _result_tile(lbl_79, txt_79),
-                _result_tile(lbl_1_of_79, txt_1_of_79),
-                _result_tile(lbl_rest, txt_rest),
-            ],
-        )
-        _log("_build_results() finished")
-
-    def _format_input_number(e):
-        """Format the input with dots as thousand separators while typing."""
-        raw = input_amount.value.replace(".", "").replace(",", "")
-        if not raw:
-            return
-        # Keep only digits
-        digits = "".join(c for c in raw if c.isdigit())
-        if not digits:
-            input_amount.value = ""
-            page.update()
-            return
-        # Format with dots every 3 digits
-        formatted = ""
-        for i, d in enumerate(reversed(digits)):
-            if i > 0 and i % 3 == 0:
-                formatted = "." + formatted
-            formatted = d + formatted
-        input_amount.value = formatted
-        page.update()
-
-    input_amount = ft.TextField(
-        label="Cantidad neta ($)",
-        label_style=ft.TextStyle(weight=ft.FontWeight.W_400),
-        keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=12,
-        content_padding=ft.Padding.symmetric(vertical=14, horizontal=14),
-        text_size=15,
-        expand=True,
-        on_submit=lambda e: calculate(e),
-        on_change=_format_input_number,
-    )
-    _log("input_amount field created")
-
-    def _apply_input_colors():
-        _log("_apply_input_colors() entered")
-        c = _colors(page)
-        input_amount.border_color = c["input_border"]
-        input_amount.focused_border_color = c["input_focused"]
-        _log("_apply_input_colors() finished")
-
-    def format_currency(value: float) -> str:
-        return f"${value:,.0f}".replace(",", ".")
-
-    def calculate(e):
-        try:
-            amount = float(input_amount.value.replace(".", "").replace(",", "."))
-        except (ValueError, AttributeError):
-            input_amount.error = "Ingresa un número válido"
-            page.update()
-            return
-
-        input_amount.error = None
-        val_21 = amount * 0.21
-        val_79 = amount * 0.79
-        val_1_of_79 = val_79 * (state["fund_percentage"] / 100)
-        val_rest = amount - val_21 - val_1_of_79
-
-        txt_21.value = format_currency(val_21)
-        txt_79.value = format_currency(val_79)
-        txt_1_of_79.value = format_currency(val_1_of_79)
-        txt_rest.value = format_currency(val_rest)
-
-        _build_results()
-        results_container.visible = True
-        save_btn.visible = True
-        page.update()
-
-    def _save_calculation(e):
-        from utils.conflicts import conflict_count
-        if conflict_count() > 0:
-            snack = ft.SnackBar(content=ft.Text("Resuelve los conflictos antes de guardar"), open=True)
-            page.overlay.append(snack)
-            page.update()
-            return
-        from utils.storage import add_calculation
-        try:
-            amount = float(input_amount.value.replace(".", "").replace(",", "."))
-        except (ValueError, AttributeError):
-            return
-        val_21 = amount * 0.21
-        val_79 = amount * 0.79
-        val_1_of_79 = val_79 * (state["fund_percentage"] / 100)
-        val_rest = amount - val_21 - val_1_of_79
-        add_calculation(amount, val_21, val_79, val_1_of_79, val_rest, state["fund_percentage"])
-        save_btn.visible = False
-        page.update()
-
-    save_btn.on_click = _save_calculation
+    calculator = CalculatorView(page, state, get_colors)
 
     def _apply_appbar(title="Inicio", show_back=False, on_back=None, actions=None):
-        _log(f"_apply_appbar({title!r}) entered")
         leave_guard["check"] = None
-        light = _is_light(page)
-        fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+        c = get_colors(page)
+        fg = c["on_surface"]
         leading = None
         if show_back and on_back:
             leading = ft.Container(
@@ -380,9 +103,7 @@ def _main(page: ft.Page):
             elevation_on_scroll=0,
             actions=actions,
         )
-        _log("page.appbar assigned, updating nav_bar.bgcolor")
-        nav_bar.bgcolor = _colors(page)["surface"]
-        _log("_apply_appbar() finished")
+        nav_bar.bgcolor = c["surface"]
 
     def _set_appbar_actions(actions):
         if page.appbar:
@@ -390,153 +111,16 @@ def _main(page: ft.Page):
             page.update()
 
     # ── Navigation ───────────────────────────────────────
-    calc_btn = ft.FilledButton(
-        "Calcular",
-        on_click=calculate,
-        style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
-        ),
-        width=float("inf"),
-    )
-
-    def _build_calc_content():
-        _log("_build_calc_content() entered")
-        c = _colors(page)
-        divider = build_scroll_divider()
-        return ft.SafeArea(
-            expand=True,
-            content=ft.Container(
-                expand=True,
-                padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
-                content=ft.Column(
-                    expand=True,
-                    spacing=0,
-                    controls=[
-                        divider,
-                        ft.Column(
-                            expand=True,
-                            spacing=0,
-                            scroll=ft.Scrollbar(thickness=6, radius=4),
-                            on_scroll=make_scroll_divider_handler(divider, c),
-                            controls=[
-                                ft.Container(
-                                    expand=True,
-                                    margin=ft.Margin.symmetric(horizontal=24),
-                                    content=ft.Column(
-                                        expand=True,
-                                        spacing=20,
-                                        controls=[
-                                            input_amount,
-                                            calc_btn,
-                                            results_container,
-                                            save_btn,
-                                        ],
-                                    ),
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ),
-        )
-
-    def _build_home_card(icon, title, subtitle, on_click):
-        c = _colors(page)
-        return ft.Container(
-            bgcolor=c["card_bg"],
-            border_radius=16,
-            padding=ft.Padding.all(20),
-            on_click=on_click,
-            ink=True,
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=16,
-                controls=[
-                    ft.Container(
-                        width=48,
-                        height=48,
-                        border_radius=12,
-                        bgcolor=ft.Colors.with_opacity(0.1, c["primary"]),
-                        alignment=ft.Alignment.CENTER,
-                        content=ft.Icon(icon, color=c["primary"], size=24),
-                    ),
-                    ft.Column(
-                        spacing=2,
-                        controls=[
-                            ft.Text(title, size=15, weight=ft.FontWeight.W_600, color=c["on_surface"]),
-                            ft.Text(subtitle, size=12, weight=ft.FontWeight.W_400, color=c["on_surface_variant"]),
-                        ],
-                    ),
-                ],
-            ),
-        )
-
-    def _build_main_content():
-        _log("_build_main_content() entered")
-        c = _colors(page)
-        divider = build_scroll_divider()
-        return ft.SafeArea(
-            expand=True,
-            content=ft.Container(
-                expand=True,
-                padding=ft.Padding.only(left=0, right=0, top=4, bottom=24),
-                content=ft.Column(
-                    expand=True,
-                    spacing=0,
-                    controls=[
-                        divider,
-                        ft.Column(
-                            expand=True,
-                            spacing=16,
-                            scroll=ft.Scrollbar(thickness=6, radius=4),
-                            on_scroll=make_scroll_divider_handler(divider, c),
-                            controls=[
-                                ft.Container(
-                                    expand=True,
-                                    margin=ft.Margin.symmetric(horizontal=24),
-                                    content=ft.Column(
-                                        expand=True,
-                                        spacing=16,
-                                        controls=[
-                                            ft.Text("¿Qué deseas calcular?", size=14, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]),
-                                            _build_home_card(
-                                                ft.Icons.PIE_CHART_OUTLINE_ROUNDED,
-                                                "Distribución porcentual",
-                                                "Calcula envío, fondo local y sostenimiento",
-                                                lambda e: _navigate_to_calc(),
-                                            ),
-                                            _build_home_card(
-                                                ft.Icons.CALENDAR_MONTH_ROUNDED,
-                                                "Resumen mensual",
-                                                "Sumatoria de envíos (21%) por mes",
-                                                lambda e: _navigate_to_monthly(),
-                                            ),
-                                        ],
-                                    ),
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ),
-        )
-
-    main_content: ft.SafeArea | None = _build_main_content()
-    _log("initial main_content built")
+    main_content: ft.SafeArea | None = None
 
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
 
     def _navigate_to_pdf_export():
-        _log("_navigate_to_pdf_export() entered")
         from views.saved_calculations_view import build_date_range_picker_view
         _apply_appbar("Exportar PDF")
         page.controls.clear()
-        page.add(build_date_range_picker_view(page, _colors, on_show_filtered=_navigate_to_filtered_saved))
-        _log("_navigate_to_pdf_export() finished")
+        page.add(build_date_range_picker_view(page, get_colors, on_show_filtered=_navigate_to_filtered_saved))
 
     def _navigate_to_filtered_saved(start, end):
         from views.saved_calculations_view import build_saved_calculations_view
@@ -547,7 +131,7 @@ def _main(page: ft.Page):
             _navigate_to_filtered_saved(start, end)
 
         page.controls.clear()
-        page.add(build_saved_calculations_view(page, _colors, _refresh, date_range=(start, end)))
+        page.add(build_saved_calculations_view(page, get_colors, _refresh, date_range=(start, end)))
 
     def _on_back_from_pdf_export():
         prev = nav_state.get("prev_index", 0)
@@ -624,37 +208,27 @@ def _main(page: ft.Page):
             ),
         ],
     )
-    _log("nav_bar built")
 
     page.navigation_bar = nav_bar
-    _log("page.navigation_bar assigned")
 
     def _navigate_to_settings():
-        _log("_navigate_to_settings() entered")
         from views.settings_view import build_settings_view
-        input_amount.value = ""
-        results_container.visible = False
-        save_btn.visible = False
+        calculator.reset()
         _apply_appbar("Configuración")
         page.controls.clear()
-        page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, _colors))
-        _log("_navigate_to_settings() finished")
+        page.add(build_settings_view(page, state, save_settings, _navigate_to_settings, get_colors))
 
     def _navigate_to_saved():
-        _log("_navigate_to_saved() entered")
         from views.saved_calculations_view import build_saved_calculations_view
         _apply_appbar("Cálculos guardados")
         page.controls.clear()
-        page.add(build_saved_calculations_view(page, _colors, _navigate_to_saved))
-        _log("_navigate_to_saved() finished")
+        page.add(build_saved_calculations_view(page, get_colors, _navigate_to_saved))
 
     def _navigate_to_notes():
-        _log("_navigate_to_notes() entered")
         from views.notes_view import build_notes_view
         _apply_appbar("Notas")
         page.controls.clear()
-        page.add(build_notes_view(page, _colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes, _set_appbar_actions))
-        _log("_navigate_to_notes() finished")
+        page.add(build_notes_view(page, get_colors, _navigate_to_new_note, _navigate_to_note_detail, _navigate_to_notes, _set_appbar_actions))
 
     def _navigate_to_new_note():
         from utils.notes import add_note
@@ -666,7 +240,7 @@ def _main(page: ft.Page):
 
         _apply_appbar("Nueva nota", show_back=True, on_back=_navigate_to_notes)
         page.controls.clear()
-        page.add(build_new_note_view(page, _colors, _on_save))
+        page.add(build_new_note_view(page, get_colors, _on_save))
 
     def _navigate_to_note_detail(note_id):
         from utils.notes import load_notes
@@ -678,50 +252,35 @@ def _main(page: ft.Page):
             return
         _apply_appbar("Nota", show_back=True, on_back=_navigate_to_notes)
         page.controls.clear()
-        page.add(build_note_detail_view(page, _colors, note, _navigate_to_notes, _set_appbar_actions, _register_leave_guard))
+        page.add(build_note_detail_view(page, get_colors, note, _navigate_to_notes, _set_appbar_actions, _register_leave_guard))
 
     def _navigate_to_calc():
-        _log("_navigate_to_calc() entered")
-        lbl_1_of_79.value = f"Fondo local ({state['fund_percentage']}%)"
         _apply_appbar("Distribución", show_back=True, on_back=_navigate_to_main)
-        _apply_input_colors()
+        calculator.prepare_for_show()
         page.controls.clear()
-        page.add(_build_calc_content())
-        if results_container.visible:
-            _build_results()
-            if input_amount.value:
-                calculate(None)
-        _log("_navigate_to_calc() finished")
+        page.add(calculator.build_content())
+        calculator.refresh_after_show()
 
     def _navigate_to_monthly():
-        _log("_navigate_to_monthly() entered")
         from views.monthly_summary_view import build_monthly_summary_view
         _apply_appbar("Resumen mensual", show_back=True, on_back=_navigate_to_main)
         page.controls.clear()
-        page.add(build_monthly_summary_view(page, _colors, on_back=_navigate_to_main))
-        _log("_navigate_to_monthly() finished")
+        page.add(build_monthly_summary_view(page, get_colors, on_back=_navigate_to_main))
 
     def _navigate_to_main():
-        _log("_navigate_to_main() entered")
         nonlocal main_content
         _apply_appbar()
-        main_content = _build_main_content()
+        main_content = build_home_view(page, get_colors, _navigate_to_calc, _navigate_to_monthly)
         page.controls.clear()
         page.add(main_content)
-        _log("_navigate_to_main() finished")
 
     _apply_appbar()
-    _apply_input_colors()
+    calculator.prepare_for_show()
 
-    _log("adding main_content to page")
+    main_content = build_home_view(page, get_colors, _navigate_to_calc, _navigate_to_monthly)
     page.add(main_content)
-    _log("page.add(main_content) returned")
 
 
 if __name__ == "__main__":
-    try:
-        _log("calling ft.run(main)")
-        ft.run(main)
-    except Exception as e:
-        _log_exception("ft.run(main)", e)
-        raise
+    ft.run(main)
+

@@ -91,3 +91,29 @@ ERROR_TEXT_DARK = "#FCA5A5"   # red-300 text
 # ── Helpers ──────────────────────────────────────────────
 APPBAR_BGCOLOR_LIGHT = PRIMARY
 APPBAR_BGCOLOR_DARK = "#0a0c10"
+
+
+def is_light(page: ft.Page) -> bool:
+    return page.theme_mode == ft.ThemeMode.LIGHT
+
+
+def get_colors(page: ft.Page) -> dict:
+    """Return a dict of contextual colors for the current theme mode."""
+    light = is_light(page)
+    return {
+        "surface": SURFACE_LIGHT if light else SURFACE_DARK,
+        "surface_variant": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
+        "on_surface": ON_SURFACE_LIGHT if light else ON_SURFACE_DARK,
+        "on_surface_variant": ON_SURFACE_VARIANT_LIGHT if light else ON_SURFACE_VARIANT_DARK,
+        "outline": OUTLINE_LIGHT if light else OUTLINE_DARK,
+        "divider": DIVIDER_LIGHT if light else DIVIDER_DARK,
+        "header_divider": HEADER_DIVIDER_LIGHT if light else HEADER_DIVIDER_DARK,
+        "card_bg": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
+        "hero_bg": PRIMARY_CONTAINER if light else HERO_BG_DARK,
+        "hero_fg": ON_PRIMARY_CONTAINER if light else "#A7F3D0",
+        "input_border": OUTLINE_LIGHT_INPUT if light else OUTLINE_DARK_INPUT,
+        "input_focused": FOCUS_LIGHT if light else FOCUS_DARK,
+        "primary": PRIMARY if light else PRIMARY_DARK,
+        "primary_light": PRIMARY_LIGHT if light else "#34D399",
+        "on_primary": ON_PRIMARY if light else "#F1F5F9",
+    }

@@ -544,7 +544,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
 
     conflicts_cell = _settings_cell(
         icon=ft.Icons.SYNC_PROBLEM_OUTLINED,
-        title="Resolver conflictos",
+        title="Conflictos",
         subtitle=f"{n_total_conflicts} pendientes" if n_total_conflicts > 0 else "Sin conflictos",
         colors=c,
         on_click=_open_conflicts_entry if n_total_conflicts > 0 else lambda e: None,
