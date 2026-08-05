@@ -65,7 +65,7 @@ def _apply_pragmas(conn):
     rollback journal avoids mmap/shared-memory entirely and is plenty for
     a single-process local app.
     """
-    conn.execute("PRAGMA journal_mode = DELETE")
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA cache_size = -20000")  # ~20 MB page cache
     conn.execute("PRAGMA temp_store = MEMORY")
