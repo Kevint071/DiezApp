@@ -31,6 +31,7 @@ _KIND_CONFIG = {
         "save": save_notes,
         "id_field": "id",
         "fields": [
+            ("Título", "title", "text"),
             ("Contenido", "content", "text"),
         ],
     },

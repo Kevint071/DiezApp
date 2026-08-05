@@ -2,6 +2,17 @@ import json
 
 from utils.db import get_connection
 
+CALC_DIFF_FIELDS = ["amount", "envio_21", "restante", "fondo_local", "sostenimiento", "fund_percentage"]
+NOTE_DIFF_FIELDS = ["title", "content"]
+
+
+def calcs_differ(a: dict, b: dict) -> bool:
+    return any(a.get(k) != b.get(k) for k in CALC_DIFF_FIELDS)
+
+
+def notes_differ(a: dict, b: dict) -> bool:
+    return any(a.get(k) != b.get(k) for k in NOTE_DIFF_FIELDS)
+
 
 def load_conflicts(kind: str = "calculations") -> dict:
     """Load pending conflicts. Returns {"conflicts": [...], "pending_add": [...]}"""

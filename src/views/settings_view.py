@@ -185,13 +185,6 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         if keep_open:
             page.update()
 
-    def _calcs_differ(a: dict, b: dict) -> bool:
-        keys = ["amount", "envio_21", "restante", "fondo_local", "sostenimiento", "fund_percentage"]
-        return any(a.get(k) != b.get(k) for k in keys)
-
-    def _notes_differ(a: dict, b: dict) -> bool:
-        return a.get("content") != b.get("content")
-
     # ── Export dialog (notas / cálculos / ambas) ────────────────────
     export_target_state = {"target": "both"}
 
@@ -311,7 +304,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
     page.update()
 
     def _process_calc_import(imported_calcs: list, mode: str) -> dict:
-        from utils.conflicts import save_conflicts
+        from utils.conflicts import calcs_differ, save_conflicts
         from utils.storage import load_calculations, save_calculations
 
         if mode == "replace":
@@ -325,7 +318,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         for imp_calc in imported_calcs:
             imp_id = imp_calc.get("id")
             if imp_id and imp_id in existing_map:
-                if _calcs_differ(existing_map[imp_id], imp_calc):
+                if calcs_differ(existing_map[imp_id], imp_calc):
                     conflicts.append({"existing": existing_map[imp_id], "imported": imp_calc})
             else:
                 to_add.append(imp_calc)
@@ -337,7 +330,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         return {"added": len(to_add), "conflicts": len(conflicts)}
 
     def _process_notes_import(imported_notes: list, mode: str) -> dict:
-        from utils.conflicts import save_conflicts
+        from utils.conflicts import notes_differ, save_conflicts
         from utils.notes import load_notes, save_notes
 
         if mode == "replace":
@@ -351,7 +344,7 @@ def build_settings_view(page: ft.Page, state: dict, save_settings, navigate_to_s
         for imp_note in imported_notes:
             imp_id = imp_note.get("id")
             if imp_id and imp_id in existing_map:
-                if _notes_differ(existing_map[imp_id], imp_note):
+                if notes_differ(existing_map[imp_id], imp_note):
                     conflicts.append({"existing": existing_map[imp_id], "imported": imp_note})
             else:
                 to_add.append(imp_note)
