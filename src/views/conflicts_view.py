@@ -1,11 +1,12 @@
-import flet as ft
 from datetime import datetime
 
-from utils.conflicts import load_conflicts, save_conflicts, clear_conflicts
-from utils.storage import load_calculations, save_calculations
+import flet as ft
+
+from utils.conflicts import clear_conflicts, load_conflicts, save_conflicts
 from utils.notes import load_notes, save_notes
-from utils.theme import ON_SURFACE_LIGHT, ON_SURFACE_DARK
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
+from utils.storage import load_calculations, save_calculations
+from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 
 # Per-kind configuration: how to load/save items, their unique id field, and
 # which fields to render in the comparison cards. This lets the same
