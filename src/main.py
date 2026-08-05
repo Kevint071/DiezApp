@@ -137,7 +137,7 @@ def main(page: ft.Page):
     try:
         _main(page)
         _log("main() finished building the page successfully")
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 — guard de último recurso, cualquier error de build debe mostrarse en pantalla
         _log_exception("main()", e)
         _show_fatal_error(page, e)
 
@@ -166,7 +166,7 @@ def _show_fatal_error(page: ft.Page, exc: BaseException):
             )
         )
         page.update()
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 — último fallback si hasta el render de error falla
         _log_exception("_show_fatal_error()", e)
 
 
