@@ -1,16 +1,16 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from utils.db import get_connection
 
-
-_COLUMNS = ["id", "title", "content", "created_at"]
+_COLUMNS = ["id", "title", "content", "created_at", "updated_at"]
 
 
 def load_notes() -> list:
     conn = get_connection()
     rows = conn.execute(
-        "SELECT id, title, content, created_at FROM notes ORDER BY sort_index ASC"
+        "SELECT id, title, content, created_at, updated_at FROM notes "
+        "ORDER BY sort_index ASC"
     ).fetchall()
     return [dict(zip(_COLUMNS, row)) for row in rows]
 
@@ -20,13 +20,14 @@ def save_notes(notes: list):
     conn.execute("DELETE FROM notes")
     for i, note in enumerate(notes):
         conn.execute(
-            "INSERT INTO notes (id, title, content, created_at, sort_index) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO notes (id, title, content, created_at, updated_at, sort_index) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (
                 note.get("id"),
                 note.get("title", ""),
                 note.get("content"),
                 note.get("created_at"),
+                note.get("updated_at"),
                 i,
             ),
         )
@@ -38,7 +39,8 @@ def add_note(content: str, title: str = "") -> dict:
         "id": str(uuid.uuid4()),
         "title": title,
         "content": content,
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).astimezone().isoformat(),
+        "updated_at": None,
     }
     notes = load_notes()
     notes.insert(0, note)
@@ -55,6 +57,7 @@ def update_note(
             note["content"] = new_content
             if new_title is not None:
                 note["title"] = new_title
+            note["updated_at"] = datetime.now(UTC).astimezone().isoformat()
             save_notes(notes)
             return note
     return None

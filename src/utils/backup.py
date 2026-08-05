@@ -18,7 +18,7 @@ CALC_COLUMNS = [
     "fund_percentage",
 ]
 
-NOTE_COLUMNS = ["id", "title", "content", "created_at"]
+NOTE_COLUMNS = ["id", "title", "content", "created_at", "updated_at"]
 
 
 def export_calculations(path: str, calculations: list):
@@ -42,16 +42,19 @@ def export_notes(path: str, notes: list):
     conn = sqlite3.connect(path)
     conn.execute("DROP TABLE IF EXISTS notes")
     conn.execute(
-        "CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, created_at TEXT)"
+        "CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, "
+        "created_at TEXT, updated_at TEXT)"
     )
     for note in notes:
         conn.execute(
-            "INSERT INTO notes (id, title, content, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO notes (id, title, content, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
             (
                 note.get("id"),
                 note.get("title", ""),
                 note.get("content"),
                 note.get("created_at"),
+                note.get("updated_at"),
             ),
         )
     conn.commit()
@@ -74,8 +77,10 @@ def read_notes(path: str) -> list:
     """Read notes from a backup `.db`. Raises ValueError if invalid."""
     try:
         conn = sqlite3.connect(path)
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(notes)").fetchall()}
+        updated_at_expr = "updated_at" if "updated_at" in cols else "NULL"
         rows = conn.execute(
-            "SELECT id, title, content, created_at FROM notes"
+            f"SELECT id, title, content, created_at, {updated_at_expr} FROM notes"
         ).fetchall()
     except Exception as exc:
         raise ValueError("Archivo de respaldo inválido") from exc

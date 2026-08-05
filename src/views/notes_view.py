@@ -27,11 +27,22 @@ def _truncate(text: str) -> str:
     return truncated.rstrip() + "…"
 
 
+def _sort_notes_for_display(notes: list) -> list:
+    """Most recently modified notes first; never-modified notes after,
+    ordered by creation date (newest first)."""
+    by_date = sorted(
+        notes,
+        key=lambda n: n.get("updated_at") or n.get("created_at") or "",
+        reverse=True,
+    )
+    return sorted(by_date, key=lambda n: 0 if n.get("updated_at") else 1)
+
+
 def build_notes_view(
     page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_header_actions=None
 ):
     c = colors_fn(page)
-    notes = load_notes()
+    notes = _sort_notes_for_display(load_notes())
 
     add_btn = ft.FilledButton(
         "Nueva nota",
@@ -454,9 +465,12 @@ def build_note_detail_view(
             err_txt.visible = True
             page.update()
             return False
-        update_note(note["id"], text, title)
+        updated = update_note(note["id"], text, title)
         note["content"] = text
         note["title"] = title
+        note["updated_at"] = (
+            updated["updated_at"] if updated else note.get("updated_at")
+        )
         original["title"] = title
         original["content"] = text
         title_field.value = title

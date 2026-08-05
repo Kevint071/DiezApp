@@ -177,6 +177,11 @@ def _build_conflict_detail_view(
     def _build_card(title: str, item: dict, version: str):
         is_selected = selected["version"] == version
         date_str = _format_date(item.get("created_at", ""))
+        updated_str = (
+            _format_date(item["updated_at"])
+            if kind == "notes" and item.get("updated_at")
+            else None
+        )
 
         def _row(label: str, value: str):
             return ft.Container(
@@ -235,7 +240,9 @@ def _build_conflict_detail_view(
                 )
             else:
                 field_rows.append(_row(label, _format_field(value, ftype)))
-        field_rows.append(_row("Fecha", date_str))
+        field_rows.append(_row("Creada" if updated_str else "Fecha", date_str))
+        if updated_str:
+            field_rows.append(_row("Modificada", updated_str))
 
         return ft.Container(
             bgcolor=c["card_bg"],
