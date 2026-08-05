@@ -5,7 +5,6 @@ description = "Add to calculate the total of a bill"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "certifi>=2026.6.17",
     "flet>=0.86.5",
     "fpdf2>=2.8.3",
 ]
