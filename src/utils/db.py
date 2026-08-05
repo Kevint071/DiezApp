@@ -12,8 +12,8 @@ renamed or deleted.
 
 Uses the Python standard library ``sqlite3`` module — no external dependency.
 Everything is 100% local — there is no cloud sync layer. PRAGMAs are tuned
-for a local-only, single-process desktop/mobile app (WAL journaling,
-NORMAL synchronous durability, and a larger page cache).
+for a local-only, single-process desktop/mobile app (default rollback
+journal, NORMAL synchronous durability, and a larger page cache).
 
 Only ONE connection to ``app.db`` ever exists for the life of the process
 (this module's singleton).
@@ -54,8 +54,16 @@ def get_connection():
 
 
 def _apply_pragmas(conn):
-    """Tune SQLite for a local-only, single-process app."""
-    conn.execute("PRAGMA journal_mode = WAL")
+    """Tune SQLite for a local-only, single-process app.
+
+    NOTE: WAL is intentionally NOT used here. WAL needs a `-shm` mmap'd
+    shared-memory file for reader/writer coordination, and that has been
+    observed to hang indefinitely on some Android devices/storage stacks
+    (app stuck on the splash screen, no exception raised). The default
+    rollback journal avoids mmap/shared-memory entirely and is plenty for
+    a single-process local app.
+    """
+    conn.execute("PRAGMA journal_mode = DELETE")
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA cache_size = -20000")  # ~20 MB page cache
     conn.execute("PRAGMA temp_store = MEMORY")
