@@ -40,23 +40,29 @@ class TestSortNotesForDisplayPure:
         result = _sort_notes_for_display([a, b, c])
         assert [n["id"] for n in result] == ["2", "3", "1"]
 
-    def test_modified_notes_always_come_before_unmodified_ones(self):
-        # Even though the unmodified note was created after the modified one
-        # was last edited, edited notes must still be shown first.
+    def test_a_recently_created_note_ranks_above_an_older_edit(self):
+        # A brand-new note (no updated_at) that was created after another
+        # note's last edit must still be shown first: recency wins, being
+        # "edited" doesn't give special priority.
         edited = {
             "id": "1",
             "created_at": "2026-01-01T00:00:00",
-            "updated_at": "2026-01-02T00:00:00",
+            "updated_at": "2026-01-05T00:00:00",
         }
-        untouched = {
+        newer_untouched = {
             "id": "2",
             "created_at": "2026-01-10T00:00:00",
             "updated_at": None,
         }
-        result = _sort_notes_for_display([untouched, edited])
-        assert [n["id"] for n in result] == ["1", "2"]
+        older_untouched = {
+            "id": "3",
+            "created_at": "2026-01-02T00:00:00",
+            "updated_at": None,
+        }
+        result = _sort_notes_for_display([older_untouched, edited, newer_untouched])
+        assert [n["id"] for n in result] == ["2", "1", "3"]
 
-    def test_mixed_modified_and_unmodified_notes(self):
+    def test_mixed_modified_and_unmodified_notes_sorted_by_recency(self):
         edited_recent = {
             "id": "1",
             "created_at": "2026-01-01T00:00:00",
@@ -155,3 +161,12 @@ class TestSortNotesForDisplayWithRealNotes:
             third["id"],
             first["id"],
         ]
+
+    def test_newly_created_note_ranks_above_an_earlier_edit(self):
+        note = add_note("contenido", "Nota vieja")
+        update_note(note["id"], "contenido editado", "Nota vieja")
+        time.sleep(0.01)
+        brand_new = add_note("contenido nuevo", "Nota nueva")
+
+        ordered = _sort_notes_for_display(load_notes())
+        assert [n["id"] for n in ordered] == [brand_new["id"], note["id"]]

@@ -28,14 +28,12 @@ def _truncate(text: str) -> str:
 
 
 def _sort_notes_for_display(notes: list) -> list:
-    """Most recently modified notes first; never-modified notes after,
-    ordered by creation date (newest first)."""
-    by_date = sorted(
+    """Most recent notes first, using whichever of updated_at/created_at is latest."""
+    return sorted(
         notes,
         key=lambda n: n.get("updated_at") or n.get("created_at") or "",
         reverse=True,
     )
-    return sorted(by_date, key=lambda n: 0 if n.get("updated_at") else 1)
 
 
 def build_notes_view(
