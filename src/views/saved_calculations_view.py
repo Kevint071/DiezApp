@@ -1,6 +1,6 @@
 import calendar
 import os
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
 import flet as ft
 
@@ -18,7 +18,7 @@ from utils.theme import (
 def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
-    today = datetime.today().date()
+    today = datetime.now().astimezone().date()
 
     MONTH_NAMES = [
         "Enero",
@@ -36,6 +36,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
     ]
     DAY_NAMES = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]
     CELL = 42
+    BADGE = 32  # selection/today indicator diameter — smaller than CELL for a floating, minimal look
 
     state = {"start": None, "end": None, "month": today.replace(day=1)}
 
@@ -76,51 +77,71 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         _, e = _get_range()
         half = CELL // 2
         layers = []
-        # ── Range band ────────────────────────────────────
+        # ── Range track (slim pill, vertically centered — no edge-to-edge fill) ──
         if p == "range":
             layers.append(
                 ft.Container(
                     width=CELL,
                     height=CELL,
-                    bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Container(
+                        width=CELL,
+                        height=BADGE,
+                        bgcolor=ft.Colors.with_opacity(0.10, c["primary"]),
+                    ),
                 )
             )
         elif p == "start" and e:
             layers.append(
-                ft.Row(
-                    spacing=0,
-                    controls=[
-                        ft.Container(width=half, height=CELL),
-                        ft.Container(
-                            width=CELL - half,
-                            height=CELL,
-                            bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
-                        ),
-                    ],
+                ft.Container(
+                    width=CELL,
+                    height=CELL,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Row(
+                        spacing=0,
+                        controls=[
+                            ft.Container(width=half, height=BADGE),
+                            ft.Container(
+                                width=CELL - half,
+                                height=BADGE,
+                                bgcolor=ft.Colors.with_opacity(0.10, c["primary"]),
+                            ),
+                        ],
+                    ),
                 )
             )
         elif p == "end":
             layers.append(
-                ft.Row(
-                    spacing=0,
-                    controls=[
-                        ft.Container(
-                            width=half,
-                            height=CELL,
-                            bgcolor=ft.Colors.with_opacity(0.14, c["primary"]),
-                        ),
-                        ft.Container(width=CELL - half, height=CELL),
-                    ],
+                ft.Container(
+                    width=CELL,
+                    height=CELL,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Row(
+                        spacing=0,
+                        controls=[
+                            ft.Container(
+                                width=half,
+                                height=BADGE,
+                                bgcolor=ft.Colors.with_opacity(0.10, c["primary"]),
+                            ),
+                            ft.Container(width=CELL - half, height=BADGE),
+                        ],
+                    ),
                 )
             )
-        # ── Circle ───────────────────────────────────────
+        # ── Badge (floating circle, smaller than the cell) ────────────────
         if p in ("start", "end", "solo"):
             layers.append(
                 ft.Container(
                     width=CELL,
                     height=CELL,
-                    border_radius=CELL // 2,
-                    bgcolor=c["primary"],
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Container(
+                        width=BADGE,
+                        height=BADGE,
+                        border_radius=BADGE // 2,
+                        bgcolor=c["primary"],
+                    ),
                 )
             )
         elif p == "today":
@@ -128,14 +149,19 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                 ft.Container(
                     width=CELL,
                     height=CELL,
-                    border_radius=CELL // 2,
-                    border=ft.Border.all(1.5, c["primary"]),
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Container(
+                        width=BADGE,
+                        height=BADGE,
+                        border_radius=BADGE // 2,
+                        border=ft.Border.all(1.2, c["primary"]),
+                    ),
                 )
             )
         # ── Day number ───────────────────────────────────
         if p in ("start", "end", "solo"):
             txt_color = "#FFFFFF" if light else "#064E3B"
-            weight = ft.FontWeight.W_700
+            weight = ft.FontWeight.W_600
         elif p in ("range", "today"):
             txt_color = c["primary"]
             weight = ft.FontWeight.W_500
@@ -183,8 +209,8 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                     content=ft.Text(
                         name,
                         size=11,
-                        weight=ft.FontWeight.W_600,
-                        color=c["on_surface_variant"],
+                        weight=ft.FontWeight.W_500,
+                        color=ft.Colors.with_opacity(0.7, c["on_surface_variant"]),
                         text_align=ft.TextAlign.CENTER,
                     ),
                 )
@@ -200,14 +226,14 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                     controls=[_cell(d) for d in raw[i : i + 7]],
                 )
             )
-        return ft.Column(spacing=2, controls=rows)
+        return ft.Column(spacing=4, controls=rows)
 
     # ── Static controls ───────────────────────────────────
     m0 = state["month"]
     month_lbl = ft.Text(
         f"{MONTH_NAMES[m0.month - 1]} {m0.year}",
-        size=15,
-        weight=ft.FontWeight.W_700,
+        size=16,
+        weight=ft.FontWeight.W_600,
         color=c["on_surface"],
     )
     start_val = ft.Text(
@@ -375,15 +401,13 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                                                 ),
                                             ],
                                         ),
-                                        # ── Calendar card ───────────────────────────
+                                        # ── Calendar (no fill — borderless, minimal) ─
                                         ft.Container(
-                                            bgcolor=c["card_bg"],
-                                            border_radius=16,
-                                            padding=ft.Padding.only(
-                                                top=12, bottom=16, left=4, right=4
+                                            padding=ft.Padding.symmetric(
+                                                horizontal=8
                                             ),
                                             content=ft.Column(
-                                                spacing=8,
+                                                spacing=12,
                                                 controls=[
                                                     ft.Row(
                                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -392,31 +416,37 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                                                             ft.IconButton(
                                                                 icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
                                                                 icon_color=c[
-                                                                    "on_surface"
+                                                                    "on_surface_variant"
                                                                 ],
-                                                                icon_size=22,
+                                                                icon_size=18,
                                                                 on_click=_prev,
                                                                 style=ft.ButtonStyle(
                                                                     padding=ft.Padding.all(
                                                                         8
-                                                                    )
+                                                                    ),
+                                                                    shape=ft.CircleBorder(),
                                                                 ),
                                                             ),
                                                             month_lbl,
                                                             ft.IconButton(
                                                                 icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
                                                                 icon_color=c[
-                                                                    "on_surface"
+                                                                    "on_surface_variant"
                                                                 ],
-                                                                icon_size=22,
+                                                                icon_size=18,
                                                                 on_click=_next,
                                                                 style=ft.ButtonStyle(
                                                                     padding=ft.Padding.all(
                                                                         8
-                                                                    )
+                                                                    ),
+                                                                    shape=ft.CircleBorder(),
                                                                 ),
                                                             ),
                                                         ],
+                                                    ),
+                                                    ft.Container(
+                                                        height=1,
+                                                        bgcolor=c["divider"],
                                                     ),
                                                     grid_box,
                                                 ],
@@ -747,7 +777,7 @@ def build_saved_calculations_view(
             calc["amount"] = new_amount
             txt_amount.value = _format_currency(new_amount)
             _recalculate(new_amount)
-            calc["updated_at"] = datetime.now(UTC).astimezone().isoformat()
+            calc["updated_at"] = datetime.now().astimezone().isoformat()
             date_txt.value = _format_date(calc["updated_at"])
             state["editing"] = False
             txt_amount.visible = True
