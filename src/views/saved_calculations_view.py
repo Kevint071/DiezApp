@@ -1,17 +1,18 @@
-import os
 import calendar
-import flet as ft
-from datetime import datetime, date
+import os
+from datetime import UTC, date, datetime
 
+import flet as ft
+
+from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
+from utils.storage import delete_calculation, load_calculations, update_calculation
 from utils.theme import (
-    ON_SURFACE_LIGHT,
-    ON_SURFACE_DARK,
-    FOCUS_LIGHT,
     FOCUS_DARK,
+    FOCUS_LIGHT,
+    ON_SURFACE_DARK,
+    ON_SURFACE_LIGHT,
     OUTLINE_LIGHT_INPUT,
 )
-from utils.storage import load_calculations, update_calculation, delete_calculation
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 
 def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None):
@@ -746,7 +747,7 @@ def build_saved_calculations_view(
             calc["amount"] = new_amount
             txt_amount.value = _format_currency(new_amount)
             _recalculate(new_amount)
-            calc["updated_at"] = datetime.now().isoformat()
+            calc["updated_at"] = datetime.now(UTC).astimezone().isoformat()
             date_txt.value = _format_date(calc["updated_at"])
             state["editing"] = False
             txt_amount.visible = True
