@@ -40,7 +40,7 @@ def _get_month_calculations(year: int, month: int) -> list:
     return filtered
 
 
-def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, on_back):
+def build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int):
     c = colors_fn(page)
     calcs = _get_month_calculations(year, month_idx + 1)
 
@@ -207,7 +207,7 @@ def _build_breakdown_view(page: ft.Page, colors_fn, month_idx: int, year: int, o
     )
 
 
-def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
+def build_monthly_summary_view(page: ft.Page, colors_fn):
     c = colors_fn(page)
     now = datetime.now(UTC).astimezone()
     state = {"year": now.year}
@@ -227,79 +227,11 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
 
     def _on_result_tap(month_idx):
         def handler(e):
-            from utils.back_nav import set_back_action
-            from views.monthly_summary_view import _build_breakdown_view
-
-            light = page.theme_mode == ft.ThemeMode.LIGHT
-            from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
-
-            fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
-            set_back_action(page, _back_to_summary)
-            page.appbar = ft.AppBar(
-                leading=ft.Container(
-                    width=40,
-                    height=40,
-                    alignment=ft.Alignment.CENTER,
-                    on_click=lambda e: _back_to_summary(),
-                    content=ft.Image(
-                        src="chevron-left.svg",
-                        width=24,
-                        height=24,
-                        color=fg,
-                    ),
-                ),
-                leading_width=40,
-                title=ft.Text(
-                    "Desglose", color=fg, weight=ft.FontWeight.W_600, size=18
-                ),
-                center_title=False,
-                bgcolor=ft.Colors.TRANSPARENT,
-                elevation=0,
-                elevation_on_scroll=0,
-            )
-            page.controls.clear()
-            page.add(
-                _build_breakdown_view(
-                    page, colors_fn, month_idx, state["year"], _back_to_summary
-                )
-            )
-            page.update()
+            page.session.store.set("monthly_breakdown_month", month_idx)
+            page.session.store.set("monthly_breakdown_year", state["year"])
+            page.navigate("/monthly/breakdown")
 
         return handler
-
-    def _back_to_summary():
-        from utils.back_nav import set_back_action
-
-        light = page.theme_mode == ft.ThemeMode.LIGHT
-        from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
-
-        fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
-        set_back_action(page, on_back)
-        page.appbar = ft.AppBar(
-            leading=ft.Container(
-                width=40,
-                height=40,
-                alignment=ft.Alignment.CENTER,
-                on_click=lambda e: on_back() if on_back else None,
-                content=ft.Image(
-                    src="chevron-left.svg",
-                    width=24,
-                    height=24,
-                    color=fg,
-                ),
-            ),
-            leading_width=40,
-            title=ft.Text(
-                "Resumen mensual", color=fg, weight=ft.FontWeight.W_600, size=18
-            ),
-            center_title=False,
-            bgcolor=ft.Colors.TRANSPARENT,
-            elevation=0,
-            elevation_on_scroll=0,
-        )
-        page.controls.clear()
-        page.add(build_monthly_summary_view(page, colors_fn, on_back))
-        page.update()
 
     def _on_month_tap(month_idx):
         def handler(e):

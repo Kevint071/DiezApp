@@ -544,15 +544,8 @@ def build_settings_view(
     n_total_conflicts = n_calc_conflicts + n_notes_conflicts
 
     def _go_to_conflicts(kind: str):
-        from views.conflicts_view import apply_conflicts_appbar, build_conflicts_view
-
-        apply_conflicts_appbar(page, navigate_to_settings, kind=kind)
-        page.controls.clear()
-        page.add(
-            build_conflicts_view(
-                page, colors_fn, on_back=navigate_to_settings, kind=kind
-            )
-        )
+        page.session.store.set("conflicts_kind", kind)
+        page.navigate("/settings/conflicts")
 
     def _select_conflict_kind(kind):
         def _handler(e):

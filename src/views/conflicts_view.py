@@ -2,7 +2,6 @@ from datetime import datetime
 
 import flet as ft
 
-from utils.back_nav import set_back_action
 from utils.conflicts import clear_conflicts, load_conflicts, save_conflicts
 from utils.notes import load_notes, save_notes
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
@@ -72,16 +71,15 @@ def _format_date(date_str: str) -> str:
         return "Sin fecha"
 
 
-def _apply_appbar(page: ft.Page, title: str, on_back):
-    set_back_action(page, on_back)
+def _build_appbar(page: ft.Page, title: str, back_route: str) -> ft.AppBar:
     light = page.theme_mode == ft.ThemeMode.LIGHT
     fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
-    page.appbar = ft.AppBar(
+    return ft.AppBar(
         leading=ft.Container(
             width=40,
             height=40,
             alignment=ft.Alignment.CENTER,
-            on_click=lambda e: on_back(),
+            on_click=lambda e: page.navigate(back_route),
             content=ft.Image(
                 src="chevron-left.svg",
                 width=24,
@@ -104,13 +102,38 @@ def _apply_appbar(page: ft.Page, title: str, on_back):
     )
 
 
-def apply_conflicts_appbar(page: ft.Page, on_back, kind: str = "calculations"):
-    _apply_appbar(page, _KIND_CONFIG[kind]["title"], on_back)
+def _load_conflicts_and_state(kind: str):
+    cfg = _KIND_CONFIG[kind]
+    data = load_conflicts(kind)
+    conflicts = data.get("conflicts", [])
+    pending_add = data.get("pending_add", [])
+    state = _get_conflict_state(kind)
+    current_fp = [
+        conflict.get("existing", {}).get(cfg["id_field"]) for conflict in conflicts
+    ]
+    if current_fp != state["fingerprint"]:
+        state["fingerprint"] = current_fp
+        state["choices"] = {i: "existing" for i in range(len(conflicts))}
+        state["resolved"] = set()
+    return conflicts, pending_add, state["choices"], state["resolved"]
 
 
 # ═══════════════════════════════════════════════════════════════════
 # Detail view — shows comparison for a single conflict
 # ═══════════════════════════════════════════════════════════════════
+
+
+def build_conflict_detail_view_route(
+    page: ft.Page, colors_fn, kind: str, index: int
+) -> ft.View:
+    conflicts, _pending_add, choices, resolved_set = _load_conflicts_and_state(kind)
+    appbar = _build_appbar(page, f"Conflicto {index + 1}", "/settings/conflicts")
+    content = _build_conflict_detail_view(
+        page, colors_fn, index, conflicts, choices, resolved_set, appbar, kind
+    )
+    return ft.View(
+        route="/settings/conflicts/detail", padding=0, appbar=appbar, controls=[content]
+    )
 
 
 def _build_conflict_detail_view(
@@ -120,7 +143,7 @@ def _build_conflict_detail_view(
     conflicts: list,
     choices: dict,
     resolved_set: set,
-    on_back_to_grid,
+    appbar: ft.AppBar,
     kind: str = "calculations",
 ):
     c = colors_fn(page)
@@ -133,12 +156,11 @@ def _build_conflict_detail_view(
 
     green_bg = "#059669" if light else "#34D399"
     green_fg = "#FFFFFF" if light else "#064E3B"
-    fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
 
     def _save_choice(e):
         choices[index] = selected["version"]
         resolved_set.add(index)
-        on_back_to_grid()
+        page.navigate("/settings/conflicts")
 
     save_btn = ft.FilledButton(
         "Guardar",
@@ -153,25 +175,7 @@ def _build_conflict_detail_view(
         ),
     )
 
-    page.appbar = ft.AppBar(
-        leading=ft.Container(
-            width=40,
-            height=40,
-            alignment=ft.Alignment.CENTER,
-            on_click=lambda e: on_back_to_grid(),
-            content=ft.Image(src="chevron-left.svg", width=24, height=24, color=fg),
-        ),
-        title=ft.Text(
-            f"Conflicto {index + 1}", color=fg, weight=ft.FontWeight.W_700, size=17
-        ),
-        center_title=False,
-        leading_width=40,
-        title_spacing=0,
-        bgcolor=ft.Colors.TRANSPARENT,
-        elevation=0,
-        elevation_on_scroll=0,
-        actions=[ft.Container(padding=ft.Padding.only(right=12), content=save_btn)],
-    )
+    appbar.actions = [ft.Container(padding=ft.Padding.only(right=12), content=save_btn)]
 
     cards_column = ft.Column(spacing=16)
     field_defs = _KIND_CONFIG[kind]["fields"]
@@ -318,15 +322,16 @@ def _build_conflict_detail_view(
 # ═══════════════════════════════════════════════════════════════════
 
 
-def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calculations"):
+def build_conflicts_grid_view(
+    page: ft.Page, colors_fn, kind: str, back_route: str
+) -> ft.View:
     c = colors_fn(page)
     cfg = _KIND_CONFIG[kind]
-    data = load_conflicts(kind)
-    conflicts = data.get("conflicts", [])
-    pending_add = data.get("pending_add", [])
+    appbar = _build_appbar(page, cfg["title"], back_route)
+    conflicts, pending_add, choices, resolved_set = _load_conflicts_and_state(kind)
 
     if not conflicts:
-        return ft.SafeArea(
+        content = ft.SafeArea(
             expand=True,
             content=ft.Container(
                 expand=True,
@@ -357,38 +362,16 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
                 ),
             ),
         )
-
-    state = _get_conflict_state(kind)
-    current_fp = [
-        conflict.get("existing", {}).get(cfg["id_field"]) for conflict in conflicts
-    ]
-    if current_fp != state["fingerprint"]:
-        state["fingerprint"] = current_fp
-        state["choices"] = {i: "existing" for i in range(len(conflicts))}
-        state["resolved"] = set()
-    choices = state["choices"]
-    resolved_set = state["resolved"]
-
-    def _navigate_to_detail(index: int):
-        _apply_appbar(page, f"Conflicto {index + 1}", _show_grid)
-        page.controls.clear()
-        page.add(
-            _build_conflict_detail_view(
-                page,
-                colors_fn,
-                index,
-                conflicts,
-                choices,
-                resolved_set,
-                _show_grid,
-                kind,
-            )
+        return ft.View(
+            route="/settings/conflicts", padding=0, appbar=appbar, controls=[content]
         )
 
-    def _show_grid():
-        apply_conflicts_appbar(page, on_back, kind)
-        page.controls.clear()
-        page.add(_build_grid_content())
+    def _open_detail(index: int):
+        def handler(e):
+            page.session.store.set("conflict_index", index)
+            page.navigate("/settings/conflicts/detail")
+
+        return handler
 
     def _build_grid_content():
         tiles = []
@@ -407,7 +390,7 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
                 border_radius=16,
                 border=ft.Border.all(2, c["primary"]) if is_resolved else None,
                 alignment=ft.Alignment.CENTER,
-                on_click=lambda e, idx=i: _navigate_to_detail(idx),
+                on_click=_open_detail(i),
                 ink=True,
                 content=ft.Column(
                     spacing=4,
@@ -600,13 +583,16 @@ def build_conflicts_view(page: ft.Page, colors_fn, on_back, kind: str = "calcula
         snack = ft.SnackBar(content=ft.Text(msg), open=True)
         page.overlay.append(snack)
         _reset_conflict_state(kind)
-        on_back()
+        page.navigate(back_route)
 
     def _discard_all(e):
         clear_conflicts(kind)
         snack = ft.SnackBar(content=ft.Text("Importación descartada"), open=True)
         page.overlay.append(snack)
         _reset_conflict_state(kind)
-        on_back()
+        page.navigate(back_route)
 
-    return _build_grid_content()
+    content = _build_grid_content()
+    return ft.View(
+        route="/settings/conflicts", padding=0, appbar=appbar, controls=[content]
+    )

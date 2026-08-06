@@ -4,7 +4,6 @@ import traceback
 import flet as ft
 
 from utils.app_settings import load_settings, save_settings
-from utils.back_nav import install_back_handler, set_back_action
 from utils.theme import DARK_THEME, LIGHT_THEME, get_colors
 from views.calculator_view import CalculatorView
 from views.home_view import build_home_view
@@ -75,28 +74,22 @@ def _main(page: ft.Page):
         else:
             proceed()
 
-    install_back_handler(page)
+    def _guard_navigate(route):
+        _guard_navigation(lambda: page.navigate(route))
 
     calculator = CalculatorView(page, state, get_colors)
 
-    def _apply_appbar(title="Inicio", show_back=False, on_back=None, actions=None):
-        leave_guard["check"] = None
-        set_back_action(
-            page,
-            (lambda _ob=on_back: _guard_navigation(_ob))
-            if (show_back and on_back)
-            else None,
-        )
+    def _build_appbar(title="Inicio", show_back=False, back_route=None, actions=None):
         c = get_colors(page)
         fg = c["on_surface"]
         leading = None
-        if show_back and on_back:
+        if show_back and back_route:
             leading = ft.Container(
                 width=40,
                 height=40,
                 alignment=ft.Alignment(-1, 0),
                 padding=ft.Padding.only(left=14),
-                on_click=lambda e, _on_back=on_back: _guard_navigation(_on_back),
+                on_click=lambda e, _r=back_route: _guard_navigate(_r),
                 content=ft.Image(
                     src="chevron-left.svg",
                     width=24,
@@ -104,7 +97,8 @@ def _main(page: ft.Page):
                     color=fg,
                 ),
             )
-        page.appbar = ft.AppBar(
+        nav_bar.bgcolor = c["surface"]
+        return ft.AppBar(
             leading=leading,
             leading_width=40 if leading else 0,
             title=ft.Text(title, color=fg, weight=ft.FontWeight.W_600, size=18),
@@ -114,58 +108,10 @@ def _main(page: ft.Page):
             elevation_on_scroll=0,
             actions=actions,
         )
-        nav_bar.bgcolor = c["surface"]
-
-    def _set_appbar_actions(actions):
-        if page.appbar:
-            page.appbar.actions = actions
-            page.update()
-
-    # ── Navigation ───────────────────────────────────────
-    main_content: ft.SafeArea | None = None
 
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
-
-    def _navigate_to_pdf_export():
-        from views.saved_calculations_view import build_date_range_picker_view
-
-        _apply_appbar("Exportar PDF")
-        page.controls.clear()
-        page.add(
-            build_date_range_picker_view(
-                page, get_colors, on_show_filtered=_navigate_to_filtered_saved
-            )
-        )
-
-    def _navigate_to_filtered_saved(start, end):
-        from views.saved_calculations_view import build_saved_calculations_view
-
-        _apply_appbar("Vista previa", show_back=True, on_back=_navigate_to_pdf_export)
-        nav_bar.selected_index = 2
-
-        def _refresh():
-            _navigate_to_filtered_saved(start, end)
-
-        page.controls.clear()
-        page.add(
-            build_saved_calculations_view(
-                page, get_colors, _refresh, date_range=(start, end)
-            )
-        )
-
-    def _on_back_from_pdf_export():
-        prev = nav_state.get("prev_index", 0)
-        nav_bar.selected_index = prev
-        if prev == 1:
-            _navigate_to_saved()
-        elif prev == 3:
-            _navigate_to_notes()
-        elif prev == 4:
-            _navigate_to_settings()
-        else:
-            _navigate_to_main()
-        page.update()
+    _NAV_ROUTES = ["/", "/saved", "/pdf-export", "/notes", "/settings"]
 
     def _on_nav_change(e):
         idx = e.control.selected_index
@@ -173,20 +119,7 @@ def _main(page: ft.Page):
 
         def _perform():
             nav_state["selected_index"] = idx
-            if idx == 0:
-                _navigate_to_main()
-            elif idx == 1:
-                _navigate_to_saved()
-            elif idx == 2:
-                nav_bar.selected_index = 2
-                _navigate_to_pdf_export()
-                nav_state["prev_index"] = idx
-                return
-            elif idx == 3:
-                _navigate_to_notes()
-            elif idx == 4:
-                _navigate_to_settings()
-            nav_state["prev_index"] = idx
+            page.navigate(_NAV_ROUTES[idx])
 
         def _cancel():
             nav_bar.selected_index = prev_idx
@@ -232,106 +165,272 @@ def _main(page: ft.Page):
 
     page.navigation_bar = nav_bar
 
-    def _navigate_to_settings():
+    # ── Root (bottom-nav tab) views ──────────────────────
+    def _build_main_view() -> ft.View:
+        content = build_home_view(
+            page,
+            get_colors,
+            lambda: page.navigate("/calculator"),
+            lambda: page.navigate("/monthly"),
+        )
+        return ft.View(
+            route="/",
+            padding=0,
+            appbar=_build_appbar("Inicio"),
+            navigation_bar=nav_bar,
+            controls=[content],
+        )
+
+    def _build_saved_view() -> ft.View:
+        from views.saved_calculations_view import build_saved_calculations_view
+
+        content = build_saved_calculations_view(
+            page, get_colors, lambda: page.navigate("/saved")
+        )
+        return ft.View(
+            route="/saved",
+            padding=0,
+            appbar=_build_appbar("Cálculos guardados"),
+            navigation_bar=nav_bar,
+            controls=[content],
+        )
+
+    def _build_pdf_export_view() -> ft.View:
+        from views.saved_calculations_view import build_date_range_picker_view
+
+        def _on_show_filtered(start, end):
+            page.session.store.set("pdf_export_range", (start, end))
+            page.navigate("/pdf-export/preview")
+
+        content = build_date_range_picker_view(
+            page, get_colors, on_show_filtered=_on_show_filtered
+        )
+        return ft.View(
+            route="/pdf-export",
+            padding=0,
+            appbar=_build_appbar("Exportar PDF"),
+            navigation_bar=nav_bar,
+            controls=[content],
+        )
+
+    def _build_notes_view() -> ft.View:
+        from views.notes_view import build_notes_view
+
+        appbar = _build_appbar("Notas")
+
+        def _set_actions(actions):
+            appbar.actions = actions
+            page.update()
+
+        def _open_note(note_id):
+            page.session.store.set("note_id", note_id)
+            page.navigate("/notes/detail")
+
+        content = build_notes_view(
+            page,
+            get_colors,
+            lambda: page.navigate("/notes/new"),
+            _open_note,
+            lambda: page.navigate("/notes"),
+            _set_actions,
+        )
+        return ft.View(
+            route="/notes",
+            padding=0,
+            appbar=appbar,
+            navigation_bar=nav_bar,
+            controls=[content],
+        )
+
+    def _build_settings_view() -> ft.View:
         from views.settings_view import build_settings_view
 
         calculator.reset()
-        _apply_appbar("Configuración")
-        page.controls.clear()
-        page.add(
-            build_settings_view(
-                page, state, save_settings, _navigate_to_settings, get_colors
-            )
+        content = build_settings_view(
+            page, state, save_settings, lambda: page.navigate("/settings"), get_colors
+        )
+        return ft.View(
+            route="/settings",
+            padding=0,
+            appbar=_build_appbar("Configuración"),
+            navigation_bar=nav_bar,
+            controls=[content],
         )
 
-    def _navigate_to_saved():
+    # ── Nested (drill-down) views ─────────────────────────
+    def _build_pdf_preview_view() -> ft.View:
         from views.saved_calculations_view import build_saved_calculations_view
 
-        _apply_appbar("Cálculos guardados")
-        page.controls.clear()
-        page.add(build_saved_calculations_view(page, get_colors, _navigate_to_saved))
-
-    def _navigate_to_notes():
-        from views.notes_view import build_notes_view
-
-        _apply_appbar("Notas")
-        page.controls.clear()
-        page.add(
-            build_notes_view(
-                page,
-                get_colors,
-                _navigate_to_new_note,
-                _navigate_to_note_detail,
-                _navigate_to_notes,
-                _set_appbar_actions,
-            )
+        start, end = page.session.store.get("pdf_export_range")
+        content = build_saved_calculations_view(
+            page,
+            get_colors,
+            lambda: page.navigate("/pdf-export/preview"),
+            date_range=(start, end),
+        )
+        return ft.View(
+            route="/pdf-export/preview",
+            padding=0,
+            appbar=_build_appbar(
+                "Vista previa", show_back=True, back_route="/pdf-export"
+            ),
+            controls=[content],
         )
 
-    def _navigate_to_new_note():
+    def _build_new_note_view() -> ft.View:
         from utils.notes import add_note
         from views.notes_view import build_new_note_view
 
         def _on_save(title, content):
             add_note(content, title)
-            _navigate_to_notes()
+            page.navigate("/notes")
 
-        _apply_appbar("Nueva nota", show_back=True, on_back=_navigate_to_notes)
-        page.controls.clear()
-        page.add(build_new_note_view(page, get_colors, _on_save))
+        content = build_new_note_view(page, get_colors, _on_save)
+        return ft.View(
+            route="/notes/new",
+            padding=0,
+            appbar=_build_appbar("Nueva nota", show_back=True, back_route="/notes"),
+            controls=[content],
+        )
 
-    def _navigate_to_note_detail(note_id):
+    def _build_note_detail_view() -> ft.View:
         from utils.notes import load_notes
         from views.notes_view import build_note_detail_view
 
+        note_id = page.session.store.get("note_id")
         note = next((n for n in load_notes() if n["id"] == note_id), None)
         if note is None:
-            _navigate_to_notes()
-            return
-        _apply_appbar("Nota", show_back=True, on_back=_navigate_to_notes)
-        page.controls.clear()
-        page.add(
-            build_note_detail_view(
-                page,
-                get_colors,
-                note,
-                _navigate_to_notes,
-                _set_appbar_actions,
-                _register_leave_guard,
-            )
+            return _build_notes_view()
+
+        appbar = _build_appbar("Nota", show_back=True, back_route="/notes")
+
+        def _set_actions(actions):
+            appbar.actions = actions
+            page.update()
+
+        content = build_note_detail_view(
+            page,
+            get_colors,
+            note,
+            lambda: page.navigate("/notes"),
+            _set_actions,
+            _register_leave_guard,
         )
+        view = ft.View(route="/notes/detail", padding=0, appbar=appbar, controls=[content])
 
-    def _navigate_to_calc():
-        _apply_appbar("Distribución", show_back=True, on_back=_navigate_to_main)
+        # Unsaved-changes guard needs to intercept the pop attempt itself
+        # (rather than react after the fact), so this view can't rely on
+        # the default can_pop=True + on_view_pop flow like the others.
+        view.can_pop = False
+
+        async def _on_confirm_pop(ev):
+            await view.confirm_pop(False)
+            _guard_navigate("/notes")
+
+        view.on_confirm_pop = _on_confirm_pop
+        return view
+
+    def _build_calc_view() -> ft.View:
         calculator.prepare_for_show()
-        page.controls.clear()
-        page.add(calculator.build_content())
+        content = calculator.build_content()
+        view = ft.View(
+            route="/calculator",
+            padding=0,
+            appbar=_build_appbar("Distribución", show_back=True, back_route="/"),
+            controls=[content],
+        )
         calculator.refresh_after_show()
+        return view
 
-    def _navigate_to_monthly():
+    def _build_monthly_view() -> ft.View:
         from views.monthly_summary_view import build_monthly_summary_view
 
-        _apply_appbar("Resumen mensual", show_back=True, on_back=_navigate_to_main)
-        page.controls.clear()
-        page.add(
-            build_monthly_summary_view(page, get_colors, on_back=_navigate_to_main)
+        content = build_monthly_summary_view(page, get_colors)
+        return ft.View(
+            route="/monthly",
+            padding=0,
+            appbar=_build_appbar("Resumen mensual", show_back=True, back_route="/"),
+            controls=[content],
         )
 
-    def _navigate_to_main():
-        nonlocal main_content
-        _apply_appbar()
-        main_content = build_home_view(
-            page, get_colors, _navigate_to_calc, _navigate_to_monthly
+    def _build_monthly_breakdown_view() -> ft.View:
+        from views.monthly_summary_view import build_breakdown_view
+
+        month_idx = page.session.store.get("monthly_breakdown_month")
+        year = page.session.store.get("monthly_breakdown_year")
+        content = build_breakdown_view(page, get_colors, month_idx, year)
+        return ft.View(
+            route="/monthly/breakdown",
+            padding=0,
+            appbar=_build_appbar(
+                "Desglose", show_back=True, back_route="/monthly"
+            ),
+            controls=[content],
         )
-        page.controls.clear()
-        page.add(main_content)
 
-    _apply_appbar()
-    calculator.prepare_for_show()
+    # ── Central route dispatcher ──────────────────────────
+    def route_change(e=None):
+        leave_guard["check"] = None
+        route = page.route
 
-    main_content = build_home_view(
-        page, get_colors, _navigate_to_calc, _navigate_to_monthly
-    )
-    page.add(main_content)
+        if route.startswith("/notes"):
+            root_idx, root_view = 3, _build_notes_view()
+        elif route.startswith("/settings"):
+            root_idx, root_view = 4, _build_settings_view()
+        elif route.startswith("/pdf-export"):
+            root_idx, root_view = 2, _build_pdf_export_view()
+        elif route.startswith("/saved"):
+            root_idx, root_view = 1, _build_saved_view()
+        else:
+            root_idx, root_view = 0, _build_main_view()
+
+        nav_bar.selected_index = root_idx
+        nav_state["selected_index"] = root_idx
+
+        new_views = [root_view]
+
+        if route == "/calculator":
+            new_views.append(_build_calc_view())
+        elif route == "/monthly":
+            new_views.append(_build_monthly_view())
+        elif route == "/monthly/breakdown":
+            new_views.append(_build_monthly_view())
+            new_views.append(_build_monthly_breakdown_view())
+        elif route == "/notes/new":
+            new_views.append(_build_new_note_view())
+        elif route == "/notes/detail":
+            new_views.append(_build_note_detail_view())
+        elif route == "/pdf-export/preview":
+            new_views.append(_build_pdf_preview_view())
+        elif route in ("/settings/conflicts", "/settings/conflicts/detail"):
+            from views.conflicts_view import (
+                build_conflict_detail_view_route,
+                build_conflicts_grid_view,
+            )
+
+            kind = page.session.store.get("conflicts_kind") or "calculations"
+            new_views.append(
+                build_conflicts_grid_view(page, get_colors, kind, "/settings")
+            )
+            if route == "/settings/conflicts/detail":
+                idx = page.session.store.get("conflict_index")
+                new_views.append(
+                    build_conflict_detail_view_route(page, get_colors, kind, idx)
+                )
+
+        page.views = new_views
+        page.update()
+
+    async def on_view_pop(e):
+        if e.view is not None and e.view in page.views:
+            page.views.remove(e.view)
+        if page.views:
+            await page.push_route(page.views[-1].route)
+
+    page.on_route_change = route_change
+    page.on_view_pop = on_view_pop
+
+    route_change()
 
 
 if __name__ == "__main__":
