@@ -338,16 +338,15 @@ def _main(page: ft.Page):
         return ft.View(
             route="/monthly",
             padding=0,
-            appbar=_build_appbar("Resumen mensual", show_back=True, back_route="/"),
+            appbar=_build_appbar("Detalle Balances", show_back=True, back_route="/"),
             controls=[content],
         )
 
     def _build_monthly_breakdown_view() -> ft.View:
         from views.monthly_summary_view import build_breakdown_view
 
-        month_idx = page.session.store.get("monthly_breakdown_month")
-        year = page.session.store.get("monthly_breakdown_year")
-        content = build_breakdown_view(page, get_colors, month_idx, year)
+        months = page.session.store.get("monthly_breakdown_months") or []
+        content = build_breakdown_view(page, get_colors, months)
         return ft.View(
             route="/monthly/breakdown",
             padding=0,
