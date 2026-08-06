@@ -2,6 +2,7 @@ from datetime import datetime
 
 import flet as ft
 
+from utils.back_nav import set_back_action
 from utils.conflicts import clear_conflicts, load_conflicts, save_conflicts
 from utils.notes import load_notes, save_notes
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
@@ -72,6 +73,7 @@ def _format_date(date_str: str) -> str:
 
 
 def _apply_appbar(page: ft.Page, title: str, on_back):
+    set_back_action(page, on_back)
     light = page.theme_mode == ft.ThemeMode.LIGHT
     fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
     page.appbar = ft.AppBar(

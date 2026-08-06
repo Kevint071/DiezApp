@@ -4,6 +4,7 @@ import traceback
 import flet as ft
 
 from utils.app_settings import load_settings, save_settings
+from utils.back_nav import install_back_handler, set_back_action
 from utils.theme import DARK_THEME, LIGHT_THEME, get_colors
 from views.calculator_view import CalculatorView
 from views.home_view import build_home_view
@@ -74,10 +75,18 @@ def _main(page: ft.Page):
         else:
             proceed()
 
+    install_back_handler(page)
+
     calculator = CalculatorView(page, state, get_colors)
 
     def _apply_appbar(title="Inicio", show_back=False, on_back=None, actions=None):
         leave_guard["check"] = None
+        set_back_action(
+            page,
+            (lambda _ob=on_back: _guard_navigation(_ob))
+            if (show_back and on_back)
+            else None,
+        )
         c = get_colors(page)
         fg = c["on_surface"]
         leading = None

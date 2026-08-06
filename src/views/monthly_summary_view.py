@@ -227,12 +227,14 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
 
     def _on_result_tap(month_idx):
         def handler(e):
+            from utils.back_nav import set_back_action
             from views.monthly_summary_view import _build_breakdown_view
 
             light = page.theme_mode == ft.ThemeMode.LIGHT
             from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 
             fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+            set_back_action(page, _back_to_summary)
             page.appbar = ft.AppBar(
                 leading=ft.Container(
                     width=40,
@@ -266,10 +268,13 @@ def build_monthly_summary_view(page: ft.Page, colors_fn, on_back=None):
         return handler
 
     def _back_to_summary():
+        from utils.back_nav import set_back_action
+
         light = page.theme_mode == ft.ThemeMode.LIGHT
         from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 
         fg = ON_SURFACE_LIGHT if light else ON_SURFACE_DARK
+        set_back_action(page, on_back)
         page.appbar = ft.AppBar(
             leading=ft.Container(
                 width=40,
