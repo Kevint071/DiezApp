@@ -165,7 +165,22 @@ def _main(page: ft.Page):
 
     page.navigation_bar = nav_bar
 
-    # ── Root (bottom-nav tab) views ──────────────────────
+    # ── Root (bottom-nav tab) view ───────────────────────
+    # A single persistent View instance reused (mutated in place) for every
+    # root/tab, instead of a fresh ft.View per tab: since Flutter's
+    # Navigator sees the SAME page identity, switching tabs never gets
+    # treated as a route push/pop and so never plays a page-transition
+    # animation, no matter which platform default (or theme override) is
+    # active. Only genuine drill-down routes below still append brand-new
+    # ft.View instances, so those keep their normal push/pop animation.
+    root_view = ft.View(route="/", padding=0, navigation_bar=nav_bar)
+
+    def _apply_root(route: str, appbar: ft.AppBar, content: ft.Control) -> ft.View:
+        root_view.route = route
+        root_view.appbar = appbar
+        root_view.controls = [content]
+        return root_view
+
     def _build_main_view() -> ft.View:
         content = build_home_view(
             page,
@@ -173,13 +188,7 @@ def _main(page: ft.Page):
             lambda: page.navigate("/calculator"),
             lambda: page.navigate("/monthly"),
         )
-        return ft.View(
-            route="/",
-            padding=0,
-            appbar=_build_appbar("Inicio"),
-            navigation_bar=nav_bar,
-            controls=[content],
-        )
+        return _apply_root("/", _build_appbar("Inicio"), content)
 
     def _build_saved_view() -> ft.View:
         from views.saved_calculations_view import build_saved_calculations_view
@@ -187,12 +196,8 @@ def _main(page: ft.Page):
         content = build_saved_calculations_view(
             page, get_colors, lambda: page.navigate("/saved")
         )
-        return ft.View(
-            route="/saved",
-            padding=0,
-            appbar=_build_appbar("Cálculos guardados"),
-            navigation_bar=nav_bar,
-            controls=[content],
+        return _apply_root(
+            "/saved", _build_appbar("Cálculos guardados"), content
         )
 
     def _build_pdf_export_view() -> ft.View:
@@ -205,13 +210,7 @@ def _main(page: ft.Page):
         content = build_date_range_picker_view(
             page, get_colors, on_show_filtered=_on_show_filtered
         )
-        return ft.View(
-            route="/pdf-export",
-            padding=0,
-            appbar=_build_appbar("Exportar PDF"),
-            navigation_bar=nav_bar,
-            controls=[content],
-        )
+        return _apply_root("/pdf-export", _build_appbar("Exportar PDF"), content)
 
     def _build_notes_view() -> ft.View:
         from views.notes_view import build_notes_view
@@ -234,13 +233,7 @@ def _main(page: ft.Page):
             lambda: page.navigate("/notes"),
             _set_actions,
         )
-        return ft.View(
-            route="/notes",
-            padding=0,
-            appbar=appbar,
-            navigation_bar=nav_bar,
-            controls=[content],
-        )
+        return _apply_root("/notes", appbar, content)
 
     def _build_settings_view() -> ft.View:
         from views.settings_view import build_settings_view
@@ -249,13 +242,7 @@ def _main(page: ft.Page):
         content = build_settings_view(
             page, state, save_settings, lambda: page.navigate("/settings"), get_colors
         )
-        return ft.View(
-            route="/settings",
-            padding=0,
-            appbar=_build_appbar("Configuración"),
-            navigation_bar=nav_bar,
-            controls=[content],
-        )
+        return _apply_root("/settings", _build_appbar("Configuración"), content)
 
     # ── Nested (drill-down) views ─────────────────────────
     def _build_pdf_preview_view() -> ft.View:
