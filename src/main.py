@@ -193,8 +193,10 @@ def _main(page: ft.Page):
     def _build_saved_view() -> ft.View:
         from views.saved_calculations_view import build_saved_calculations_view
 
+        # `page.navigate` no-ops when the target route equals the current
+        # one, so refreshing in place must call the route handler directly.
         content = build_saved_calculations_view(
-            page, get_colors, lambda: page.navigate("/saved")
+            page, get_colors, lambda: route_change()
         )
         return _apply_root(
             "/saved", _build_appbar("Cálculos guardados"), content
@@ -230,7 +232,7 @@ def _main(page: ft.Page):
             get_colors,
             lambda: page.navigate("/notes/new"),
             _open_note,
-            lambda: page.navigate("/notes"),
+            lambda: route_change(),
             _set_actions,
         )
         return _apply_root("/notes", appbar, content)
@@ -240,7 +242,7 @@ def _main(page: ft.Page):
 
         calculator.reset()
         content = build_settings_view(
-            page, state, save_settings, lambda: page.navigate("/settings"), get_colors
+            page, state, save_settings, lambda: route_change(), get_colors
         )
         return _apply_root("/settings", _build_appbar("Configuración"), content)
 
@@ -252,7 +254,7 @@ def _main(page: ft.Page):
         content = build_saved_calculations_view(
             page,
             get_colors,
-            lambda: page.navigate("/pdf-export/preview"),
+            lambda: route_change(),
             date_range=(start, end),
         )
         return ft.View(
