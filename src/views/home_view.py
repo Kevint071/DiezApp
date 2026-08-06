@@ -28,6 +28,7 @@ def _build_home_card(page: ft.Page, colors_fn, icon, title, subtitle, on_click):
                     content=ft.Icon(icon, color=c["primary"], size=24),
                 ),
                 ft.Column(
+                    expand=True,
                     spacing=2,
                     controls=[
                         ft.Text(
@@ -35,12 +36,16 @@ def _build_home_card(page: ft.Page, colors_fn, icon, title, subtitle, on_click):
                             size=15,
                             weight=ft.FontWeight.W_600,
                             color=c["on_surface"],
+                            max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS,
                         ),
                         ft.Text(
                             subtitle,
                             size=12,
                             weight=ft.FontWeight.W_400,
                             color=c["on_surface_variant"],
+                            max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS,
                         ),
                     ],
                 ),
@@ -93,8 +98,8 @@ def build_home_view(page: ft.Page, colors_fn, on_open_calculator, on_open_monthl
                                             page,
                                             colors_fn,
                                             ft.Icons.CALENDAR_MONTH_ROUNDED,
-                                            "Resumen mensual",
-                                            "Sumatoria de envíos (21%) por mes",
+                                            "Detalle Balances",
+                                            "Cantidad neta, sostenimiento y 21% por mes",
                                             lambda e: on_open_monthly(),
                                         ),
                                     ],
