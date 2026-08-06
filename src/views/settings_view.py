@@ -13,6 +13,16 @@ from utils.theme import (
     SURFACE_LIGHT,
 )
 
+_DESKTOP_PLATFORMS = {
+    ft.PagePlatform.WINDOWS,
+    ft.PagePlatform.MACOS,
+    ft.PagePlatform.LINUX,
+}
+
+
+def _is_desktop(page: ft.Page) -> bool:
+    return page.platform in _DESKTOP_PLATFORMS
+
 
 def build_settings_view(
     page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn
@@ -234,6 +244,20 @@ def build_settings_view(
 
         now = datetime.now(UTC).astimezone()
         file_name = now.strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
+
+        if _is_desktop(page):
+            from utils.desktop_files import pick_save_path
+
+            output_path = await pick_save_path(file_name)
+            if not output_path:
+                return
+            if target in ("calcs", "both"):
+                export_calculations(output_path, calcs)
+            if target in ("notes", "both"):
+                export_notes(output_path, notes)
+            _show_snack(f"Copia guardada en {output_path}", keep_open=False)
+            return
+
         output_path = os.path.join(tempfile.gettempdir(), file_name)
         if target in ("calcs", "both"):
             export_calculations(output_path, calcs)
@@ -393,23 +417,30 @@ def build_settings_view(
             _show_snack("Resuelve los conflictos antes de importar")
             return
 
-        files = await file_picker.pick_files(
-            dialog_title="Seleccionar archivo SQLite",
-            allowed_extensions=["db"],
-            allow_multiple=False,
-        )
-        if not files:
-            return
-        picked = files[0]
-        source_path = picked.path
         tmp_written = None
-        if not source_path and picked.bytes:
-            fd, tmp_written = tempfile.mkstemp(suffix=".db")
-            with os.fdopen(fd, "wb") as f:
-                f.write(picked.bytes)
-            source_path = tmp_written
-        if not source_path:
-            return
+        if _is_desktop(page):
+            from utils.desktop_files import pick_open_path
+
+            source_path = await pick_open_path()
+            if not source_path:
+                return
+        else:
+            files = await file_picker.pick_files(
+                dialog_title="Seleccionar archivo SQLite",
+                allowed_extensions=["db"],
+                allow_multiple=False,
+            )
+            if not files:
+                return
+            picked = files[0]
+            source_path = picked.path
+            if not source_path and picked.bytes:
+                fd, tmp_written = tempfile.mkstemp(suffix=".db")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(picked.bytes)
+                source_path = tmp_written
+            if not source_path:
+                return
 
         from utils.backup import read_calculations, read_notes
 
