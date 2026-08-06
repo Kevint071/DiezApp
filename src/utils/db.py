@@ -37,7 +37,7 @@ os.makedirs(
 DB_PATH = os.path.join(_DATA_DIR, "app.db")
 
 # Bump when the schema changes and add a migration branch in run_migrations().
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _conn = None
 _lock = threading.RLock()
@@ -85,6 +85,7 @@ def _init_schema(conn):
             fondo_local REAL,
             sostenimiento REAL,
             fund_percentage INTEGER,
+            updated_at TEXT,
             sort_index INTEGER
         )
         """
@@ -125,6 +126,15 @@ def run_migrations(conn):
         if "updated_at" not in existing_cols:
             conn.execute("ALTER TABLE notes ADD COLUMN updated_at TEXT")
         current = 2
+
+    if current < 3:
+        existing_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(calculations)").fetchall()
+        }
+        if "updated_at" not in existing_cols:
+            conn.execute("ALTER TABLE calculations ADD COLUMN updated_at TEXT")
+        current = 3
 
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (current,))

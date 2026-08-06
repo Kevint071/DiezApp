@@ -13,6 +13,7 @@ _COLUMNS = [
     "fondo_local",
     "sostenimiento",
     "fund_percentage",
+    "updated_at",
 ]
 
 
@@ -20,7 +21,7 @@ def load_calculations() -> list:
     conn = get_connection()
     rows = conn.execute(
         "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
-        "sostenimiento, fund_percentage FROM calculations ORDER BY sort_index ASC"
+        "sostenimiento, fund_percentage, updated_at FROM calculations ORDER BY sort_index ASC"
     ).fetchall()
     return [dict(zip(_COLUMNS, row)) for row in rows]
 
@@ -31,8 +32,8 @@ def save_calculations(calculations: list):
     for i, calc in enumerate(calculations):
         conn.execute(
             "INSERT INTO calculations (id, created_at, amount, envio_21, restante, "
-            "fondo_local, sostenimiento, fund_percentage, sort_index) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "fondo_local, sostenimiento, fund_percentage, updated_at, sort_index) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 calc.get("id"),
                 calc.get("created_at"),
@@ -42,6 +43,7 @@ def save_calculations(calculations: list):
                 calc.get("fondo_local"),
                 calc.get("sostenimiento"),
                 calc.get("fund_percentage"),
+                calc.get("updated_at"),
                 i,
             ),
         )
@@ -65,6 +67,7 @@ def add_calculation(
         "fondo_local": fondo_local,
         "sostenimiento": sostenimiento,
         "fund_percentage": fund_percentage,
+        "updated_at": None,
     }
     calculations = load_calculations()
     calculations.insert(0, calc)
@@ -81,6 +84,7 @@ def update_calculation(calc_id: str, new_amount: float) -> dict | None:
             calc["restante"] = new_amount * 0.79
             calc["fondo_local"] = calc["restante"] * (calc["fund_percentage"] / 100)
             calc["sostenimiento"] = new_amount - calc["envio_21"] - calc["fondo_local"]
+            calc["updated_at"] = datetime.now().isoformat()
             save_calculations(calculations)
             return calc
     return None

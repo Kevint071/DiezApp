@@ -581,6 +581,13 @@ def build_saved_calculations_view(
             color=c["primary"],
         )
 
+        date_txt = ft.Text(
+            _format_date(calc.get("updated_at") or calc.get("created_at", "")),
+            size=12,
+            weight=ft.FontWeight.W_600,
+            color=c["on_surface_variant"],
+        )
+
         edit_field = ft.TextField(
             value=_fmt_int(int(calc["amount"])),
             keyboard_type=ft.KeyboardType.NUMBER,
@@ -739,6 +746,8 @@ def build_saved_calculations_view(
             calc["amount"] = new_amount
             txt_amount.value = _format_currency(new_amount)
             _recalculate(new_amount)
+            calc["updated_at"] = datetime.now().isoformat()
+            date_txt.value = _format_date(calc["updated_at"])
             state["editing"] = False
             txt_amount.visible = True
             edit_field.visible = False
@@ -808,12 +817,7 @@ def build_saved_calculations_view(
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
                             controls=[
-                                ft.Text(
-                                    _format_date(calc.get("created_at", "")),
-                                    size=12,
-                                    weight=ft.FontWeight.W_600,
-                                    color=c["on_surface_variant"],
-                                ),
+                                date_txt,
                                 ft.Row(
                                     spacing=0,
                                     tight=True,

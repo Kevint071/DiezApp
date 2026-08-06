@@ -64,9 +64,10 @@ def build_notes_view(
 
     def _build_item(note: dict):
         title = (note.get("title") or "").strip()
+        display_date = note.get("updated_at") or note.get("created_at", "")
         content_controls = [
             ft.Text(
-                _format_date(note.get("created_at", "")),
+                _format_date(display_date),
                 size=12,
                 weight=ft.FontWeight.W_600,
                 color=c["on_surface_variant"],

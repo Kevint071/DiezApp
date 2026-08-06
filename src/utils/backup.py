@@ -16,6 +16,7 @@ CALC_COLUMNS = [
     "fondo_local",
     "sostenimiento",
     "fund_percentage",
+    "updated_at",
 ]
 
 NOTE_COLUMNS = ["id", "title", "content", "created_at", "updated_at"]
@@ -27,12 +28,13 @@ def export_calculations(path: str, calculations: list):
     conn.execute(
         "CREATE TABLE calculations ("
         "id TEXT PRIMARY KEY, created_at TEXT, amount REAL, envio_21 REAL, "
-        "restante REAL, fondo_local REAL, sostenimiento REAL, fund_percentage INTEGER)"
+        "restante REAL, fondo_local REAL, sostenimiento REAL, fund_percentage INTEGER, "
+        "updated_at TEXT)"
     )
     for calc in calculations:
         conn.execute(
             "INSERT INTO calculations (id, created_at, amount, envio_21, restante, "
-            "fondo_local, sostenimiento, fund_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "fondo_local, sostenimiento, fund_percentage, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             tuple(calc.get(col) for col in CALC_COLUMNS),
         )
     conn.commit()
@@ -64,9 +66,13 @@ def read_calculations(path: str) -> list:
     """Read calculations from a backup `.db`. Raises ValueError if invalid."""
     try:
         conn = sqlite3.connect(path)
+        cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(calculations)").fetchall()
+        }
+        updated_at_expr = "updated_at" if "updated_at" in cols else "NULL"
         rows = conn.execute(
             "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
-            "sostenimiento, fund_percentage FROM calculations"
+            f"sostenimiento, fund_percentage, {updated_at_expr} FROM calculations"
         ).fetchall()
     except Exception as exc:
         raise ValueError("Archivo de respaldo inválido") from exc
