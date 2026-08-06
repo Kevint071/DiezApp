@@ -117,5 +117,6 @@ def get_colors(page: ft.Page) -> dict:
         "input_focused": FOCUS_LIGHT if light else FOCUS_DARK,
         "primary": PRIMARY if light else PRIMARY_DARK,
         "primary_light": PRIMARY_LIGHT if light else "#34D399",
+        "secondary": SECONDARY if light else SECONDARY_DARK,
         "on_primary": ON_PRIMARY if light else "#F1F5F9",
     }
