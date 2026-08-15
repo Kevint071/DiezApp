@@ -452,7 +452,7 @@ def build_breakdown_view(
     indicator_navigation = ft.NavigationBar(
         selected_index=selected_index,
         on_change=_on_indicator_change,
-        bgcolor=c["surface"],
+        bgcolor=ft.Colors.TRANSPARENT,
         **indicator_navigation_style,
         destinations=[
             ft.NavigationBarDestination(
