@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import traceback
 
@@ -383,6 +384,13 @@ def _main(page: ft.Page):
     def route_change(e=None):
         leave_guard["check"] = None
         route = page.route
+
+        if route.startswith("/callback"):
+            # Google OAuth redirect (custom-scheme deep link, see
+            # utils/gdrive_auth.py + pyproject.toml's [tool.flet.*.deep_linking]).
+            page.run_task(_handle_gdrive_callback)
+            return
+
         current_navigation_colors = get_colors(page)
         nav_bar.bgcolor = ft.Colors.TRANSPARENT
         nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
@@ -441,10 +449,31 @@ def _main(page: ft.Page):
         if page.views:
             await page.push_route(page.views[-1].route)
 
+    async def _handle_gdrive_callback():
+        from utils.gdrive_auth import complete_link_flow
+
+        result = await complete_link_flow(page, dict(page.query.to_dict))
+        page.session.store.set("gdrive_link_message", result["message"])
+        page.navigate("/settings")
+
+    async def _gdrive_scheduler():
+        """Startup catch-up + in-app interval loop, both calling run_backup_now()
+        (design.md Decision 4: exactly one code path for "a backup happens")."""
+        from utils.gdrive_backup import run_backup_now, seconds_until_due
+
+        if seconds_until_due() is not None and seconds_until_due() <= 0:
+            await run_backup_now(page)
+        while True:
+            remaining = seconds_until_due()
+            await asyncio.sleep(60 if remaining is None else max(1, min(remaining, 60)))
+            if seconds_until_due() is not None and seconds_until_due() <= 0:
+                await run_backup_now(page)
+
     page.on_route_change = route_change
     page.on_view_pop = on_view_pop
 
     route_change()
+    page.run_task(_gdrive_scheduler)
 
 
 if __name__ == "__main__":

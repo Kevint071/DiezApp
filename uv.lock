@@ -48,6 +48,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "flet" },
     { name = "fpdf2" },
+    { name = "httpx" },
 ]
 
 [package.dev-dependencies]
@@ -60,6 +61,7 @@ dev = [
 requires-dist = [
     { name = "flet", specifier = ">=0.86.5" },
     { name = "fpdf2", specifier = ">=2.8.3" },
+    { name = "httpx", specifier = ">=0.28.0" },
 ]
 
 [package.metadata.requires-dev]

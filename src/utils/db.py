@@ -37,7 +37,7 @@ os.makedirs(
 DB_PATH = os.path.join(_DATA_DIR, "app.db")
 
 # Bump when the schema changes and add a migration branch in run_migrations().
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _conn = None
 _lock = threading.RLock()
@@ -108,6 +108,32 @@ def _init_schema(conn):
     conn.execute(
         "CREATE TABLE IF NOT EXISTS pending_conflicts (kind TEXT PRIMARY KEY, payload TEXT)"
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS gdrive_accounts (
+            id TEXT PRIMARY KEY,
+            google_account_email TEXT,
+            display_label TEXT,
+            folder_id TEXT,
+            folder_name TEXT,
+            access_token TEXT,
+            refresh_token TEXT,
+            token_expiry_at TEXT,
+            created_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS backup_history (
+            id TEXT PRIMARY KEY,
+            started_at TEXT,
+            finished_at TEXT,
+            status TEXT,
+            details TEXT
+        )
+        """
+    )
     conn.commit()
     run_migrations(conn)
 
@@ -134,6 +160,12 @@ def run_migrations(conn):
         if "updated_at" not in existing_cols:
             conn.execute("ALTER TABLE calculations ADD COLUMN updated_at TEXT")
         current = 3
+
+    if current < 4:
+        # gdrive_accounts / backup_history are created unconditionally in
+        # _init_schema (CREATE TABLE IF NOT EXISTS), so an upgrading DB just
+        # needs the version bump here.
+        current = max(current, 4)
 
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (current,))
