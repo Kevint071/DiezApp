@@ -1,6 +1,8 @@
+import asyncio
 import os
 import tempfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 import flet as ft
 
@@ -210,6 +212,7 @@ def build_settings_view(
 
     # ── Export dialog (notas / cálculos / ambas) ────────────────────
     export_target_state = {"target": "both"}
+    export_method_state = {"method": "share"}
 
     export_target_group = ft.RadioGroup(
         value="both",
@@ -223,6 +226,23 @@ def build_settings_view(
             ],
         ),
         on_change=lambda e: export_target_state.update(target=e.control.value),
+    )
+
+    export_method_group = ft.RadioGroup(
+        value="share",
+        content=ft.Column(
+            tight=True,
+            spacing=4,
+            controls=[
+                ft.Radio(value="share", label="Compartir", fill_color=c["primary"]),
+                ft.Radio(
+                    value="save",
+                    label="Guardar en el dispositivo",
+                    fill_color=c["primary"],
+                ),
+            ],
+        ),
+        on_change=lambda e: export_method_state.update(method=e.control.value),
     )
 
     def _close_export_dialog(e):
@@ -244,8 +264,9 @@ def build_settings_view(
 
         now = datetime.now(UTC).astimezone()
         file_name = now.strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
+        method = export_method_state["method"]
 
-        if _is_desktop(page):
+        if method == "save" and _is_desktop(page):
             from utils.desktop_files import pick_save_path
 
             output_path = await pick_save_path(file_name)
@@ -263,6 +284,19 @@ def build_settings_view(
             export_calculations(output_path, calcs)
         if target in ("notes", "both"):
             export_notes(output_path, notes)
+
+        if method == "save":
+            backup_bytes = await asyncio.to_thread(Path(output_path).read_bytes)
+            saved_path = await file_picker.save_file(
+                dialog_title="Guardar copia de seguridad",
+                file_name=file_name,
+                file_type=ft.FilePickerFileType.CUSTOM,
+                allowed_extensions=["db"],
+                src_bytes=backup_bytes,
+            )
+            if saved_path:
+                _show_snack("Copia guardada correctamente", keep_open=False)
+            return
 
         share = ft.Share()
         await share.share_files(
@@ -282,6 +316,12 @@ def build_settings_view(
                     "¿Qué deseas exportar?", size=14, color=c["on_surface_variant"]
                 ),
                 export_target_group,
+                ft.Text(
+                    "¿Qué deseas hacer con el archivo?",
+                    size=14,
+                    color=c["on_surface_variant"],
+                ),
+                export_method_group,
             ],
         ),
         actions=[
@@ -294,6 +334,8 @@ def build_settings_view(
     def _open_export_dialog(e):
         export_target_group.value = "both"
         export_target_state["target"] = "both"
+        export_method_group.value = "share"
+        export_method_state["method"] = "share"
         page.show_dialog(export_dialog)
 
     backup_cell = _settings_cell(
