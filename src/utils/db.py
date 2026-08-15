@@ -129,8 +129,7 @@ def run_migrations(conn):
 
     if current < 3:
         existing_cols = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(calculations)").fetchall()
+            row[1] for row in conn.execute("PRAGMA table_info(calculations)").fetchall()
         }
         if "updated_at" not in existing_cols:
             conn.execute("ALTER TABLE calculations ADD COLUMN updated_at TEXT")

@@ -198,9 +198,7 @@ def _main(page: ft.Page):
         content = build_saved_calculations_view(
             page, get_colors, lambda: route_change()
         )
-        return _apply_root(
-            "/saved", _build_appbar("Cálculos guardados"), content
-        )
+        return _apply_root("/saved", _build_appbar("Cálculos guardados"), content)
 
     def _build_pdf_export_view() -> ft.View:
         from views.saved_calculations_view import build_date_range_picker_view
@@ -305,7 +303,9 @@ def _main(page: ft.Page):
             _set_actions,
             _register_leave_guard,
         )
-        view = ft.View(route="/notes/detail", padding=0, appbar=appbar, controls=[content])
+        view = ft.View(
+            route="/notes/detail", padding=0, appbar=appbar, controls=[content]
+        )
 
         # Unsaved-changes guard needs to intercept the pop attempt itself
         # (rather than react after the fact), so this view can't rely on
@@ -350,9 +350,7 @@ def _main(page: ft.Page):
         return ft.View(
             route="/monthly/breakdown",
             padding=0,
-            appbar=_build_appbar(
-                "Desglose", show_back=True, back_route="/monthly"
-            ),
+            appbar=_build_appbar("Desglose", show_back=True, back_route="/monthly"),
             controls=[content],
         )
 

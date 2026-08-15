@@ -403,9 +403,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
                                         ),
                                         # ── Calendar (no fill — borderless, minimal) ─
                                         ft.Container(
-                                            padding=ft.Padding.symmetric(
-                                                horizontal=8
-                                            ),
+                                            padding=ft.Padding.symmetric(horizontal=8),
                                             content=ft.Column(
                                                 spacing=12,
                                                 controls=[
