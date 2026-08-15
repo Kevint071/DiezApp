@@ -4,7 +4,12 @@ import traceback
 import flet as ft
 
 from utils.app_settings import load_settings, save_settings
-from utils.theme import DARK_THEME, LIGHT_THEME, get_colors
+from utils.theme import (
+    DARK_THEME,
+    LIGHT_THEME,
+    get_colors,
+    get_navigation_bar_style,
+)
 from views.calculator_view import CalculatorView
 from views.home_view import build_home_view
 
@@ -112,6 +117,11 @@ def _main(page: ft.Page):
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
     _NAV_ROUTES = ["/", "/saved", "/pdf-export", "/notes", "/settings"]
+    navigation_colors = get_colors(page)
+    navigation_style = get_navigation_bar_style(navigation_colors)
+    navigation_style["bgcolor"] = navigation_colors["surface"]
+    navigation_style["label_padding"] = ft.Padding.all(0)
+    navigation_style["label_behavior"] = ft.NavigationBarLabelBehavior.ALWAYS_HIDE
 
     def _on_nav_change(e):
         idx = e.control.selected_index
@@ -130,10 +140,7 @@ def _main(page: ft.Page):
     nav_bar = ft.NavigationBar(
         selected_index=0,
         on_change=_on_nav_change,
-        label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
-        shadow_color=ft.Colors.TRANSPARENT,
-        indicator_color=ft.Colors.TRANSPARENT,
-        overlay_color=ft.Colors.TRANSPARENT,
+        **navigation_style,
         destinations=[
             ft.NavigationBarDestination(
                 icon=ft.Icons.HOME_OUTLINED,
@@ -343,14 +350,32 @@ def _main(page: ft.Page):
         )
 
     def _build_monthly_breakdown_view() -> ft.View:
-        from views.monthly_summary_view import build_breakdown_view
+        from views.monthly_summary_view import (
+            build_breakdown_view,
+            get_breakdown_title,
+        )
 
         months = page.session.store.get("monthly_breakdown_months") or []
-        content = build_breakdown_view(page, get_colors, months)
+        appbar = _build_appbar(
+            get_breakdown_title(page),
+            show_back=True,
+            back_route="/monthly",
+        )
+
+        def _on_indicator_change(label):
+            appbar.title.value = f"Desglose de {label}"
+
+        content, indicator_navigation = build_breakdown_view(
+            page,
+            get_colors,
+            months,
+            on_indicator_change=_on_indicator_change,
+        )
         return ft.View(
             route="/monthly/breakdown",
             padding=0,
-            appbar=_build_appbar("Desglose", show_back=True, back_route="/monthly"),
+            appbar=appbar,
+            navigation_bar=indicator_navigation,
             controls=[content],
         )
 
@@ -358,6 +383,9 @@ def _main(page: ft.Page):
     def route_change(e=None):
         leave_guard["check"] = None
         route = page.route
+        current_navigation_colors = get_colors(page)
+        nav_bar.bgcolor = current_navigation_colors["surface"]
+        nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
 
         if route.startswith("/notes"):
             root_idx, root_view = 3, _build_notes_view()

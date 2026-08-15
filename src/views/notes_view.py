@@ -221,7 +221,7 @@ def build_notes_view(
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=4, bottom=0),
             content=ft.Column(
                 expand=True,
                 spacing=16,

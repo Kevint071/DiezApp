@@ -113,10 +113,24 @@ def get_colors(page: ft.Page) -> dict:
         "card_bg": SURFACE_VARIANT_LIGHT if light else SURFACE_VARIANT_DARK,
         "hero_bg": PRIMARY_CONTAINER if light else HERO_BG_DARK,
         "hero_fg": ON_PRIMARY_CONTAINER if light else "#A7F3D0",
+        "navigation_indicator": "#DCFCE7" if light else "#064E3B",
         "input_border": OUTLINE_LIGHT_INPUT if light else OUTLINE_DARK_INPUT,
         "input_focused": FOCUS_LIGHT if light else FOCUS_DARK,
         "primary": PRIMARY if light else PRIMARY_DARK,
         "primary_light": PRIMARY_LIGHT if light else "#34D399",
         "secondary": SECONDARY if light else SECONDARY_DARK,
         "on_primary": ON_PRIMARY if light else "#F1F5F9",
+    }
+
+
+def get_navigation_bar_style(colors: dict) -> dict:
+    return {
+        "label_behavior": ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
+        "elevation": 0,
+        "shadow_color": ft.Colors.TRANSPARENT,
+        "indicator_color": colors["navigation_indicator"],
+        "indicator_shape": ft.RoundedRectangleBorder(radius=16),
+        "label_padding": ft.Padding.only(top=2, bottom=2),
+        "animation_duration": 180,
+        "overlay_color": ft.Colors.TRANSPARENT,
     }

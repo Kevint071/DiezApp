@@ -4,6 +4,7 @@ import flet as ft
 
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.storage import load_calculations
+from utils.theme import get_navigation_bar_style
 
 MONTHS = [
     "Enero",
@@ -26,12 +27,56 @@ INDICATORS = [
     ("amount", "Cantidad neta"),
     ("sostenimiento", "Sostenimiento"),
     ("envio_21", "21%"),
+    ("fondo_local", "Fondo local"),
 ]
-INDICATOR_SHORT = {"amount": "Monto", "sostenimiento": "Sost.", "envio_21": "21%"}
+INDICATOR_NAV = [
+    (
+        "amount",
+        "Cantidad neta",
+        ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
+        ft.Icons.ACCOUNT_BALANCE_WALLET,
+    ),
+    (
+        "sostenimiento",
+        "Sostenimiento",
+        ft.Icons.VOLUNTEER_ACTIVISM_OUTLINED,
+        ft.Icons.VOLUNTEER_ACTIVISM,
+    ),
+    ("envio_21", "21%", ft.Icons.PERCENT_OUTLINED, ft.Icons.PERCENT),
+    ("fondo_local", "Fondo local", ft.Icons.SAVINGS_OUTLINED, ft.Icons.SAVINGS),
+]
+INDICATOR_SHORT = {
+    "amount": "Monto",
+    "sostenimiento": "Sost.",
+    "envio_21": "21%",
+    "fondo_local": "Fondo local",
+}
+
+
+def _indicator_key_from_session(page: ft.Page) -> str:
+    saved_indicator = page.session.store.get("monthly_breakdown_indicator")
+    indicator_keys = {key for key, _ in INDICATORS}
+    return saved_indicator if saved_indicator in indicator_keys else "envio_21"
+
+
+def get_breakdown_title(page: ft.Page) -> str:
+    indicator_key = _indicator_key_from_session(page)
+    return f"Desglose de {dict(INDICATORS)[indicator_key]}"
 
 
 def _format_currency(value: float) -> str:
     return f"${value:,.0f}".replace(",", ".")
+
+
+def _load_monthly_state(page: ft.Page, current_year: int) -> dict:
+    saved = page.session.store.get("monthly_summary_state") or {}
+    selected_months = saved.get("selected_months", set())
+    return {
+        "year": saved.get("year", current_year),
+        "mode": saved.get("mode", "monthly"),
+        "monthly_selected": saved.get("monthly_selected"),
+        "selected_months": set(selected_months),
+    }
 
 
 def _get_month_calculations(year: int, month: int) -> list:
@@ -54,39 +99,77 @@ def _month_totals(year: int, month: int) -> dict:
     return {key: sum(calc.get(key, 0.0) for calc in calcs) for key, _ in INDICATORS}
 
 
+def _sum_month_totals(months: list) -> dict:
+    totals = {key: 0.0 for key, _ in INDICATORS}
+    for year, month in months:
+        month_totals = _month_totals(year, month)
+        for key in totals:
+            totals[key] += month_totals[key]
+    return totals
+
+
 def _average_totals(months: list) -> dict:
     if not months:
         return {key: 0.0 for key, _ in INDICATORS}
-    sums = {key: 0.0 for key, _ in INDICATORS}
-    for year, month in months:
-        totals = _month_totals(year, month)
-        for key in sums:
-            sums[key] += totals[key]
-    return {key: value / len(months) for key, value in sums.items()}
+    totals = _sum_month_totals(months)
+    return {key: value / len(months) for key, value in totals.items()}
 
 
-def _build_summary_card(c, totals: dict, on_detail) -> ft.Container:
-    rows = [
-        ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            controls=[
-                ft.Text(
-                    label,
-                    size=13,
-                    weight=ft.FontWeight.W_500,
-                    color=c["on_surface_variant"],
-                ),
-                ft.Text(
-                    _format_currency(totals[key]),
-                    size=14,
-                    weight=ft.FontWeight.W_700,
-                    color=c["on_surface"],
-                    no_wrap=True,
-                ),
-            ],
-        )
-        for key, label in INDICATORS
-    ]
+def _general_totals(months: list) -> dict:
+    if not months:
+        return {key: 0.0 for key, _ in INDICATORS}
+
+    summed_totals = _sum_month_totals(months)
+    return {
+        key: value if key == "fondo_local" else value / len(months)
+        for key, value in summed_totals.items()
+    }
+
+
+def _build_summary_card(c, totals: dict, on_detail, mode: str) -> ft.Container:
+    def _build_rows(indicators):
+        return [
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Text(
+                        label,
+                        size=13,
+                        weight=ft.FontWeight.W_500,
+                        color=c["on_surface_variant"],
+                    ),
+                    ft.Text(
+                        _format_currency(totals[key]),
+                        size=14,
+                        weight=ft.FontWeight.W_700,
+                        color=c["on_surface"],
+                        no_wrap=True,
+                    ),
+                ],
+            )
+            for key, label in indicators
+        ]
+
+    if mode == "general":
+        rows = [
+            ft.Text(
+                "Promedio",
+                size=12,
+                weight=ft.FontWeight.W_700,
+                color=c["primary"],
+            ),
+            *_build_rows(INDICATORS[:3]),
+            ft.Container(height=4),
+            ft.Text(
+                "Suma total",
+                size=12,
+                weight=ft.FontWeight.W_700,
+                color=c["primary"],
+            ),
+            *_build_rows(INDICATORS[3:]),
+        ]
+    else:
+        rows = _build_rows(INDICATORS)
 
     detail_button = ft.OutlinedButton(
         "Detalles",
@@ -115,10 +198,12 @@ def _build_summary_card(c, totals: dict, on_detail) -> ft.Container:
     )
 
 
-def build_breakdown_view(page: ft.Page, colors_fn, months: list):
+def build_breakdown_view(
+    page: ft.Page, colors_fn, months: list, on_indicator_change=None
+):
     c = colors_fn(page)
     months = sorted(months or [])
-    state = {"indicator": "envio_21"}
+    state = {"indicator": _indicator_key_from_session(page)}
 
     body_container = ft.Container(expand=True)
 
@@ -136,6 +221,33 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
             except ValueError, TypeError:
                 date_str = "—"
 
+            row_columns = [
+                ft.Text(
+                    date_str,
+                    size=12,
+                    color=c["on_surface_variant"],
+                    no_wrap=True,
+                )
+            ]
+            if indicator_key == "fondo_local":
+                row_columns.append(
+                    ft.Text(
+                        f"{calc.get('fund_percentage', 0)}%",
+                        size=12,
+                        color=c["on_surface_variant"],
+                        no_wrap=True,
+                    )
+                )
+            row_columns.append(
+                ft.Text(
+                    _format_currency(value),
+                    size=13,
+                    weight=ft.FontWeight.W_500,
+                    color=c["on_surface"],
+                    no_wrap=True,
+                )
+            )
+
             rows.append(
                 ft.Container(
                     padding=ft.Padding.symmetric(vertical=10, horizontal=16),
@@ -143,24 +255,7 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
                     content=ft.Row(
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         controls=[
-                            ft.Row(
-                                spacing=12,
-                                controls=[
-                                    ft.Text(
-                                        date_str,
-                                        size=12,
-                                        color=c["on_surface_variant"],
-                                        no_wrap=True,
-                                    ),
-                                    ft.Text(
-                                        _format_currency(value),
-                                        size=13,
-                                        weight=ft.FontWeight.W_500,
-                                        color=c["on_surface"],
-                                        no_wrap=True,
-                                    ),
-                                ],
-                            ),
+                            ft.Row(spacing=12, controls=row_columns),
                             ft.Text(
                                 _format_currency(running_total),
                                 size=13,
@@ -173,6 +268,37 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
                 )
             )
 
+        header_columns = [
+            ft.Text(
+                "Fecha",
+                size=11,
+                weight=ft.FontWeight.W_600,
+                color=c["on_surface_variant"],
+                no_wrap=True,
+            )
+        ]
+        if indicator_key == "fondo_local":
+            header_columns.append(
+                ft.Text(
+                    "%",
+                    size=11,
+                    weight=ft.FontWeight.W_600,
+                    color=c["on_surface_variant"],
+                    no_wrap=True,
+                )
+            )
+        header_columns.append(
+            ft.Text(
+                "Cantidad"
+                if indicator_key == "fondo_local"
+                else INDICATOR_SHORT[indicator_key],
+                size=11,
+                weight=ft.FontWeight.W_600,
+                color=c["on_surface_variant"],
+                no_wrap=True,
+            )
+        )
+
         header = ft.Container(
             padding=ft.Padding.symmetric(vertical=8, horizontal=16),
             content=ft.Row(
@@ -181,20 +307,7 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
                     ft.Row(
                         spacing=12,
                         controls=[
-                            ft.Text(
-                                "Fecha",
-                                size=11,
-                                weight=ft.FontWeight.W_600,
-                                color=c["on_surface_variant"],
-                                no_wrap=True,
-                            ),
-                            ft.Text(
-                                INDICATOR_SHORT[indicator_key],
-                                size=11,
-                                weight=ft.FontWeight.W_600,
-                                color=c["on_surface_variant"],
-                                no_wrap=True,
-                            ),
+                            *header_columns,
                         ],
                     ),
                     ft.Text(
@@ -217,7 +330,10 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 controls=[
                     ft.Text(
-                        "Total", size=14, weight=ft.FontWeight.W_600, color=c["hero_fg"]
+                        "Total",
+                        size=14,
+                        weight=ft.FontWeight.W_600,
+                        color=c["hero_fg"],
                     ),
                     ft.Text(
                         _format_currency(running_total),
@@ -282,24 +398,29 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
                 grand_total += total
 
             if len(months) > 1:
-                average = grand_total / len(months)
                 controls.append(
                     ft.Container(
                         bgcolor=c["primary"],
                         border_radius=12,
                         padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-                        margin=ft.Margin.only(top=4),
+                        margin=ft.Margin.only(top=4, bottom=24),
                         content=ft.Row(
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             controls=[
                                 ft.Text(
-                                    "Promedio",
+                                    "Suma total"
+                                    if indicator_key == "fondo_local"
+                                    else "Promedio",
                                     size=14,
                                     weight=ft.FontWeight.W_600,
                                     color=c["on_primary"],
                                 ),
                                 ft.Text(
-                                    _format_currency(average),
+                                    _format_currency(
+                                        grand_total
+                                        if indicator_key == "fondo_local"
+                                        else grand_total / len(months)
+                                    ),
                                     size=16,
                                     weight=ft.FontWeight.W_700,
                                     color=c["on_primary"],
@@ -311,27 +432,47 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
 
         body_container.content = ft.Column(spacing=0, controls=controls)
 
+    selected_index = next(
+        index
+        for index, (key, _, _, _) in enumerate(INDICATOR_NAV)
+        if key == state["indicator"]
+    )
+
     def _on_indicator_change(e):
-        state["indicator"] = e.control.selected[0]
+        key = INDICATOR_NAV[e.control.selected_index][0]
+        state["indicator"] = key
+        page.session.store.set("monthly_breakdown_indicator", key)
+        if on_indicator_change:
+            on_indicator_change(dict(INDICATORS)[key])
         _rebuild_body()
         page.update()
 
-    indicator_selector = ft.SegmentedButton(
-        segments=[ft.Segment(value=key, label=label) for key, label in INDICATORS],
-        selected=[state["indicator"]],
-        show_selected_icon=False,
+    indicator_navigation_style = get_navigation_bar_style(c)
+    indicator_navigation_style["label_padding"] = ft.Padding.all(0)
+    indicator_navigation = ft.NavigationBar(
+        selected_index=selected_index,
         on_change=_on_indicator_change,
-        width=float("inf"),
+        bgcolor=c["surface"],
+        **indicator_navigation_style,
+        destinations=[
+            ft.NavigationBarDestination(
+                icon=icon,
+                selected_icon=selected_icon,
+                label=label,
+            )
+            for _, label, icon, selected_icon in INDICATOR_NAV
+        ],
     )
+    indicator_navigation.label_behavior = ft.NavigationBarLabelBehavior.ALWAYS_HIDE
 
     _rebuild_body()
 
     divider = build_scroll_divider()
-    return ft.SafeArea(
+    content = ft.SafeArea(
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=0),
             content=ft.Column(
                 expand=True,
                 spacing=0,
@@ -349,8 +490,6 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
                                 content=ft.Column(
                                     spacing=0,
                                     controls=[
-                                        indicator_selector,
-                                        ft.Container(height=16),
                                         body_container,
                                     ],
                                 ),
@@ -361,17 +500,24 @@ def build_breakdown_view(page: ft.Page, colors_fn, months: list):
             ),
         ),
     )
+    return content, indicator_navigation
 
 
 def build_monthly_summary_view(page: ft.Page, colors_fn):
     c = colors_fn(page)
     now = datetime.now(UTC).astimezone()
-    state = {
-        "year": now.year,
-        "mode": "monthly",
-        "monthly_selected": None,
-        "selected_months": set(),
-    }
+    state = _load_monthly_state(page, now.year)
+
+    def _save_monthly_state():
+        page.session.store.set(
+            "monthly_summary_state",
+            {
+                "year": state["year"],
+                "mode": state["mode"],
+                "monthly_selected": state["monthly_selected"],
+                "selected_months": set(state["selected_months"]),
+            },
+        )
 
     year_text = ft.Text(
         str(state["year"]),
@@ -414,6 +560,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
                     state["selected_months"].discard(key)
                 else:
                     state["selected_months"].add(key)
+            _save_monthly_state()
             _refresh_grid()
             _refresh_summary()
             page.update()
@@ -446,6 +593,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
 
     def _on_detail_tap(months_list):
         def handler(e):
+            _save_monthly_state()
             page.session.store.set("monthly_breakdown_months", months_list)
             page.navigate("/monthly/breakdown")
 
@@ -463,7 +611,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
                 totals = _month_totals(year, month)
                 summary_container.visible = True
                 summary_container.content = _build_summary_card(
-                    c, totals, _on_detail_tap([selected])
+                    c, totals, _on_detail_tap([selected]), "monthly"
                 )
                 hint_text.value = ""
         else:
@@ -473,10 +621,10 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
                 summary_container.content = None
                 hint_text.value = "Selecciona uno o más meses"
             else:
-                totals = _average_totals(selected_months)
+                totals = _general_totals(selected_months)
                 summary_container.visible = True
                 summary_container.content = _build_summary_card(
-                    c, totals, _on_detail_tap(selected_months)
+                    c, totals, _on_detail_tap(selected_months), "general"
                 )
                 count = len(selected_months)
                 hint_text.value = (
@@ -486,6 +634,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
 
     def _on_mode_change(e):
         state["mode"] = e.control.selected[0]
+        _save_monthly_state()
         _refresh_grid()
         _refresh_summary()
         page.update()
@@ -495,6 +644,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
         year_text.value = str(state["year"])
         if state["mode"] == "monthly":
             state["monthly_selected"] = None
+        _save_monthly_state()
         _refresh_grid()
         _refresh_summary()
         page.update()
@@ -504,6 +654,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
         year_text.value = str(state["year"])
         if state["mode"] == "monthly":
             state["monthly_selected"] = None
+        _save_monthly_state()
         _refresh_grid()
         _refresh_summary()
         page.update()
@@ -513,7 +664,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
             ft.Segment(value="monthly", label="Balance mensual"),
             ft.Segment(value="general", label="Balance general"),
         ],
-        selected=["monthly"],
+        selected=[state["mode"]],
         show_selected_icon=False,
         on_change=_on_mode_change,
     )

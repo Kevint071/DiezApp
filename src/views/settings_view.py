@@ -689,7 +689,7 @@ def build_settings_view(
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(top=12, left=0, right=0, bottom=24),
+            padding=ft.Padding.only(top=4, left=0, right=0, bottom=0),
             content=ft.Column(
                 expand=True,
                 spacing=0,
