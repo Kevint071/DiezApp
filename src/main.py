@@ -102,7 +102,7 @@ def _main(page: ft.Page):
                     color=fg,
                 ),
             )
-        nav_bar.bgcolor = c["surface"]
+        nav_bar.bgcolor = ft.Colors.TRANSPARENT
         return ft.AppBar(
             leading=leading,
             leading_width=40 if leading else 0,
@@ -119,7 +119,7 @@ def _main(page: ft.Page):
     _NAV_ROUTES = ["/", "/saved", "/pdf-export", "/notes", "/settings"]
     navigation_colors = get_colors(page)
     navigation_style = get_navigation_bar_style(navigation_colors)
-    navigation_style["bgcolor"] = navigation_colors["surface"]
+    navigation_style["bgcolor"] = ft.Colors.TRANSPARENT
     navigation_style["label_padding"] = ft.Padding.all(0)
     navigation_style["label_behavior"] = ft.NavigationBarLabelBehavior.ALWAYS_HIDE
 
@@ -384,7 +384,7 @@ def _main(page: ft.Page):
         leave_guard["check"] = None
         route = page.route
         current_navigation_colors = get_colors(page)
-        nav_bar.bgcolor = current_navigation_colors["surface"]
+        nav_bar.bgcolor = ft.Colors.TRANSPARENT
         nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
 
         if route.startswith("/notes"):
