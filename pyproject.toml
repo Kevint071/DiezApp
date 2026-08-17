@@ -21,17 +21,17 @@ message = "Cargando..."
 # Build only the ARM64 Android variant to keep the APK smaller on modern phones.
 target_arch = ["arm64-v8a"]
 
-# Google Drive OAuth redirect (see src/utils/gdrive_auth.py). `scheme` MUST be
-# the reversed-domain form of the Android OAuth Client ID created in Google
-# Cloud Console. The public Android Client ID is configured in
-# src/utils/gdrive_auth.py. `host` must stay "oauth2redirect"
-# to match REDIRECT_HOST in gdrive_auth.py.
+# Google Drive OAuth redirect (see src/utils/gdrive_auth.py). Google no
+# longer accepts a custom-scheme redirect_uri directly, so the diezmapp-api
+# backend proxies the flow and redirects back here via this app-owned
+# scheme/host. `host` must stay "oauth2redirect" to match BACKEND's
+# APP_REDIRECT_HOST env var; `scheme` must match its APP_REDIRECT_SCHEME.
 [tool.flet.android.deep_linking]
-scheme = "com.googleusercontent.apps.105025843954-9p82u5mujmfakqmt4t52bt8pb9ntak4o"
+scheme = "com.diezapp.diezapp"
 host = "oauth2redirect"
 
 [tool.flet.ios.deep_linking]
-scheme = "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
+scheme = "com.diezapp.diezapp"
 host = "oauth2redirect"
 
 [dependency-groups]
@@ -49,5 +49,5 @@ org = "com.diezapp"      # usa tu dominio real o algo único, ej: "com.kevindev"
 product = "DiezApp"
 
 [tool.flet.android.signing]
-key_store = "/mnt/c/dev/diezmapp/diezapp-release.jks"
+key_store = "/mnt/c/dev/diezmap-code/diezmapp/diezapp-release.jks"
 key_alias = "diezapp-key"
