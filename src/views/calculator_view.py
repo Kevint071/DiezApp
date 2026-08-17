@@ -1,14 +1,11 @@
 """Calculator ("Distribución") screen.
 
 Holds its own controls/state in a class (rather than a plain builder
-function) because, unlike the other views, its input/results must survive
-across tab switches — `main.py` keeps a single instance alive for the whole
-session and calls `on_show()`/`reset()` around navigation instead of
-rebuilding it from scratch each time.
+function) because `main.py` keeps a single instance alive for the whole
+session and resets it whenever the view is opened.
 """
 
 import flet as ft
-
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 
@@ -181,8 +178,9 @@ class CalculatorView:
         self.page.update()
 
     def reset(self):
-        """Clear the input and hide results, e.g. when navigating to another tab."""
+        """Clear the input and hide results before opening the view again."""
         self.input_amount.value = ""
+        self.input_amount.error = None
         self.results_container.visible = False
         self.save_btn.visible = False
 
@@ -190,13 +188,6 @@ class CalculatorView:
         """Refresh label/colors right before `build_content()` is added to the page."""
         self.lbl_1_of_79.value = self._fund_label()
         self.apply_input_colors()
-
-    def refresh_after_show(self):
-        """Recompute results if they were already visible from a previous visit."""
-        if self.results_container.visible:
-            self._build_results()
-            if self.input_amount.value:
-                self.calculate(None)
 
     def build_content(self):
         c = self.colors_fn(self.page)

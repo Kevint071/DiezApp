@@ -328,6 +328,7 @@ def _main(page: ft.Page):
         return view
 
     def _build_calc_view() -> ft.View:
+        calculator.reset()
         calculator.prepare_for_show()
         content = calculator.build_content()
         view = ft.View(
@@ -336,7 +337,6 @@ def _main(page: ft.Page):
             appbar=_build_appbar("Distribución", show_back=True, back_route="/"),
             controls=[content],
         )
-        calculator.refresh_after_show()
         return view
 
     def _build_monthly_view() -> ft.View:
