@@ -820,24 +820,19 @@ def _build_gdrive_backups_section(
         "account_id": None,
         "parent_id": "root",
         "parent_name": "Mi unidad",
-        "stack": [],
     }
+    folder_selection = {"id": None, "name": None}
     folder_title = ft.Text("Seleccionar carpeta", size=17, weight=ft.FontWeight.W_600)
     folder_path = ft.Text("Mi unidad", size=13, color=c["on_surface_variant"])
     folder_loading = ft.ProgressRing(width=22, height=22, visible=False)
     folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
     folder_delete_state = {"active": False, "selected": set()}
     current_folders = []
-    folder_back_button = ft.IconButton(
-        ft.Icons.ARROW_BACK,
-        tooltip="Carpeta padre",
-        visible=False,
-    )
-
+    folder_labels = {}
     def _close_folder_dialog(e):
         page.pop_dialog()
 
-    async def _load_folder_list(parent_id, parent_name):
+    async def _load_folder_list():
         account_id = folder_dialog_state["account_id"]
         account = next((a for a in list_accounts() if a["id"] == account_id), None)
         if account is None:
@@ -846,24 +841,14 @@ def _build_gdrive_backups_section(
         if not access_token:
             show_snack("No se pudo autenticar la cuenta")
             return
-        folder_dialog_state["parent_id"] = parent_id
-        folder_dialog_state["parent_name"] = parent_name
-        folder_back_button.visible = bool(folder_dialog_state["stack"])
-        path_names = [
-            "Mi unidad"
-        ] + [
-            name
-            for _, name in folder_dialog_state["stack"]
-            if name != "Mi unidad"
-        ]
-        if parent_name != "Mi unidad":
-            path_names.append(parent_name)
-        folder_path.value = " / ".join(path_names)
+        folder_dialog_state["parent_id"] = "root"
+        folder_dialog_state["parent_name"] = "Mi unidad"
+        folder_path.value = "Mi unidad"
         folder_loading.visible = True
         folder_list.controls = []
         page.update()
         try:
-            folders = await list_folders(access_token, parent_id)
+            folders = await list_folders(access_token, "root")
         except DriveApiError as error:
             show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
             return
@@ -898,7 +883,14 @@ def _build_gdrive_backups_section(
                 ft.ListTile(
                     leading=ft.Icon(ft.Icons.FOLDER_OUTLINED, color=c["primary"]),
                     title=ft.Text(folder["name"]),
-                    on_click=lambda e, item=folder: page.run_task(_enter_folder, item),
+                    selected=folder["id"] == folder_selection["id"],
+                    selected_tile_color=c["navigation_indicator"],
+                    on_click=lambda e, item=folder: _select_folder(item),
+                    trailing=ft.Icon(
+                        ft.Icons.CHECK,
+                        color=c["primary"],
+                        visible=folder["id"] == folder_selection["id"],
+                    ),
                 )
                 for folder in folders
             ]
@@ -946,12 +938,17 @@ def _build_gdrive_backups_section(
             return
         if account.get("folder_id") in selected_ids:
             set_account_folder(account["id"], None, None)
+        current_folders[:] = [
+            folder for folder in current_folders if folder["id"] not in selected_ids
+        ]
+        if folder_selection["id"] in selected_ids:
+            folder_selection["id"] = None
+            folder_selection["name"] = None
         folder_delete_state["selected"].clear()
         folder_delete_state["active"] = False
+        _render_folder_list(current_folders)
         _update_folder_dialog_actions()
-        await _load_folder_list(
-            folder_dialog_state["parent_id"], folder_dialog_state["parent_name"]
-        )
+        page.update()
         show_snack("Carpetas eliminadas", keep_open=False)
 
     folder_actions = ft.Row(spacing=0, controls=[])
@@ -962,45 +959,87 @@ def _build_gdrive_backups_section(
                 ft.IconButton(
                     ft.Icons.CLOSE,
                     tooltip="Cancelar eliminación",
+                    icon_color=c["on_surface_variant"],
+                    width=40,
+                    height=40,
+                    padding=0,
                     on_click=lambda e: _set_folder_delete_mode(False),
                 ),
                 ft.IconButton(
                     ft.Icons.CHECK,
                     tooltip="Eliminar seleccionadas",
+                    icon_color=c["primary"],
+                    width=40,
+                    height=40,
+                    padding=0,
                     on_click=lambda e: page.run_task(_delete_selected_folders, e),
                 ),
             ]
         else:
             folder_actions.controls = [
                 ft.IconButton(
+                    ft.Icons.ADD,
+                    tooltip="Crear carpeta",
+                    icon_color=c["primary"],
+                    width=40,
+                    height=40,
+                    padding=0,
+                    on_click=lambda e: _open_create_folder_dialog(),
+                ),
+                ft.IconButton(
                     ft.Icons.DELETE_OUTLINE,
                     tooltip="Eliminar carpetas",
+                    icon_color=ft.Colors.RED_600,
+                    width=40,
+                    height=40,
+                    padding=0,
                     on_click=lambda e: _set_folder_delete_mode(True),
                 )
             ]
+        use_folder_button.disabled = folder_selection["id"] is None
 
-    async def _enter_folder(folder):
-        folder_dialog_state["stack"].append(
-            (folder_dialog_state["parent_id"], folder_dialog_state["parent_name"])
-        )
-        await _load_folder_list(folder["id"], folder["name"])
+    def _select_folder(folder):
+        if folder_selection["id"] == folder["id"]:
+            folder_selection["id"] = None
+            folder_selection["name"] = None
+        else:
+            folder_selection["id"] = folder["id"]
+            folder_selection["name"] = folder["name"]
+        _render_folder_list(current_folders)
+        _update_folder_dialog_actions()
+        page.update()
 
-    async def _go_to_parent(e):
-        if not folder_dialog_state["stack"]:
-            return
-        parent_id, parent_name = folder_dialog_state["stack"].pop()
-        await _load_folder_list(parent_id, parent_name)
-
-    folder_back_button.on_click = _go_to_parent
+    use_folder_button = ft.FilledButton(
+        "Usar carpeta",
+        disabled=True,
+        style=ft.ButtonStyle(
+            bgcolor={
+                ft.ControlState.DEFAULT: "#047857",
+                ft.ControlState.DISABLED: c["outline"],
+            },
+            color={
+                ft.ControlState.DEFAULT: "#FFFFFF",
+                ft.ControlState.DISABLED: c["on_surface_variant"],
+            },
+        ),
+    )
 
     def _select_current_folder(e):
+        if folder_selection["id"] is None:
+            return
         set_account_folder(
             folder_dialog_state["account_id"],
-            folder_dialog_state["parent_id"],
-            folder_dialog_state["parent_name"],
+            folder_selection["id"],
+            folder_selection["name"],
         )
         page.pop_dialog()
-        navigate_to_settings()
+        folder_label = folder_labels.get(folder_dialog_state["account_id"])
+        if folder_label:
+            folder_label.value = f"Carpeta: {folder_selection['name']}"
+            folder_label.color = c["on_surface_variant"]
+        page.update()
+
+    use_folder_button.on_click = _select_current_folder
 
     async def _create_folder(e):
         account_id = folder_dialog_state["account_id"]
@@ -1023,20 +1062,59 @@ def _build_gdrive_backups_section(
         except httpx.HTTPError:
             show_snack("No se pudo conectar con Google Drive")
             return
-        set_account_folder(account_id, folder_id, folder_name)
+        current_folders.append({"id": folder_id, "name": folder_name})
+        _select_folder(current_folders[-1])
+        folder_name_field.value = ""
         page.pop_dialog()
-        navigate_to_settings()
+        page.update()
+
+    def _close_create_folder_dialog(e):
+        page.pop_dialog()
+
+    create_folder_dialog = ft.AlertDialog(
+        modal=True,
+        bgcolor=c["surface"],
+        title=ft.Text("Nueva carpeta", color=c["on_surface"]),
+        content=folder_name_field,
+        actions=[
+            ft.TextButton("Cancelar", on_click=_close_create_folder_dialog),
+            ft.FilledButton("Crear", on_click=_create_folder),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
+    def _open_create_folder_dialog():
+        folder_name_field.value = ""
+        page.show_dialog(create_folder_dialog)
 
     folder_dialog = ft.AlertDialog(
-        title=ft.Column(spacing=2, controls=[folder_title, folder_path]),
+        bgcolor=c["surface"],
+        title=ft.Row(
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            controls=[
+                ft.Column(
+                    expand=True,
+                    spacing=3,
+                    controls=[
+                        folder_title,
+                        ft.Text(
+                            "Elige dónde guardar tus respaldos",
+                            size=12,
+                            color=c["on_surface_variant"],
+                        ),
+                        folder_path,
+                    ],
+                ),
+                folder_actions,
+            ],
+        ),
         content=ft.Column(
             tight=True,
             controls=[
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
-                        folder_actions,
-                        folder_back_button,
+                        ft.Container(expand=True),
                         folder_loading,
                     ]
                 ),
@@ -1045,15 +1123,11 @@ def _build_gdrive_backups_section(
                     width=360,
                     content=folder_list,
                 ),
-                ft.Divider(height=16),
-                ft.Text("Crear carpeta en esta ubicación", size=13, color=c["on_surface_variant"]),
-                folder_name_field,
             ],
         ),
         actions=[
             ft.TextButton("Cancelar", on_click=_close_folder_dialog),
-            ft.FilledTonalButton("Usar esta carpeta", on_click=_select_current_folder),
-            ft.FilledButton("Crear", on_click=_create_folder),
+            use_folder_button,
         ],
         actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
@@ -1063,15 +1137,16 @@ def _build_gdrive_backups_section(
             folder_dialog_state["account_id"] = account_id
             folder_dialog_state["parent_id"] = "root"
             folder_dialog_state["parent_name"] = "Mi unidad"
-            folder_dialog_state["stack"] = []
             folder_delete_state["active"] = False
             folder_delete_state["selected"].clear()
             current_folders.clear()
+            folder_selection["id"] = None
+            folder_selection["name"] = None
             folder_name_field.value = "Respaldos DiezApp"
             folder_path.value = "Mi unidad"
             _update_folder_dialog_actions()
             page.show_dialog(folder_dialog)
-            page.run_task(_load_folder_list, "root", "Mi unidad")
+            page.run_task(_load_folder_list)
 
         return _handler
 
@@ -1105,6 +1180,12 @@ def _build_gdrive_backups_section(
     def _account_row(account):
         has_folder = bool(account.get("folder_id"))
         subtitle = account["folder_name"] if has_folder else "Elegir carpeta"
+        folder_label = ft.Text(
+            f"Carpeta: {subtitle}",
+            size=13,
+            color=c["on_surface_variant"] if has_folder else c["primary"],
+        )
+        folder_labels[account["id"]] = folder_label
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=10, horizontal=18),
             content=ft.Row(
@@ -1127,13 +1208,7 @@ def _build_gdrive_backups_section(
                             ),
                             ft.Container(
                                 on_click=_open_folder_dialog(account["id"]),
-                                content=ft.Text(
-                                    f"Carpeta: {subtitle}",
-                                    size=13,
-                                    color=c["on_surface_variant"]
-                                    if has_folder
-                                    else c["primary"],
-                                ),
+                                content=folder_label,
                             ),
                         ],
                     ),
