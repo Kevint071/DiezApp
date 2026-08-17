@@ -1,5 +1,8 @@
 import flet as ft
 from diezapp.features.conflicts.application.conflict_service import ConflictService
+from diezapp.features.local_backup.application.local_backup_service import (
+    LocalBackupService,
+)
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 from views.settings_components import build_settings_cell as _settings_cell
@@ -25,6 +28,7 @@ def build_settings_view(
     colors_fn,
     navigate_to_google_drive,
     conflicts_service: ConflictService,
+    backup_service: LocalBackupService,
 ):
     """Build the settings view."""
     c = colors_fn(page)
@@ -45,6 +49,7 @@ def build_settings_view(
         settings_cell=_settings_cell,
         is_desktop=_is_desktop,
         conflicts_service=conflicts_service,
+        backup_service=backup_service,
     )
 
     google_drive_cell = _settings_cell(

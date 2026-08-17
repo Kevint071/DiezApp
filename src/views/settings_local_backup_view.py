@@ -6,6 +6,9 @@ from pathlib import Path
 
 import flet as ft
 from diezapp.features.conflicts.application.conflict_service import ConflictService
+from diezapp.features.local_backup.application.local_backup_service import (
+    LocalBackupService,
+)
 
 
 def build_local_backup_section(
@@ -15,6 +18,7 @@ def build_local_backup_section(
     settings_cell,
     is_desktop,
     conflicts_service: ConflictService,
+    backup_service: LocalBackupService,
 ):
     """Build export, import and conflict controls for the local SQLite backup."""
 
@@ -60,7 +64,6 @@ def build_local_backup_section(
 
     async def confirm_export(e):
         page.pop_dialog()
-        from utils.backup import export_calculations, export_notes
         from utils.notes import load_notes
         from utils.storage import load_calculations
 
@@ -82,17 +85,17 @@ def build_local_backup_section(
             if not output_path:
                 return
             if target in ("calcs", "both"):
-                export_calculations(output_path, calculations)
+                backup_service.export_calculations(output_path, calculations)
             if target in ("notes", "both"):
-                export_notes(output_path, notes)
+                backup_service.export_notes(output_path, notes)
             show_snack(f"Copia guardada en {output_path}", keep_open=False)
             return
 
         output_path = os.path.join(tempfile.gettempdir(), file_name)
         if target in ("calcs", "both"):
-            export_calculations(output_path, calculations)
+            backup_service.export_calculations(output_path, calculations)
         if target in ("notes", "both"):
-            export_notes(output_path, notes)
+            backup_service.export_notes(output_path, notes)
         if method == "save":
             backup_bytes = await asyncio.to_thread(Path(output_path).read_bytes)
             saved_path = await file_picker.save_file(
@@ -277,19 +280,19 @@ def build_local_backup_section(
             if not source_path:
                 return
 
-        from utils.backup import read_calculations, read_notes
-
         imported_calculations, imported_notes = [], []
         try:
             if target in ("calcs", "both"):
                 try:
-                    imported_calculations = read_calculations(source_path)
+                    imported_calculations = backup_service.read_calculations(
+                        source_path
+                    )
                 except ValueError:
                     if target == "calcs":
                         raise
             if target in ("notes", "both"):
                 try:
-                    imported_notes = read_notes(source_path)
+                    imported_notes = backup_service.read_notes(source_path)
                 except ValueError:
                     if target == "notes":
                         raise

@@ -1,93 +1,24 @@
-"""Read/write helpers for backup files exchanged via export/import.
+"""Compatibility facade for local SQLite backup operations."""
 
-These are standalone, one-off SQLite (`.db`) files generated on demand for
-sharing or importing. They are SEPARATE from the app's single local database
-(`app.db`) and are never opened through ``utils.db``.
-"""
+from diezapp.features.local_backup.application.local_backup_service import (
+    LocalBackupService,
+)
+from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapter
 
-import sqlite3
-
-CALC_COLUMNS = [
-    "id",
-    "created_at",
-    "amount",
-    "envio_21",
-    "restante",
-    "fondo_local",
-    "sostenimiento",
-    "fund_percentage",
-    "updated_at",
-]
-
-NOTE_COLUMNS = ["id", "title", "content", "created_at", "updated_at"]
+_service = LocalBackupService(SqliteBackupAdapter())
 
 
 def export_calculations(path: str, calculations: list):
-    conn = sqlite3.connect(path)
-    conn.execute("DROP TABLE IF EXISTS calculations")
-    conn.execute(
-        "CREATE TABLE calculations ("
-        "id TEXT PRIMARY KEY, created_at TEXT, amount REAL, envio_21 REAL, "
-        "restante REAL, fondo_local REAL, sostenimiento REAL, fund_percentage INTEGER, "
-        "updated_at TEXT)"
-    )
-    for calc in calculations:
-        conn.execute(
-            "INSERT INTO calculations (id, created_at, amount, envio_21, restante, "
-            "fondo_local, sostenimiento, fund_percentage, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            tuple(calc.get(col) for col in CALC_COLUMNS),
-        )
-    conn.commit()
+    _service.export_calculations(path, calculations)
 
 
 def export_notes(path: str, notes: list):
-    conn = sqlite3.connect(path)
-    conn.execute("DROP TABLE IF EXISTS notes")
-    conn.execute(
-        "CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, "
-        "created_at TEXT, updated_at TEXT)"
-    )
-    for note in notes:
-        conn.execute(
-            "INSERT INTO notes (id, title, content, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (
-                note.get("id"),
-                note.get("title", ""),
-                note.get("content"),
-                note.get("created_at"),
-                note.get("updated_at"),
-            ),
-        )
-    conn.commit()
+    _service.export_notes(path, notes)
 
 
 def read_calculations(path: str) -> list:
-    """Read calculations from a backup `.db`. Raises ValueError if invalid."""
-    try:
-        conn = sqlite3.connect(path)
-        cols = {
-            row[1] for row in conn.execute("PRAGMA table_info(calculations)").fetchall()
-        }
-        updated_at_expr = "updated_at" if "updated_at" in cols else "NULL"
-        rows = conn.execute(
-            "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
-            f"sostenimiento, fund_percentage, {updated_at_expr} FROM calculations"
-        ).fetchall()
-    except Exception as exc:
-        raise ValueError("Archivo de respaldo inválido") from exc
-    return [dict(zip(CALC_COLUMNS, row)) for row in rows]
+    return _service.read_calculations(path)
 
 
 def read_notes(path: str) -> list:
-    """Read notes from a backup `.db`. Raises ValueError if invalid."""
-    try:
-        conn = sqlite3.connect(path)
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(notes)").fetchall()}
-        updated_at_expr = "updated_at" if "updated_at" in cols else "NULL"
-        rows = conn.execute(
-            f"SELECT id, title, content, created_at, {updated_at_expr} FROM notes"
-        ).fetchall()
-    except Exception as exc:
-        raise ValueError("Archivo de respaldo inválido") from exc
-    return [dict(zip(NOTE_COLUMNS, row)) for row in rows]
+    return _service.read_notes(path)
