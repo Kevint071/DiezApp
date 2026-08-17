@@ -21,3 +21,9 @@ wheels/
 
 # VS Code
 .vscode/
+
+# Markdown
+**.md
+
+# SHA
+**.jks
