@@ -1,14 +1,14 @@
 import flet as ft
-from utils.app_settings import load_settings
+from diezapp.features.settings.application.settings_service import SettingsService
 from utils.theme import DARK_THEME, LIGHT_THEME
 
 
-def configure_page(page: ft.Page) -> dict:
+def configure_page(page: ft.Page, settings_service: SettingsService) -> dict:
     """Apply application-wide page settings and return session state."""
     page.title = "DiezApp"
     page.padding = ft.Padding.all(0)
 
-    settings = load_settings()
+    settings = settings_service.load()
     page.theme_mode = (
         ft.ThemeMode.DARK if settings["theme_mode"] == "dark" else ft.ThemeMode.LIGHT
     )

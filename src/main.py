@@ -7,7 +7,6 @@ from diezapp.bootstrap.dependencies import create_dependencies
 from diezapp.bootstrap.error_handler import show_fatal_error
 from diezapp.navigation import routes
 from diezapp.navigation.router import AppRouter
-from utils.app_settings import save_settings
 from utils.theme import (
     get_colors,
     get_navigation_bar_style,
@@ -31,8 +30,8 @@ def main(page: ft.Page):
 
 
 def _main(page: ft.Page):
-    state = configure_page(page)
     dependencies = create_dependencies()
+    state = configure_page(page, dependencies.settings)
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
@@ -222,7 +221,7 @@ def _main(page: ft.Page):
         content = build_settings_view(
             page,
             state,
-            save_settings,
+            dependencies.settings.save,
             lambda: route_change(),
             get_colors,
             lambda: page.navigate(routes.GOOGLE_DRIVE),
