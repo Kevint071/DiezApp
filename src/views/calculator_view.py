@@ -6,6 +6,9 @@ session and resets it whenever the view is opened.
 """
 
 import flet as ft
+from diezapp.features.calculations.application.calculation_service import (
+    CalculationService,
+)
 from diezapp.features.calculator.domain.calculator_service import (
     calculate_distribution,
 )
@@ -13,10 +16,17 @@ from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handl
 
 
 class CalculatorView:
-    def __init__(self, page: ft.Page, state: dict, colors_fn):
+    def __init__(
+        self,
+        page: ft.Page,
+        state: dict,
+        colors_fn,
+        calculations: CalculationService,
+    ):
         self.page = page
         self.state = state
         self.colors_fn = colors_fn
+        self.calculations = calculations
 
         self.txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
         self.txt_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
@@ -161,21 +171,11 @@ class CalculatorView:
             self.page.overlay.append(snack)
             self.page.update()
             return
-        from utils.storage import add_calculation
-
         try:
             amount = float(self.input_amount.value.replace(".", "").replace(",", "."))
         except ValueError, AttributeError:
             return
-        distribution = calculate_distribution(amount, self.state["fund_percentage"])
-        add_calculation(
-            distribution.amount,
-            distribution.envio_21,
-            distribution.restante,
-            distribution.fondo_local,
-            distribution.sostenimiento,
-            self.state["fund_percentage"],
-        )
+        self.calculations.add(amount, self.state["fund_percentage"])
         self.save_btn.visible = False
         self.page.update()
 

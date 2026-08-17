@@ -25,6 +25,11 @@ class SqliteCalculationRepository:
         ).fetchall()
         return [dict(zip(self._columns, row, strict=True)) for row in rows]
 
+    def add(self, calculation: dict) -> None:
+        calculations = self.list()
+        calculations.insert(0, calculation)
+        self.replace_all(calculations)
+
     def replace_all(self, calculations: list[dict]) -> None:
         conn = get_connection()
         conn.execute("DELETE FROM calculations")

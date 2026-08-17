@@ -3,6 +3,7 @@ from urllib.parse import parse_qsl, urlparse
 
 import flet as ft
 from diezapp.bootstrap.app import configure_page
+from diezapp.bootstrap.dependencies import create_dependencies
 from diezapp.bootstrap.error_handler import show_fatal_error
 from diezapp.navigation import routes
 from diezapp.navigation.router import AppRouter
@@ -31,6 +32,7 @@ def main(page: ft.Page):
 
 def _main(page: ft.Page):
     state = configure_page(page)
+    dependencies = create_dependencies()
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
@@ -49,7 +51,7 @@ def _main(page: ft.Page):
     def _guard_navigate(route):
         _guard_navigation(lambda: page.navigate(route))
 
-    calculator = CalculatorView(page, state, get_colors)
+    calculator = CalculatorView(page, state, get_colors, dependencies.calculations)
 
     def _build_appbar(title="Inicio", show_back=False, back_route=None, actions=None):
         c = get_colors(page)
