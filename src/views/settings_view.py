@@ -684,7 +684,9 @@ def build_settings_view(
         ),
     )
 
-    gdrive_group = _build_gdrive_backups_section(page, c, navigate_to_settings, _show_snack)
+    gdrive_group = _build_gdrive_backups_section(
+        page, c, navigate_to_settings, _show_snack
+    )
 
     divider = build_scroll_divider()
     return ft.SafeArea(
@@ -740,7 +742,9 @@ def build_settings_view(
     )
 
 
-def _build_gdrive_backups_section(page: ft.Page, c: dict, navigate_to_settings, show_snack):
+def _build_gdrive_backups_section(
+    page: ft.Page, c: dict, navigate_to_settings, show_snack
+):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
     Rebuilt (via ``navigate_to_settings()``) after every mutating action —
@@ -1035,9 +1039,7 @@ def _build_gdrive_backups_section(page: ft.Page, c: dict, navigate_to_settings, 
                             controls=[
                                 ft.Text(ts, size=13, color=c["on_surface"]),
                                 ft.Text(
-                                    status_labels.get(
-                                        entry["status"], entry["status"]
-                                    ),
+                                    status_labels.get(entry["status"], entry["status"]),
                                     size=12,
                                     weight=ft.FontWeight.W_600,
                                     color=status_color,

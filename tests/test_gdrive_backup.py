@@ -93,9 +93,7 @@ class TestRunBackupNowAggregation:
         # Partial success still updates last_backup_success_at (design.md Decision 6).
         assert gdrive_backup.get_last_backup_at() is not None
 
-    def test_all_accounts_fail_is_failed_and_last_backup_not_updated(
-        self, monkeypatch
-    ):
+    def test_all_accounts_fail_is_failed_and_last_backup_not_updated(self, monkeypatch):
         acc = _account(1)
         monkeypatch.setattr(gdrive_backup, "list_accounts", lambda: [acc])
         monkeypatch.setattr(

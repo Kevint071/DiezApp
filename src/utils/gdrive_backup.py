@@ -37,7 +37,9 @@ def _snapshot_db() -> str:
     return dest_path
 
 
-async def _upload_with_retry(page: ft.Page, account: dict, file_path: str, file_name: str) -> dict:
+async def _upload_with_retry(
+    page: ft.Page, account: dict, file_path: str, file_name: str
+) -> dict:
     last_error = "Error desconocido"
     # 3 attempts total; pre-delays before attempts 2/3 use the first two
     # backoff values (5s, 30s) — the 3rd (2min) is the ceiling if a future
@@ -70,7 +72,11 @@ async def run_backup_now(page: ft.Page) -> dict:
     """
     accounts = [a for a in list_accounts() if a.get("folder_id")]
     if not accounts:
-        return {"status": "skipped", "results": [], "message": "No hay cuentas configuradas"}
+        return {
+            "status": "skipped",
+            "results": [],
+            "message": "No hay cuentas configuradas",
+        }
 
     started_at = datetime.now(UTC)
     file_path = _snapshot_db()
@@ -99,7 +105,9 @@ async def run_backup_now(page: ft.Page) -> dict:
     return {"status": status, "results": results}
 
 
-def _write_history(started_at: datetime, finished_at: datetime, status: str, results: list[dict]):
+def _write_history(
+    started_at: datetime, finished_at: datetime, status: str, results: list[dict]
+):
     conn = get_connection()
     conn.execute(
         "INSERT INTO backup_history (id, started_at, finished_at, status, details) "
@@ -126,7 +134,7 @@ def list_history(limit: int = 20) -> list[dict]:
     for row in rows:
         try:
             details = json.loads(row[4])
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             details = []
         history.append(
             {

@@ -2,19 +2,20 @@
 
 Flet's built-in `page.login()`/`GoogleOAuthProvider` assumes a reachable HTTP
 redirect target and a mandatory `client_secret` — not a fit for a serverless
-packaged mobile app (see design.md, Decision 1). This module instead talks
-directly to Google's OAuth endpoints using the Authorization Code + PKCE flow
-with a custom-scheme redirect, relying on Flet's built-in
-`[tool.flet.<platform>.deep_linking]` mechanism (configured in
-``pyproject.toml``) to route the incoming redirect back into the app as a
-normal ``page.route`` change (see main.py's handling of the "/callback" route).
-
-Client IDs are read from environment variables rather than hardcoded, since
-they are only known once the user creates OAuth Client IDs of type "Android"
-and "iOS" in Google Cloud Console (see tasks.md 1.1 — this step must be done
-manually; it cannot be automated here). The matching custom-scheme
-``deep_linking`` entries must be filled in ``pyproject.toml`` with the exact
-same client IDs before building for a device.
+packaged mobile app (see design.md, Decision 1). Two alternatives were tried
+and reverted (see design.md Decision 0 history): a Desktop-app/loopback
+redirect (unsupported for Android per Google's own docs) and the OAuth
+Device Authorization flow (meant for TVs/limited-input devices, not phones
+with a full browser — Google explicitly recommends against it here). This
+module instead talks directly to Google's OAuth endpoints using the
+Authorization Code + PKCE flow with a custom-scheme redirect, relying on
+Flet's built-in `[tool.flet.<platform>.deep_linking]` mechanism (configured
+in ``pyproject.toml``) to route the incoming redirect back into the app as a
+normal ``page.route`` change (see main.py's handling of the "/callback"
+route). This is one of the two redirect mechanisms documented by AppAuth/RFC
+8252 for native apps; Google's docs now discourage it in favor of verified
+HTTPS App Links (which need a domain the app owns) — accepted here as a
+reasonable trade-off for a personal, sideloaded (non-Play-Store) app.
 """
 
 import base64

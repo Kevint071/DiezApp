@@ -39,12 +39,16 @@ async def upload_backup_file(
 
     boundary = "diezapp_backup_boundary"
     body = (
-        f"--{boundary}\r\n"
-        "Content-Type: application/json; charset=UTF-8\r\n\r\n"
-        f"{json.dumps(metadata)}\r\n"
-        f"--{boundary}\r\n"
-        "Content-Type: application/octet-stream\r\n\r\n"
-    ).encode() + file_bytes + f"\r\n--{boundary}--".encode()
+        (
+            f"--{boundary}\r\n"
+            "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+            f"{json.dumps(metadata)}\r\n"
+            f"--{boundary}\r\n"
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode()
+        + file_bytes
+        + f"\r\n--{boundary}--".encode()
+    )
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
