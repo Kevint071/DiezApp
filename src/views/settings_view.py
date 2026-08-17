@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import flet as ft
-
+import httpx
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.theme import (
     FOCUS_DARK,
@@ -768,7 +768,7 @@ def _build_gdrive_backups_section(
         seconds_until_due,
         set_interval_seconds,
     )
-    from utils.gdrive_client import create_backup_folder
+    from utils.gdrive_client import DriveApiError, create_backup_folder
 
     pending_message = page.session.store.get("gdrive_link_message")
     if pending_message:
@@ -813,6 +813,25 @@ def _build_gdrive_backups_section(
         folder_name = folder_name_field.value or "Respaldos DiezApp"
         try:
             folder_id = await create_backup_folder(access_token, folder_name)
+        except DriveApiError as error:
+            show_snack(
+                f"Drive {error.status_code} ({error.reason}): {error.message}"
+            )
+            return
+        except httpx.HTTPStatusError as error:
+            status = error.response.status_code
+            if status == 401:
+                show_snack("La sesión de Google expiró; vuelve a vincular la cuenta")
+            elif status == 403:
+                show_snack(
+                    "Google Drive rechazó el acceso; habilita Drive API en Google Cloud"
+                )
+            else:
+                show_snack(f"Google Drive devolvió un error ({status})")
+            return
+        except httpx.HTTPError:
+            show_snack("No se pudo conectar con Google Drive")
+            return
         except Exception:  # noqa: BLE001 — any Drive API failure should just show a snack, not crash
             show_snack("No se pudo crear la carpeta en Drive")
             return

@@ -15,6 +15,31 @@ DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files"
 DRIVE_UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/drive/v3/files"
 
 
+class DriveApiError(Exception):
+    """A safe, user-facing summary of a Google Drive API failure."""
+
+    def __init__(self, status_code: int, reason: str, message: str):
+        self.status_code = status_code
+        self.reason = reason
+        self.message = message
+        super().__init__(f"{status_code} {reason}: {message}")
+
+
+def _raise_for_drive_error(resp: httpx.Response) -> None:
+    if resp.is_success:
+        return
+    reason = "http_error"
+    message = resp.text[:240]
+    try:
+        error = resp.json().get("error", {})
+        details = error.get("errors", [{}])[0]
+        reason = details.get("reason") or error.get("status") or reason
+        message = error.get("message") or message
+    except (ValueError, AttributeError, IndexError, TypeError):
+        pass
+    raise DriveApiError(resp.status_code, reason, message)
+
+
 async def create_backup_folder(access_token: str, folder_name: str) -> str:
     """Create a new Drive folder (in "My Drive" root) and return its file ID."""
     async with httpx.AsyncClient(timeout=20) as client:
@@ -26,7 +51,7 @@ async def create_backup_folder(access_token: str, folder_name: str) -> str:
                 "mimeType": "application/vnd.google-apps.folder",
             },
         )
-        resp.raise_for_status()
+        _raise_for_drive_error(resp)
         return resp.json()["id"]
 
 
@@ -59,7 +84,7 @@ async def upload_backup_file(
             },
             content=body,
         )
-        resp.raise_for_status()
+        _raise_for_drive_error(resp)
         return resp.json()["id"]
 
 
