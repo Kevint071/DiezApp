@@ -6,12 +6,14 @@ session and resets it whenever the view is opened.
 """
 
 import flet as ft
+
 from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
 from diezapp.features.calculator.domain.calculator_service import (
     calculate_distribution,
 )
+from diezapp.features.conflicts.application.conflict_service import ConflictService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 
@@ -22,11 +24,13 @@ class CalculatorView:
         state: dict,
         colors_fn,
         calculations: CalculationService,
+        conflicts: ConflictService,
     ):
         self.page = page
         self.state = state
         self.colors_fn = colors_fn
         self.calculations = calculations
+        self.conflicts = conflicts
 
         self.txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
         self.txt_79 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
@@ -162,9 +166,7 @@ class CalculatorView:
         self.page.update()
 
     def _save_calculation(self, e):
-        from utils.conflicts import conflict_count
-
-        if conflict_count() > 0:
+        if self.conflicts.count() > 0:
             snack = ft.SnackBar(
                 content=ft.Text("Resuelve los conflictos antes de guardar"), open=True
             )

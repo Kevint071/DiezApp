@@ -6,6 +6,7 @@ import flet as ft
 from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
+from diezapp.features.conflicts.application.conflict_service import ConflictService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.theme import (
     FOCUS_DARK,
@@ -509,6 +510,7 @@ def build_saved_calculations_view(
     colors_fn,
     on_refresh,
     calculations_service: CalculationService,
+    conflicts_service: ConflictService,
     date_range=None,
 ):
     c = colors_fn(page)
@@ -766,9 +768,7 @@ def build_saved_calculations_view(
             page.update()
 
         def _save_edit(e):
-            from utils.conflicts import conflict_count
-
-            if conflict_count() > 0:
+            if conflicts_service.count() > 0:
                 page.overlay.append(
                     ft.SnackBar(
                         content=ft.Text("Resuelve los conflictos antes de editar"),
@@ -800,9 +800,7 @@ def build_saved_calculations_view(
             page.update()
 
         def _confirm_delete(e):
-            from utils.conflicts import conflict_count
-
-            if conflict_count() > 0:
+            if conflicts_service.count() > 0:
                 page.overlay.append(
                     ft.SnackBar(
                         content=ft.Text("Resuelve los conflictos antes de eliminar"),

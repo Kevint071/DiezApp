@@ -50,7 +50,9 @@ def _main(page: ft.Page):
     def _guard_navigate(route):
         _guard_navigation(lambda: page.navigate(route))
 
-    calculator = CalculatorView(page, state, get_colors, dependencies.calculations)
+    calculator = CalculatorView(
+        page, state, get_colors, dependencies.calculations, dependencies.conflicts
+    )
 
     def _build_appbar(title="Inicio", show_back=False, back_route=None, actions=None):
         c = get_colors(page)
@@ -171,7 +173,11 @@ def _main(page: ft.Page):
         # `page.navigate` no-ops when the target route equals the current
         # one, so refreshing in place must call the route handler directly.
         content = build_saved_calculations_view(
-            page, get_colors, lambda: route_change(), dependencies.calculations
+            page,
+            get_colors,
+            lambda: route_change(),
+            dependencies.calculations,
+            dependencies.conflicts,
         )
         return _apply_root(routes.SAVED, _build_appbar("Cálculos guardados"), content)
 
@@ -210,6 +216,7 @@ def _main(page: ft.Page):
             _open_note,
             lambda: route_change(),
             dependencies.notes,
+            dependencies.conflicts,
             _set_actions,
         )
         return _apply_root(routes.NOTES, appbar, content)
@@ -268,6 +275,7 @@ def _main(page: ft.Page):
             get_colors,
             lambda: route_change(),
             dependencies.calculations,
+            dependencies.conflicts,
             date_range=(start, end),
         )
         return ft.View(
@@ -286,7 +294,9 @@ def _main(page: ft.Page):
             dependencies.notes.add(content, title)
             page.navigate(routes.NOTES)
 
-        content = build_new_note_view(page, get_colors, _on_save)
+        content = build_new_note_view(
+            page, get_colors, _on_save, dependencies.conflicts
+        )
         return ft.View(
             route=routes.NOTES_NEW,
             padding=0,
@@ -315,6 +325,7 @@ def _main(page: ft.Page):
             lambda: page.navigate(routes.NOTES),
             _set_actions,
             dependencies.notes,
+            dependencies.conflicts,
             _register_leave_guard,
         )
         view = ft.View(

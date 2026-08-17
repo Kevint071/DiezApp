@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import flet as ft
+from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
@@ -42,6 +43,7 @@ def build_notes_view(
     on_open,
     on_refresh,
     notes_service: NoteService,
+    conflicts_service: ConflictService,
     set_header_actions=None,
 ):
     c = colors_fn(page)
@@ -242,7 +244,12 @@ def build_notes_view(
     )
 
 
-def build_new_note_view(page: ft.Page, colors_fn, on_save):
+def build_new_note_view(
+    page: ft.Page,
+    colors_fn,
+    on_save,
+    conflicts_service: ConflictService,
+):
     c = colors_fn(page)
 
     title_field = ft.TextField(
@@ -276,9 +283,7 @@ def build_new_note_view(page: ft.Page, colors_fn, on_save):
     err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
 
     def _save(e):
-        from utils.conflicts import conflict_count
-
-        if conflict_count(kind="notes") > 0:
+        if conflicts_service.count(kind="notes") > 0:
             err_txt.value = "Resuelve los conflictos antes de guardar"
             err_txt.visible = True
             page.update()
@@ -335,6 +340,7 @@ def build_note_detail_view(
     on_delete,
     set_header_actions,
     notes_service: NoteService,
+    conflicts_service: ConflictService,
     register_leave_guard=None,
 ):
     c = colors_fn(page)
@@ -431,9 +437,7 @@ def build_note_detail_view(
     content_field.on_change = _on_field_change
 
     def _confirm_delete(e):
-        from utils.conflicts import conflict_count
-
-        if conflict_count(kind="notes") > 0:
+        if conflicts_service.count(kind="notes") > 0:
             snack = ft.SnackBar(
                 content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True
             )
