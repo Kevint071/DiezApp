@@ -1,9 +1,7 @@
 """Minimal Google Drive API v3 client (folder creation + file upload).
 
-Only what's needed for the `drive.file` scope: creating a backup
-destination folder (v1 folder-selection UX — see design.md's Drive Picker
-open question, deferred; "create a new folder" is the v1 flow) and
-uploading a backup file to it via multipart upload.
+Only what's needed for the `drive.file` scope: browsing and creating a backup
+destination folder, and uploading a backup file to it via multipart upload.
 """
 
 import asyncio

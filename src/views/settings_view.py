@@ -835,7 +835,13 @@ def _build_gdrive_backups_section(
             return
         folder_dialog_state["parent_id"] = parent_id
         folder_dialog_state["parent_name"] = parent_name
-        path_names = ["Mi unidad"] + [name for _, name in folder_dialog_state["stack"]]
+        path_names = [
+            "Mi unidad"
+        ] + [
+            name
+            for _, name in folder_dialog_state["stack"]
+            if name != "Mi unidad"
+        ]
         if parent_name != "Mi unidad":
             path_names.append(parent_name)
         folder_path.value = " / ".join(path_names)
