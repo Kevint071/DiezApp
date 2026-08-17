@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import traceback
+from urllib.parse import parse_qsl, urlparse
 
 import flet as ft
 
@@ -424,6 +425,11 @@ def _main(page: ft.Page):
             # Redirect from the diezmapp-api backend OAuth proxy (custom-scheme
             # deep link, see utils/gdrive_auth.py + pyproject.toml's
             # [tool.flet.*.deep_linking]).
+            callback_route = getattr(e, "route", None) if e is not None else None
+            if not callback_route and "?" in route:
+                callback_route = route
+            if callback_route:
+                page.session.store.set("gdrive_callback_route", callback_route)
             page.run_task(_handle_gdrive_callback)
             return
 
@@ -492,7 +498,13 @@ def _main(page: ft.Page):
     async def _handle_gdrive_callback():
         from utils.gdrive_auth import complete_link_flow
 
-        result = await complete_link_flow(page, dict(page.query.to_dict))
+        callback_route = page.session.store.get("gdrive_callback_route")
+        if callback_route:
+            page.session.store.remove("gdrive_callback_route")
+        query_params = dict(page.query.to_dict)
+        if callback_route:
+            query_params = dict(parse_qsl(urlparse(callback_route).query))
+        result = await complete_link_flow(page, query_params)
         page.session.store.set("gdrive_link_message", result["message"])
         page.navigate("/google-drive")
 

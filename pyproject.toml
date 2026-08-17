@@ -8,6 +8,7 @@ dependencies = [
     "flet>=0.86.5",
     "fpdf2>=2.8.3",
     "httpx>=0.28.0",
+    "truststore>=0.10.4",
 ]
 
 [tool.flet.app]

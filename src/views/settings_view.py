@@ -1,7 +1,7 @@
 import asyncio
 import os
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import flet as ft
@@ -782,10 +782,16 @@ def _build_gdrive_backups_section(
     )
     from utils.gdrive_backup import (
         get_interval_seconds,
+        get_last_backup_at,
         run_backup_now,
         set_interval_seconds,
     )
-    from utils.gdrive_client import DriveApiError, create_folder, list_folders
+    from utils.gdrive_client import (
+        DriveApiError,
+        create_folder,
+        delete_folder,
+        list_folders,
+    )
 
     pending_message = page.session.store.get("gdrive_link_message")
     if pending_message:
@@ -820,6 +826,8 @@ def _build_gdrive_backups_section(
     folder_path = ft.Text("Mi unidad", size=13, color=c["on_surface_variant"])
     folder_loading = ft.ProgressRing(width=22, height=22, visible=False)
     folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
+    folder_delete_state = {"active": False, "selected": set()}
+    current_folders = []
 
     def _close_folder_dialog(e):
         page.pop_dialog()
@@ -859,21 +867,111 @@ def _build_gdrive_backups_section(
         finally:
             folder_loading.visible = False
             page.update()
-        folder_list.controls = [
-            ft.ListTile(
-                leading=ft.Icon(ft.Icons.FOLDER_OUTLINED, color=c["primary"]),
-                title=ft.Text(folder["name"]),
-                trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
-                on_click=lambda e, item=folder: _enter_folder(item),
-            )
-            for folder in folders
-        ] or [
-            ft.Container(
-                padding=ft.Padding.symmetric(vertical=16),
-                content=ft.Text("No hay subcarpetas", color=c["on_surface_variant"]),
-            )
-        ]
+        current_folders[:] = folders
+        _render_folder_list(current_folders)
         page.update()
+
+    def _render_folder_list(folders):
+        if folder_delete_state["active"]:
+            folder_list.controls = [
+                ft.ListTile(
+                    leading=ft.Checkbox(
+                        value=folder["id"] in folder_delete_state["selected"],
+                        on_change=lambda e, folder_id=folder["id"]: (
+                            folder_delete_state["selected"].add(folder_id)
+                            if e.control.value
+                            else folder_delete_state["selected"].discard(folder_id)
+                        ),
+                    ),
+                    title=ft.Text(folder["name"]),
+                )
+                for folder in folders
+            ]
+        else:
+            folder_list.controls = [
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.FOLDER_OUTLINED, color=c["primary"]),
+                    title=ft.Text(folder["name"]),
+                    on_click=lambda e, item=folder: page.run_task(_enter_folder, item),
+                )
+                for folder in folders
+            ]
+        if not folder_list.controls:
+            folder_list.controls = [
+                ft.Container(
+                    padding=ft.Padding.symmetric(vertical=16),
+                    content=ft.Text(
+                        "No hay subcarpetas", color=c["on_surface_variant"]
+                    ),
+                )
+            ]
+
+    def _set_folder_delete_mode(active):
+        folder_delete_state["active"] = active
+        if not active:
+            folder_delete_state["selected"].clear()
+        _render_folder_list(current_folders)
+        _update_folder_dialog_actions()
+        page.update()
+
+    async def _delete_selected_folders(e):
+        selected_ids = set(folder_delete_state["selected"])
+        if not selected_ids:
+            show_snack("Selecciona al menos una carpeta")
+            return
+        account = next(
+            (a for a in list_accounts() if a["id"] == folder_dialog_state["account_id"]),
+            None,
+        )
+        if account is None:
+            return
+        access_token = await ensure_fresh_access_token(page, account)
+        if not access_token:
+            show_snack("No se pudo autenticar la cuenta")
+            return
+        try:
+            for folder_id in selected_ids:
+                await delete_folder(access_token, folder_id)
+        except DriveApiError as error:
+            show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
+            return
+        except httpx.HTTPError:
+            show_snack("No se pudo conectar con Google Drive")
+            return
+        if account.get("folder_id") in selected_ids:
+            set_account_folder(account["id"], None, None)
+        folder_delete_state["selected"].clear()
+        folder_delete_state["active"] = False
+        _update_folder_dialog_actions()
+        await _load_folder_list(
+            folder_dialog_state["parent_id"], folder_dialog_state["parent_name"]
+        )
+        show_snack("Carpetas eliminadas", keep_open=False)
+
+    folder_actions = ft.Row(spacing=0, controls=[])
+
+    def _update_folder_dialog_actions():
+        if folder_delete_state["active"]:
+            folder_actions.controls = [
+                ft.IconButton(
+                    ft.Icons.CLOSE,
+                    tooltip="Cancelar eliminación",
+                    on_click=lambda e: _set_folder_delete_mode(False),
+                ),
+                ft.IconButton(
+                    ft.Icons.CHECK,
+                    tooltip="Eliminar seleccionadas",
+                    on_click=lambda e: page.run_task(_delete_selected_folders, e),
+                ),
+            ]
+        else:
+            folder_actions.controls = [
+                ft.IconButton(
+                    ft.Icons.DELETE_OUTLINE,
+                    tooltip="Eliminar carpetas",
+                    on_click=lambda e: _set_folder_delete_mode(True),
+                )
+            ]
 
     async def _enter_folder(folder):
         folder_dialog_state["stack"].append(
@@ -929,6 +1027,7 @@ def _build_gdrive_backups_section(
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
+                        folder_actions,
                         ft.IconButton(
                             ft.Icons.ARROW_BACK,
                             tooltip="Carpeta padre",
@@ -961,8 +1060,12 @@ def _build_gdrive_backups_section(
             folder_dialog_state["parent_id"] = "root"
             folder_dialog_state["parent_name"] = "Mi unidad"
             folder_dialog_state["stack"] = []
+            folder_delete_state["active"] = False
+            folder_delete_state["selected"].clear()
+            current_folders.clear()
             folder_name_field.value = "Respaldos DiezApp"
             folder_path.value = "Mi unidad"
+            _update_folder_dialog_actions()
             page.show_dialog(folder_dialog)
             page.run_task(_load_folder_list, "root", "Mi unidad")
 
@@ -973,6 +1076,27 @@ def _build_gdrive_backups_section(
             padding=ft.Padding.symmetric(horizontal=18, vertical=0),
             content=ft.Divider(height=1, color=c["divider"]),
         )
+
+    def _open_unlink_dialog(account_id, email):
+        def _close(e):
+            page.pop_dialog()
+
+        def _confirm(e):
+            remove_account(account_id)
+            page.pop_dialog()
+            navigate_to_settings()
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Desvincular cuenta", size=17, weight=ft.FontWeight.W_600),
+            content=ft.Text(f"¿Seguro que quieres desvincular {email}?"),
+            actions=[
+                ft.TextButton("No", on_click=_close),
+                ft.FilledButton("Sí", on_click=_confirm),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.show_dialog(dialog)
 
     def _account_row(account):
         has_folder = bool(account.get("folder_id"))
@@ -1013,7 +1137,9 @@ def _build_gdrive_backups_section(
                         ft.Icons.LINK_OFF,
                         icon_size=20,
                         tooltip="Desvincular cuenta",
-                        on_click=_unlink_account(account["id"]),
+                        on_click=lambda e: _open_unlink_dialog(
+                            account["id"], account["google_account_email"]
+                        ),
                     ),
                 ],
             ),
@@ -1084,6 +1210,38 @@ def _build_gdrive_backups_section(
         subtitle=_format_interval(interval_seconds),
         colors=c,
         on_click=_open_freq_dialog,
+    )
+
+    def _format_local_datetime(value):
+        if value is None:
+            return "Sin copias aún"
+        return value.astimezone().strftime("%d/%m/%Y %H:%M")
+
+    last_backup_at = get_last_backup_at()
+    next_backup_at = (
+        last_backup_at + timedelta(seconds=interval_seconds)
+        if last_backup_at and interval_seconds
+        else None
+    )
+    backup_status = ft.Container(
+        padding=ft.Padding.symmetric(vertical=10, horizontal=18),
+        content=ft.Column(
+            spacing=4,
+            controls=[
+                ft.Text(
+                    f"Última copia: {_format_local_datetime(last_backup_at)}",
+                    size=13,
+                    color=c["on_surface_variant"],
+                ),
+                ft.Text(
+                    f"Próxima copia: {_format_local_datetime(next_backup_at)}"
+                    if interval_seconds
+                    else "Próxima copia: Sin configurar",
+                    size=13,
+                    color=c["on_surface_variant"],
+                ),
+            ],
+        ),
     )
 
     # ── Manual "Respaldar ahora" button ──────────────────────────────
@@ -1266,6 +1424,7 @@ def _build_gdrive_backups_section(
         )
 
     controls.append(freq_cell)
+    controls.append(backup_status)
     controls.append(_divider())
     controls.append(backup_action)
     controls.append(_divider())

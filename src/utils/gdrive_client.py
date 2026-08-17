@@ -6,12 +6,15 @@ destination folder, and uploading a backup file to it via multipart upload.
 
 import asyncio
 import json
+import ssl
 
 import httpx
+import truststore
 
 DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files"
 DRIVE_UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/drive/v3/files"
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+DRIVE_SSL_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
 class DriveApiError(Exception):
@@ -46,7 +49,9 @@ async def create_backup_folder(access_token: str, folder_name: str) -> str:
 
 async def create_folder(access_token: str, folder_name: str, parent_id: str) -> str:
     """Create a new Drive folder below ``parent_id`` and return its file ID."""
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(
+        timeout=20, verify=DRIVE_SSL_CONTEXT
+    ) as client:
         resp = await client.post(
             DRIVE_FILES_ENDPOINT,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -60,13 +65,27 @@ async def create_folder(access_token: str, folder_name: str, parent_id: str) -> 
         return resp.json()["id"]
 
 
+async def delete_folder(access_token: str, folder_id: str) -> None:
+    """Delete a folder selected by the user from Google Drive."""
+    async with httpx.AsyncClient(
+        timeout=20, verify=DRIVE_SSL_CONTEXT
+    ) as client:
+        resp = await client.delete(
+            f"{DRIVE_FILES_ENDPOINT}/{folder_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        _raise_for_drive_error(resp)
+
+
 async def list_folders(
     access_token: str, parent_id: str = "root"
 ) -> list[dict[str, str]]:
     """List folders directly below ``parent_id`` visible to the app."""
     folders = []
     page_token = None
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(
+        timeout=20, verify=DRIVE_SSL_CONTEXT
+    ) as client:
         while True:
             params = {
                 "q": (
@@ -112,7 +131,9 @@ async def upload_backup_file(
         + f"\r\n--{boundary}--".encode()
     )
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(
+        timeout=60, verify=DRIVE_SSL_CONTEXT
+    ) as client:
         resp = await client.post(
             f"{DRIVE_UPLOAD_ENDPOINT}?uploadType=multipart",
             headers={

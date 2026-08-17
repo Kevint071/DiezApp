@@ -24,6 +24,7 @@ This module therefore never talks to Google directly. Instead:
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode, urlsplit
 
 import flet as ft
 import httpx
@@ -61,8 +62,18 @@ async def start_link_flow(page: ft.Page) -> bool:
 
     app_state = uuid.uuid4().hex
     page.session.store.set("gdrive_oauth_pending", {"state": app_state})
+    if page.session.store.get("gdrive_callback_done"):
+        page.session.store.remove("gdrive_callback_done")
 
-    url = f"{LOGIN_ENDPOINT}?app_state={app_state}"
+    params = {"app_state": app_state}
+    if page.url:
+        current_url = urlsplit(page.url)
+        web_scheme = {"ws": "http", "wss": "https"}.get(current_url.scheme)
+        if web_scheme and current_url.netloc:
+            params["web_return_url"] = (
+                f"{web_scheme}://{current_url.netloc}/callback"
+            )
+    url = f"{LOGIN_ENDPOINT}?{urlencode(params)}"
     await ft.UrlLauncher().launch_url(url)
     return True
 
@@ -73,20 +84,29 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
 
     Returns a dict: {"ok": bool, "message": str}.
     """
+    if page.session.store.get("gdrive_callback_done"):
+        return {"ok": False, "message": "La vinculación ya fue procesada"}
+
     pending = page.session.store.get("gdrive_oauth_pending")
-    page.session.store.remove("gdrive_oauth_pending")
 
     returned_state = query_params.get("app_state")
-    if not pending or returned_state != pending.get("state"):
+    is_web_runtime = page.web or (page.url or "").startswith(("ws://", "wss://"))
+    if not is_web_runtime and (
+        not pending or returned_state != pending.get("state")
+    ):
+        if pending:
+            page.session.store.remove("gdrive_oauth_pending")
         return {"ok": False, "message": "No se pudo completar la vinculación"}
 
     if query_params.get("error"):
+        if pending:
+            page.session.store.remove("gdrive_oauth_pending")
         return {"ok": False, "message": "Vinculación cancelada"}
 
     access_token = query_params.get("access_token")
     email = query_params.get("email")
     if not access_token or not email:
-        return {"ok": False, "message": "No se pudo completar la vinculación"}
+        return {"ok": False, "message": "El callback no recibió los datos de Google"}
 
     try:
         expires_in = int(query_params.get("expires_in", 3600))
@@ -103,6 +123,9 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
     except ValueError as e:
         return {"ok": False, "message": str(e)}
 
+    if pending:
+        page.session.store.remove("gdrive_oauth_pending")
+    page.session.store.set("gdrive_callback_done", True)
     return {"ok": True, "message": f"Cuenta {email} vinculada"}
 
 
