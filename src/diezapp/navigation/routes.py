@@ -1,0 +1,18 @@
+HOME = "/"
+CALCULATOR = "/calculator"
+SAVED = "/saved"
+PDF_EXPORT = "/pdf-export"
+PDF_PREVIEW = "/pdf-export/preview"
+NOTES = "/notes"
+NOTES_NEW = "/notes/new"
+NOTES_DETAIL = "/notes/detail"
+MONTHLY = "/monthly"
+MONTHLY_BREAKDOWN = "/monthly/breakdown"
+SETTINGS = "/settings"
+SETTINGS_CONFLICTS = "/settings/conflicts"
+SETTINGS_CONFLICT_DETAIL = "/settings/conflicts/detail"
+GOOGLE_DRIVE = "/google-drive"
+GOOGLE_DRIVE_HISTORY = "/google-drive/history"
+CALLBACK_PREFIX = "/callback"
+
+ROOT_ROUTES = [HOME, SAVED, PDF_EXPORT, NOTES, SETTINGS]

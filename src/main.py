@@ -1,9 +1,9 @@
 import asyncio
-import contextlib
-import traceback
 from urllib.parse import parse_qsl, urlparse
 
 import flet as ft
+from diezapp.bootstrap.error_handler import show_fatal_error
+from diezapp.navigation import routes
 from utils.app_settings import load_settings, save_settings
 from utils.theme import (
     DARK_THEME,
@@ -26,33 +26,7 @@ def main(page: ft.Page):
     try:
         _main(page)
     except Exception as e:  # noqa: BLE001 — guard de último recurso, cualquier error de build debe mostrarse en pantalla
-        _show_fatal_error(page, e)
-
-
-def _show_fatal_error(page: ft.Page, exc: BaseException):
-    """Render the traceback directly on-screen as a last resort, in case adb
-    is not attached (this replaces the infinite splash with visible text)."""
-    with contextlib.suppress(Exception):
-        page.controls.clear()
-        page.add(
-            ft.Container(
-                padding=20,
-                content=ft.Column(
-                    scroll=ft.ScrollMode.AUTO,
-                    controls=[
-                        ft.Text(
-                            "Error al iniciar la app",
-                            size=18,
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.RED,
-                        ),
-                        ft.Text(str(exc), selectable=True, size=13),
-                        ft.Text(traceback.format_exc(), selectable=True, size=11),
-                    ],
-                ),
-            )
-        )
-        page.update()
+        show_fatal_error(page, e)
 
 
 def _main(page: ft.Page):
@@ -118,7 +92,7 @@ def _main(page: ft.Page):
 
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = {"selected_index": 0}
-    _NAV_ROUTES = ["/", "/saved", "/pdf-export", "/notes", "/settings"]
+    _NAV_ROUTES = routes.ROOT_ROUTES
     navigation_colors = get_colors(page)
     navigation_style = get_navigation_bar_style(navigation_colors)
     navigation_style["bgcolor"] = ft.Colors.TRANSPARENT
@@ -194,10 +168,10 @@ def _main(page: ft.Page):
         content = build_home_view(
             page,
             get_colors,
-            lambda: page.navigate("/calculator"),
-            lambda: page.navigate("/monthly"),
+            lambda: page.navigate(routes.CALCULATOR),
+            lambda: page.navigate(routes.MONTHLY),
         )
-        return _apply_root("/", _build_appbar("Inicio"), content)
+        return _apply_root(routes.HOME, _build_appbar("Inicio"), content)
 
     def _build_saved_view() -> ft.View:
         from views.saved_calculations_view import build_saved_calculations_view
@@ -207,19 +181,19 @@ def _main(page: ft.Page):
         content = build_saved_calculations_view(
             page, get_colors, lambda: route_change()
         )
-        return _apply_root("/saved", _build_appbar("Cálculos guardados"), content)
+        return _apply_root(routes.SAVED, _build_appbar("Cálculos guardados"), content)
 
     def _build_pdf_export_view() -> ft.View:
         from views.saved_calculations_view import build_date_range_picker_view
 
         def _on_show_filtered(start, end):
             page.session.store.set("pdf_export_range", (start, end))
-            page.navigate("/pdf-export/preview")
+            page.navigate(routes.PDF_PREVIEW)
 
         content = build_date_range_picker_view(
             page, get_colors, on_show_filtered=_on_show_filtered
         )
-        return _apply_root("/pdf-export", _build_appbar("Exportar PDF"), content)
+        return _apply_root(routes.PDF_EXPORT, _build_appbar("Exportar PDF"), content)
 
     def _build_notes_view() -> ft.View:
         from views.notes_view import build_notes_view
@@ -232,17 +206,17 @@ def _main(page: ft.Page):
 
         def _open_note(note_id):
             page.session.store.set("note_id", note_id)
-            page.navigate("/notes/detail")
+            page.navigate(routes.NOTES_DETAIL)
 
         content = build_notes_view(
             page,
             get_colors,
-            lambda: page.navigate("/notes/new"),
+            lambda: page.navigate(routes.NOTES_NEW),
             _open_note,
             lambda: route_change(),
             _set_actions,
         )
-        return _apply_root("/notes", appbar, content)
+        return _apply_root(routes.NOTES, appbar, content)
 
     def _build_settings_view() -> ft.View:
         from views.settings_view import build_settings_view
@@ -254,9 +228,9 @@ def _main(page: ft.Page):
             save_settings,
             lambda: route_change(),
             get_colors,
-            lambda: page.navigate("/google-drive"),
+            lambda: page.navigate(routes.GOOGLE_DRIVE),
         )
-        return _apply_root("/settings", _build_appbar("Configuración"), content)
+        return _apply_root(routes.SETTINGS, _build_appbar("Configuración"), content)
 
     def _build_google_drive_view() -> ft.View:
         from views.google_drive_view import build_google_drive_view
@@ -265,13 +239,13 @@ def _main(page: ft.Page):
             page,
             get_colors,
             lambda: route_change(),
-            lambda: page.navigate("/google-drive/history"),
+            lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
         )
         return ft.View(
-            route="/google-drive",
+            route=routes.GOOGLE_DRIVE,
             padding=0,
             appbar=_build_appbar(
-                "Copias de seguridad", show_back=True, back_route="/settings"
+                "Copias de seguridad", show_back=True, back_route=routes.SETTINGS
             ),
             controls=[content],
         )
@@ -280,10 +254,10 @@ def _main(page: ft.Page):
         from views.google_drive_view import build_google_drive_history_view
 
         return ft.View(
-            route="/google-drive/history",
+            route=routes.GOOGLE_DRIVE_HISTORY,
             padding=0,
             appbar=_build_appbar(
-                "Copias realizadas", show_back=True, back_route="/google-drive"
+                "Copias realizadas", show_back=True, back_route=routes.GOOGLE_DRIVE
             ),
             controls=[build_google_drive_history_view(page, get_colors)],
         )
@@ -300,10 +274,10 @@ def _main(page: ft.Page):
             date_range=(start, end),
         )
         return ft.View(
-            route="/pdf-export/preview",
+            route=routes.PDF_PREVIEW,
             padding=0,
             appbar=_build_appbar(
-                "Vista previa", show_back=True, back_route="/pdf-export"
+                "Vista previa", show_back=True, back_route=routes.PDF_EXPORT
             ),
             controls=[content],
         )
@@ -314,13 +288,13 @@ def _main(page: ft.Page):
 
         def _on_save(title, content):
             add_note(content, title)
-            page.navigate("/notes")
+            page.navigate(routes.NOTES)
 
         content = build_new_note_view(page, get_colors, _on_save)
         return ft.View(
-            route="/notes/new",
+            route=routes.NOTES_NEW,
             padding=0,
-            appbar=_build_appbar("Nueva nota", show_back=True, back_route="/notes"),
+            appbar=_build_appbar("Nueva nota", show_back=True, back_route=routes.NOTES),
             controls=[content],
         )
 
@@ -333,7 +307,7 @@ def _main(page: ft.Page):
         if note is None:
             return _build_notes_view()
 
-        appbar = _build_appbar("Nota", show_back=True, back_route="/notes")
+        appbar = _build_appbar("Nota", show_back=True, back_route=routes.NOTES)
 
         def _set_actions(actions):
             appbar.actions = actions
@@ -343,12 +317,12 @@ def _main(page: ft.Page):
             page,
             get_colors,
             note,
-            lambda: page.navigate("/notes"),
+            lambda: page.navigate(routes.NOTES),
             _set_actions,
             _register_leave_guard,
         )
         view = ft.View(
-            route="/notes/detail", padding=0, appbar=appbar, controls=[content]
+            route=routes.NOTES_DETAIL, padding=0, appbar=appbar, controls=[content]
         )
 
         # Unsaved-changes guard needs to intercept the pop attempt itself
@@ -358,7 +332,7 @@ def _main(page: ft.Page):
 
         async def _on_confirm_pop(ev):
             await view.confirm_pop(False)
-            _guard_navigate("/notes")
+            _guard_navigate(routes.NOTES)
 
         view.on_confirm_pop = _on_confirm_pop
         return view
@@ -368,9 +342,11 @@ def _main(page: ft.Page):
         calculator.prepare_for_show()
         content = calculator.build_content()
         view = ft.View(
-            route="/calculator",
+            route=routes.CALCULATOR,
             padding=0,
-            appbar=_build_appbar("Distribución", show_back=True, back_route="/"),
+            appbar=_build_appbar(
+                "Distribución", show_back=True, back_route=routes.HOME
+            ),
             controls=[content],
         )
         return view
@@ -380,9 +356,11 @@ def _main(page: ft.Page):
 
         content = build_monthly_summary_view(page, get_colors)
         return ft.View(
-            route="/monthly",
+            route=routes.MONTHLY,
             padding=0,
-            appbar=_build_appbar("Detalle Balances", show_back=True, back_route="/"),
+            appbar=_build_appbar(
+                "Detalle Balances", show_back=True, back_route=routes.HOME
+            ),
             controls=[content],
         )
 
@@ -396,7 +374,7 @@ def _main(page: ft.Page):
         appbar = _build_appbar(
             get_breakdown_title(page),
             show_back=True,
-            back_route="/monthly",
+            back_route=routes.MONTHLY,
         )
 
         def _on_indicator_change(label):
@@ -409,7 +387,7 @@ def _main(page: ft.Page):
             on_indicator_change=_on_indicator_change,
         )
         return ft.View(
-            route="/monthly/breakdown",
+            route=routes.MONTHLY_BREAKDOWN,
             padding=0,
             appbar=appbar,
             navigation_bar=indicator_navigation,
@@ -421,8 +399,7 @@ def _main(page: ft.Page):
         leave_guard["check"] = None
         route = page.route
 
-        if route.startswith("/callback"):
-            # Redirect from the diezmapp-api backend OAuth proxy (custom-scheme
+        if route.startswith(routes.CALLBACK_PREFIX):
             # deep link, see utils/gdrive_auth.py + pyproject.toml's
             # [tool.flet.*.deep_linking]).
             callback_route = getattr(e, "route", None) if e is not None else None
@@ -438,15 +415,15 @@ def _main(page: ft.Page):
         nav_bar.bgcolor = ft.Colors.TRANSPARENT
         nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
 
-        if route in ("/google-drive", "/google-drive/history"):
+        if route in (routes.GOOGLE_DRIVE, routes.GOOGLE_DRIVE_HISTORY):
             root_idx, root_view = 4, _build_google_drive_view()
-        elif route.startswith("/notes"):
+        elif route.startswith(routes.NOTES):
             root_idx, root_view = 3, _build_notes_view()
-        elif route.startswith("/settings"):
+        elif route.startswith(routes.SETTINGS):
             root_idx, root_view = 4, _build_settings_view()
-        elif route.startswith("/pdf-export"):
+        elif route.startswith(routes.PDF_EXPORT):
             root_idx, root_view = 2, _build_pdf_export_view()
-        elif route.startswith("/saved"):
+        elif route.startswith(routes.SAVED):
             root_idx, root_view = 1, _build_saved_view()
         else:
             root_idx, root_view = 0, _build_main_view()
@@ -456,22 +433,22 @@ def _main(page: ft.Page):
 
         new_views = [root_view]
 
-        if route == "/calculator":
+        if route == routes.CALCULATOR:
             new_views.append(_build_calc_view())
-        elif route == "/monthly":
+        elif route == routes.MONTHLY:
             new_views.append(_build_monthly_view())
-        elif route == "/monthly/breakdown":
+        elif route == routes.MONTHLY_BREAKDOWN:
             new_views.append(_build_monthly_view())
             new_views.append(_build_monthly_breakdown_view())
-        elif route == "/notes/new":
+        elif route == routes.NOTES_NEW:
             new_views.append(_build_new_note_view())
-        elif route == "/notes/detail":
+        elif route == routes.NOTES_DETAIL:
             new_views.append(_build_note_detail_view())
-        elif route == "/pdf-export/preview":
+        elif route == routes.PDF_PREVIEW:
             new_views.append(_build_pdf_preview_view())
-        elif route == "/google-drive/history":
+        elif route == routes.GOOGLE_DRIVE_HISTORY:
             new_views.append(_build_google_drive_history_view())
-        elif route in ("/settings/conflicts", "/settings/conflicts/detail"):
+        elif route in (routes.SETTINGS_CONFLICTS, routes.SETTINGS_CONFLICT_DETAIL):
             from views.conflicts_view import (
                 build_conflict_detail_view_route,
                 build_conflicts_grid_view,
@@ -479,9 +456,9 @@ def _main(page: ft.Page):
 
             kind = page.session.store.get("conflicts_kind") or "calculations"
             new_views.append(
-                build_conflicts_grid_view(page, get_colors, kind, "/settings")
+                build_conflicts_grid_view(page, get_colors, kind, routes.SETTINGS)
             )
-            if route == "/settings/conflicts/detail":
+            if route == routes.SETTINGS_CONFLICT_DETAIL:
                 idx = page.session.store.get("conflict_index")
                 new_views.append(
                     build_conflict_detail_view_route(page, get_colors, kind, idx)
@@ -511,7 +488,7 @@ def _main(page: ft.Page):
                 query_params = dict(parse_qsl(urlparse(callback_route).query))
             result = await complete_link_flow(page, query_params)
             page.session.store.set("gdrive_link_message", result["message"])
-            page.navigate("/google-drive")
+            page.navigate(routes.GOOGLE_DRIVE)
         finally:
             gdrive_callback_state["processing"] = False
 
