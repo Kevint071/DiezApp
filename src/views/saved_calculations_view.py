@@ -7,6 +7,7 @@ from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
+from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.theme import (
     FOCUS_DARK,
@@ -511,6 +512,7 @@ def build_saved_calculations_view(
     on_refresh,
     calculations_service: CalculationService,
     conflicts_service: ConflictService,
+    pdf_export_service: PdfExportService,
     date_range=None,
 ):
     c = colors_fn(page)
@@ -912,9 +914,7 @@ def build_saved_calculations_view(
 
     # Filtered mode: show list + export button at bottom
     async def _export_filtered(e):
-        from utils.pdf_export import generate_pdf
-
-        pdf_path = generate_pdf(calculations)
+        pdf_path = pdf_export_service.export_calculations(calculations)
         share = ft.Share()
         await share.share_files(
             [ft.ShareFile.from_path(pdf_path, name=pdf_path.split(os.sep)[-1])],

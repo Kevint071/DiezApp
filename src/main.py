@@ -178,6 +178,7 @@ def _main(page: ft.Page):
             lambda: route_change(),
             dependencies.calculations,
             dependencies.conflicts,
+            dependencies.pdf_export,
         )
         return _apply_root(routes.SAVED, _build_appbar("Cálculos guardados"), content)
 
@@ -278,6 +279,7 @@ def _main(page: ft.Page):
             lambda: route_change(),
             dependencies.calculations,
             dependencies.conflicts,
+            dependencies.pdf_export,
             date_range=(start, end),
         )
         return ft.View(

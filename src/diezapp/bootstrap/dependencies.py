@@ -8,8 +8,10 @@ from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
 from diezapp.features.notes.application.note_service import NoteService
+from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.features.settings.application.settings_service import SettingsService
 from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapter
+from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
 from diezapp.infrastructure.persistence.sqlite_calculation_repository import (
     SqliteCalculationRepository,
 )
@@ -30,6 +32,7 @@ class AppDependencies:
     conflicts: ConflictService
     local_backup: LocalBackupService
     notes: NoteService
+    pdf_export: PdfExportService
     settings: SettingsService
 
 
@@ -39,10 +42,12 @@ def create_dependencies() -> AppDependencies:
     backup_adapter = SqliteBackupAdapter()
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
+    pdf_generator = PdfGenerator()
     return AppDependencies(
         calculations=CalculationService(calculation_repository),
         conflicts=ConflictService(conflict_repository),
         local_backup=LocalBackupService(backup_adapter),
         notes=NoteService(note_repository),
+        pdf_export=PdfExportService(pdf_generator),
         settings=SettingsService(settings_repository),
     )
