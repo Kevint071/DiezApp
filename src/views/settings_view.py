@@ -778,6 +778,7 @@ def _build_gdrive_backups_section(
         list_accounts,
         remove_account,
         set_account_folder,
+        start_folder_picker,
         start_link_flow,
     )
     from utils.gdrive_backup import (
@@ -910,6 +911,16 @@ def _build_gdrive_backups_section(
         page.pop_dialog()
         navigate_to_settings()
 
+    async def _open_google_picker(e):
+        account_id = folder_dialog_state["account_id"]
+        account = next((item for item in list_accounts() if item["id"] == account_id), None)
+        if account is None:
+            show_snack("La cuenta ya no está vinculada")
+            return
+        page.pop_dialog()
+        if not await start_folder_picker(page, account):
+            show_snack("No se pudo abrir Google Picker")
+
     folder_dialog = ft.AlertDialog(
         title=folder_title,
         content=ft.Column(
@@ -933,6 +944,11 @@ def _build_gdrive_backups_section(
         ),
         actions=[
             ft.TextButton("Cancelar", on_click=_close_folder_dialog),
+            ft.OutlinedButton(
+                "Elegir en Google Drive",
+                icon=ft.Icons.FOLDER_OPEN_OUTLINED,
+                on_click=_open_google_picker,
+            ),
             ft.FilledTonalButton("Usar esta carpeta", on_click=_select_current_folder),
             ft.FilledButton("Crear", on_click=_create_folder),
         ],
