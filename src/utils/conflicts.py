@@ -1,59 +1,36 @@
-import json
+from diezapp.features.conflicts.application.conflict_service import (
+    ConflictService,
+    calcs_differ,
+    notes_differ,
+)
+from diezapp.infrastructure.persistence.sqlite_conflict_repository import (
+    SqliteConflictRepository,
+)
 
-from utils.db import get_connection
-
-CALC_DIFF_FIELDS = [
-    "amount",
-    "envio_21",
-    "restante",
-    "fondo_local",
-    "sostenimiento",
-    "fund_percentage",
+__all__ = [
+    "calcs_differ",
+    "clear_conflicts",
+    "conflict_count",
+    "load_conflicts",
+    "notes_differ",
+    "save_conflicts",
 ]
-NOTE_DIFF_FIELDS = ["title", "content"]
 
-
-def calcs_differ(a: dict, b: dict) -> bool:
-    return any(a.get(k) != b.get(k) for k in CALC_DIFF_FIELDS)
-
-
-def notes_differ(a: dict, b: dict) -> bool:
-    return any(a.get(k) != b.get(k) for k in NOTE_DIFF_FIELDS)
+_service = ConflictService(SqliteConflictRepository())
 
 
 def load_conflicts(kind: str = "calculations") -> dict:
     """Load pending conflicts. Returns {"conflicts": [...], "pending_add": [...]}"""
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT payload FROM pending_conflicts WHERE kind = ?", (kind,)
-    ).fetchone()
-    if row is None:
-        return {"conflicts": [], "pending_add": []}
-    try:
-        return json.loads(row[0])
-    except json.JSONDecodeError, TypeError:
-        return {"conflicts": [], "pending_add": []}
+    return _service.load(kind)
 
 
 def save_conflicts(conflicts: list, pending_add: list, kind: str = "calculations"):
-    conn = get_connection()
-    payload = json.dumps(
-        {"conflicts": conflicts, "pending_add": pending_add}, ensure_ascii=False
-    )
-    conn.execute(
-        "INSERT INTO pending_conflicts (kind, payload) VALUES (?, ?) "
-        "ON CONFLICT(kind) DO UPDATE SET payload = excluded.payload",
-        (kind, payload),
-    )
-    conn.commit()
+    _service.save(conflicts, pending_add, kind)
 
 
 def clear_conflicts(kind: str = "calculations"):
-    conn = get_connection()
-    conn.execute("DELETE FROM pending_conflicts WHERE kind = ?", (kind,))
-    conn.commit()
+    _service.clear(kind)
 
 
 def conflict_count(kind: str = "calculations") -> int:
-    data = load_conflicts(kind)
-    return len(data.get("conflicts", []))
+    return _service.count(kind)
