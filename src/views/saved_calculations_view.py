@@ -3,7 +3,6 @@ import os
 from datetime import date, datetime
 
 import flet as ft
-
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.storage import delete_calculation, load_calculations, update_calculation
 from utils.theme import (

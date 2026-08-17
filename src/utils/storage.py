@@ -1,53 +1,22 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from utils.db import get_connection
+from diezapp.features.calculator.domain.calculator_service import (
+    calculate_distribution,
+)
+from diezapp.infrastructure.persistence.sqlite_calculation_repository import (
+    SqliteCalculationRepository,
+)
 
-
-_COLUMNS = [
-    "id",
-    "created_at",
-    "amount",
-    "envio_21",
-    "restante",
-    "fondo_local",
-    "sostenimiento",
-    "fund_percentage",
-    "updated_at",
-]
+_repository = SqliteCalculationRepository()
 
 
 def load_calculations() -> list:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
-        "sostenimiento, fund_percentage, updated_at FROM calculations ORDER BY sort_index ASC"
-    ).fetchall()
-    return [dict(zip(_COLUMNS, row)) for row in rows]
+    return _repository.list()
 
 
 def save_calculations(calculations: list):
-    conn = get_connection()
-    conn.execute("DELETE FROM calculations")
-    for i, calc in enumerate(calculations):
-        conn.execute(
-            "INSERT INTO calculations (id, created_at, amount, envio_21, restante, "
-            "fondo_local, sostenimiento, fund_percentage, updated_at, sort_index) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                calc.get("id"),
-                calc.get("created_at"),
-                calc.get("amount"),
-                calc.get("envio_21"),
-                calc.get("restante"),
-                calc.get("fondo_local"),
-                calc.get("sostenimiento"),
-                calc.get("fund_percentage"),
-                calc.get("updated_at"),
-                i,
-            ),
-        )
-    conn.commit()
+    _repository.replace_all(calculations)
 
 
 def add_calculation(
@@ -60,7 +29,7 @@ def add_calculation(
 ) -> dict:
     calc = {
         "id": str(uuid.uuid4()),
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).astimezone().isoformat(),
         "amount": amount,
         "envio_21": envio_21,
         "restante": restante,
@@ -79,12 +48,13 @@ def update_calculation(calc_id: str, new_amount: float) -> dict | None:
     calculations = load_calculations()
     for calc in calculations:
         if calc["id"] == calc_id:
-            calc["amount"] = new_amount
-            calc["envio_21"] = new_amount * 0.21
-            calc["restante"] = new_amount * 0.79
-            calc["fondo_local"] = calc["restante"] * (calc["fund_percentage"] / 100)
-            calc["sostenimiento"] = new_amount - calc["envio_21"] - calc["fondo_local"]
-            calc["updated_at"] = datetime.now().isoformat()
+            distribution = calculate_distribution(new_amount, calc["fund_percentage"])
+            calc["amount"] = distribution.amount
+            calc["envio_21"] = distribution.envio_21
+            calc["restante"] = distribution.restante
+            calc["fondo_local"] = distribution.fondo_local
+            calc["sostenimiento"] = distribution.sostenimiento
+            calc["updated_at"] = datetime.now(UTC).astimezone().isoformat()
             save_calculations(calculations)
             return calc
     return None

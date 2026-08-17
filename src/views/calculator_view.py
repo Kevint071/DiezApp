@@ -6,6 +6,9 @@ session and resets it whenever the view is opened.
 """
 
 import flet as ft
+from diezapp.features.calculator.domain.calculator_service import (
+    calculate_distribution,
+)
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 
@@ -136,15 +139,12 @@ class CalculatorView:
             return
 
         self.input_amount.error = None
-        val_21 = amount * 0.21
-        val_79 = amount * 0.79
-        val_1_of_79 = val_79 * (self.state["fund_percentage"] / 100)
-        val_rest = amount - val_21 - val_1_of_79
+        distribution = calculate_distribution(amount, self.state["fund_percentage"])
 
-        self.txt_21.value = self.format_currency(val_21)
-        self.txt_79.value = self.format_currency(val_79)
-        self.txt_1_of_79.value = self.format_currency(val_1_of_79)
-        self.txt_rest.value = self.format_currency(val_rest)
+        self.txt_21.value = self.format_currency(distribution.envio_21)
+        self.txt_79.value = self.format_currency(distribution.restante)
+        self.txt_1_of_79.value = self.format_currency(distribution.fondo_local)
+        self.txt_rest.value = self.format_currency(distribution.sostenimiento)
 
         self._build_results()
         self.results_container.visible = True
@@ -167,12 +167,14 @@ class CalculatorView:
             amount = float(self.input_amount.value.replace(".", "").replace(",", "."))
         except ValueError, AttributeError:
             return
-        val_21 = amount * 0.21
-        val_79 = amount * 0.79
-        val_1_of_79 = val_79 * (self.state["fund_percentage"] / 100)
-        val_rest = amount - val_21 - val_1_of_79
+        distribution = calculate_distribution(amount, self.state["fund_percentage"])
         add_calculation(
-            amount, val_21, val_79, val_1_of_79, val_rest, self.state["fund_percentage"]
+            distribution.amount,
+            distribution.envio_21,
+            distribution.restante,
+            distribution.fondo_local,
+            distribution.sostenimiento,
+            self.state["fund_percentage"],
         )
         self.save_btn.visible = False
         self.page.update()

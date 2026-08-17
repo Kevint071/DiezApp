@@ -2,7 +2,6 @@
 monthly summary."""
 
 import flet as ft
-
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 
