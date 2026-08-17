@@ -442,11 +442,25 @@ def _main(page: ft.Page):
             )
 
             kind = page.session.store.get("conflicts_kind") or "calculations"
-            views = [build_conflicts_grid_view(page, get_colors, kind, routes.SETTINGS)]
+            views = [
+                build_conflicts_grid_view(
+                    page,
+                    get_colors,
+                    kind,
+                    routes.SETTINGS,
+                    dependencies.conflicts,
+                )
+            ]
             if route == routes.SETTINGS_CONFLICT_DETAIL:
                 idx = page.session.store.get("conflict_index")
                 views.append(
-                    build_conflict_detail_view_route(page, get_colors, kind, idx)
+                    build_conflict_detail_view_route(
+                        page,
+                        get_colors,
+                        kind,
+                        idx,
+                        dependencies.conflicts,
+                    )
                 )
             return views
         return []

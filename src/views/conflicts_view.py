@@ -1,8 +1,7 @@
 from datetime import datetime
 
 import flet as ft
-
-from utils.conflicts import clear_conflicts, load_conflicts, save_conflicts
+from diezapp.features.conflicts.application.conflict_service import ConflictService
 from utils.notes import load_notes, save_notes
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.storage import load_calculations, save_calculations
@@ -102,9 +101,9 @@ def _build_appbar(page: ft.Page, title: str, back_route: str) -> ft.AppBar:
     )
 
 
-def _load_conflicts_and_state(kind: str):
+def _load_conflicts_and_state(kind: str, conflicts_service: ConflictService):
     cfg = _KIND_CONFIG[kind]
-    data = load_conflicts(kind)
+    data = conflicts_service.load(kind)
     conflicts = data.get("conflicts", [])
     pending_add = data.get("pending_add", [])
     state = _get_conflict_state(kind)
@@ -124,9 +123,15 @@ def _load_conflicts_and_state(kind: str):
 
 
 def build_conflict_detail_view_route(
-    page: ft.Page, colors_fn, kind: str, index: int
+    page: ft.Page,
+    colors_fn,
+    kind: str,
+    index: int,
+    conflicts_service: ConflictService,
 ) -> ft.View:
-    conflicts, _pending_add, choices, resolved_set = _load_conflicts_and_state(kind)
+    conflicts, _pending_add, choices, resolved_set = _load_conflicts_and_state(
+        kind, conflicts_service
+    )
     appbar = _build_appbar(page, f"Conflicto {index + 1}", "/settings/conflicts")
     content = _build_conflict_detail_view(
         page, colors_fn, index, conflicts, choices, resolved_set, appbar, kind
@@ -323,12 +328,18 @@ def _build_conflict_detail_view(
 
 
 def build_conflicts_grid_view(
-    page: ft.Page, colors_fn, kind: str, back_route: str
+    page: ft.Page,
+    colors_fn,
+    kind: str,
+    back_route: str,
+    conflicts_service: ConflictService,
 ) -> ft.View:
     c = colors_fn(page)
     cfg = _KIND_CONFIG[kind]
     appbar = _build_appbar(page, cfg["title"], back_route)
-    conflicts, pending_add, choices, resolved_set = _load_conflicts_and_state(kind)
+    conflicts, pending_add, choices, resolved_set = _load_conflicts_and_state(
+        kind, conflicts_service
+    )
 
     if not conflicts:
         content = ft.SafeArea(
@@ -571,13 +582,13 @@ def build_conflicts_grid_view(
         if not unresolved:
             resolved = resolved + pending_add
             cfg["save"](resolved)
-            clear_conflicts(kind)
+            conflicts_service.clear(kind)
             msg = (
                 f"{n_applied} conflictos resueltos, {len(pending_add)} nuevos agregados"
             )
         else:
             cfg["save"](resolved)
-            save_conflicts(unresolved, pending_add, kind)
+            conflicts_service.save(unresolved, pending_add, kind)
             msg = f"{n_applied} resueltos, {len(unresolved)} pendientes"
 
         snack = ft.SnackBar(content=ft.Text(msg), open=True)
@@ -586,7 +597,7 @@ def build_conflicts_grid_view(
         page.navigate(back_route)
 
     def _discard_all(e):
-        clear_conflicts(kind)
+        conflicts_service.clear(kind)
         snack = ft.SnackBar(content=ft.Text("Importación descartada"), open=True)
         page.overlay.append(snack)
         _reset_conflict_state(kind)
