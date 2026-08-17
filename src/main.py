@@ -2,12 +2,12 @@ import asyncio
 from urllib.parse import parse_qsl, urlparse
 
 import flet as ft
+from diezapp.bootstrap.app import configure_page
 from diezapp.bootstrap.error_handler import show_fatal_error
 from diezapp.navigation import routes
-from utils.app_settings import load_settings, save_settings
+from diezapp.navigation.router import AppRouter
+from utils.app_settings import save_settings
 from utils.theme import (
-    DARK_THEME,
-    LIGHT_THEME,
     get_colors,
     get_navigation_bar_style,
 )
@@ -30,16 +30,7 @@ def main(page: ft.Page):
 
 
 def _main(page: ft.Page):
-    page.title = "DiezApp"
-    page.padding = ft.Padding.all(0)
-
-    settings = load_settings()
-    page.theme_mode = (
-        ft.ThemeMode.DARK if settings["theme_mode"] == "dark" else ft.ThemeMode.LIGHT
-    )
-    state = {"fund_percentage": settings["fund_percentage"]}
-    page.theme = LIGHT_THEME
-    page.dark_theme = DARK_THEME
+    state = configure_page(page)
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
@@ -394,60 +385,39 @@ def _main(page: ft.Page):
             controls=[content],
         )
 
-    # ── Central route dispatcher ──────────────────────────
-    def route_change(e=None):
-        leave_guard["check"] = None
-        route = page.route
-
-        if route.startswith(routes.CALLBACK_PREFIX):
-            # deep link, see utils/gdrive_auth.py + pyproject.toml's
-            # [tool.flet.*.deep_linking]).
-            callback_route = getattr(e, "route", None) if e is not None else None
-            if not callback_route and "?" in route:
-                callback_route = route
-            if callback_route:
-                page.session.store.set("gdrive_callback_route", callback_route)
-            if not gdrive_callback_state["processing"]:
-                page.run_task(_handle_gdrive_callback)
-            return
-
+    def _build_root(route: str) -> tuple[int, ft.View]:
         current_navigation_colors = get_colors(page)
         nav_bar.bgcolor = ft.Colors.TRANSPARENT
         nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
 
         if route in (routes.GOOGLE_DRIVE, routes.GOOGLE_DRIVE_HISTORY):
-            root_idx, root_view = 4, _build_google_drive_view()
+            return 4, _build_google_drive_view()
         elif route.startswith(routes.NOTES):
-            root_idx, root_view = 3, _build_notes_view()
+            return 3, _build_notes_view()
         elif route.startswith(routes.SETTINGS):
-            root_idx, root_view = 4, _build_settings_view()
+            return 4, _build_settings_view()
         elif route.startswith(routes.PDF_EXPORT):
-            root_idx, root_view = 2, _build_pdf_export_view()
+            return 2, _build_pdf_export_view()
         elif route.startswith(routes.SAVED):
-            root_idx, root_view = 1, _build_saved_view()
+            return 1, _build_saved_view()
         else:
-            root_idx, root_view = 0, _build_main_view()
+            return 0, _build_main_view()
 
-        nav_bar.selected_index = root_idx
-        nav_state["selected_index"] = root_idx
-
-        new_views = [root_view]
-
+    def _build_nested(route: str) -> list[ft.View]:
         if route == routes.CALCULATOR:
-            new_views.append(_build_calc_view())
+            return [_build_calc_view()]
         elif route == routes.MONTHLY:
-            new_views.append(_build_monthly_view())
+            return [_build_monthly_view()]
         elif route == routes.MONTHLY_BREAKDOWN:
-            new_views.append(_build_monthly_view())
-            new_views.append(_build_monthly_breakdown_view())
+            return [_build_monthly_view(), _build_monthly_breakdown_view()]
         elif route == routes.NOTES_NEW:
-            new_views.append(_build_new_note_view())
+            return [_build_new_note_view()]
         elif route == routes.NOTES_DETAIL:
-            new_views.append(_build_note_detail_view())
+            return [_build_note_detail_view()]
         elif route == routes.PDF_PREVIEW:
-            new_views.append(_build_pdf_preview_view())
+            return [_build_pdf_preview_view()]
         elif route == routes.GOOGLE_DRIVE_HISTORY:
-            new_views.append(_build_google_drive_history_view())
+            return [_build_google_drive_history_view()]
         elif route in (routes.SETTINGS_CONFLICTS, routes.SETTINGS_CONFLICT_DETAIL):
             from views.conflicts_view import (
                 build_conflict_detail_view_route,
@@ -455,23 +425,23 @@ def _main(page: ft.Page):
             )
 
             kind = page.session.store.get("conflicts_kind") or "calculations"
-            new_views.append(
-                build_conflicts_grid_view(page, get_colors, kind, routes.SETTINGS)
-            )
+            views = [build_conflicts_grid_view(page, get_colors, kind, routes.SETTINGS)]
             if route == routes.SETTINGS_CONFLICT_DETAIL:
                 idx = page.session.store.get("conflict_index")
-                new_views.append(
+                views.append(
                     build_conflict_detail_view_route(page, get_colors, kind, idx)
                 )
+            return views
+        return []
 
-        page.views = new_views
-        page.update()
-
-    async def on_view_pop(e):
-        if e.view is not None and e.view in page.views:
-            page.views.remove(e.view)
-        if page.views:
-            await page.push_route(page.views[-1].route)
+    def _on_callback(event):
+        callback_route = getattr(event, "route", None) if event is not None else None
+        if not callback_route and "?" in page.route:
+            callback_route = page.route
+        if callback_route:
+            page.session.store.set("gdrive_callback_route", callback_route)
+        if not gdrive_callback_state["processing"]:
+            page.run_task(_handle_gdrive_callback)
 
     async def _handle_gdrive_callback():
         from utils.gdrive_auth import complete_link_flow
@@ -505,8 +475,14 @@ def _main(page: ft.Page):
             if seconds_until_due() is not None and seconds_until_due() <= 0:
                 await run_backup_now(page)
 
+    router = AppRouter(page, nav_bar, _build_root, _build_nested, _on_callback)
+
+    def route_change(event=None):
+        leave_guard["check"] = None
+        router.handle_route_change(event)
+
     page.on_route_change = route_change
-    page.on_view_pop = on_view_pop
+    page.on_view_pop = router.handle_view_pop
 
     route_change()
     page.run_task(_gdrive_scheduler)
