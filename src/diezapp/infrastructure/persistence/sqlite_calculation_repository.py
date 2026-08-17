@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+from diezapp.features.calculations.domain.models import Calculation
 from utils.db import get_connection
 
 
@@ -16,7 +17,7 @@ class SqliteCalculationRepository:
         "updated_at",
     ]
 
-    def list(self) -> list[dict]:
+    def list(self) -> list[Calculation]:
         conn = get_connection()
         rows = conn.execute(
             "SELECT id, created_at, amount, envio_21, restante, fondo_local, "
@@ -25,12 +26,12 @@ class SqliteCalculationRepository:
         ).fetchall()
         return [dict(zip(self._columns, row, strict=True)) for row in rows]
 
-    def add(self, calculation: dict) -> None:
+    def add(self, calculation: Calculation) -> None:
         calculations = self.list()
         calculations.insert(0, calculation)
         self.replace_all(calculations)
 
-    def replace_all(self, calculations: list[dict]) -> None:
+    def replace_all(self, calculations: list[Calculation]) -> None:
         conn = get_connection()
         conn.execute("DELETE FROM calculations")
         for index, calculation in enumerate(calculations):
