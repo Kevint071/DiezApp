@@ -1,11 +1,12 @@
 import asyncio
 import os
 import tempfile
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import flet as ft
 import httpx
+
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 from utils.theme import (
     FOCUS_DARK,
@@ -27,7 +28,12 @@ def _is_desktop(page: ft.Page) -> bool:
 
 
 def build_settings_view(
-    page: ft.Page, state: dict, save_settings, navigate_to_settings, colors_fn
+    page: ft.Page,
+    state: dict,
+    save_settings,
+    navigate_to_settings,
+    colors_fn,
+    navigate_to_google_drive,
 ):
     """Build the settings view."""
     c = colors_fn(page)
@@ -684,8 +690,18 @@ def build_settings_view(
         ),
     )
 
-    gdrive_group = _build_gdrive_backups_section(
-        page, c, navigate_to_settings, _show_snack
+    google_drive_cell = _settings_cell(
+        icon=ft.Icons.CLOUD_OUTLINED,
+        title="Copias de seguridad",
+        subtitle="Google Drive",
+        colors=c,
+        on_click=lambda e: navigate_to_google_drive(),
+    )
+    google_drive_group = ft.Container(
+        bgcolor=c["card_bg"],
+        border_radius=16,
+        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
+        content=google_drive_cell,
     )
 
     divider = build_scroll_divider()
@@ -718,19 +734,19 @@ def build_settings_view(
                                         ),
                                         settings_group,
                                         ft.Text(
-                                            "Copias de seguridad",
-                                            size=13,
-                                            weight=ft.FontWeight.W_600,
-                                            color=c["on_surface_variant"],
-                                        ),
-                                        gdrive_group,
-                                        ft.Text(
                                             "Exportar e importar",
                                             size=13,
                                             weight=ft.FontWeight.W_600,
                                             color=c["on_surface_variant"],
                                         ),
                                         export_import_group,
+                                        ft.Text(
+                                            "Nube",
+                                            size=13,
+                                            weight=ft.FontWeight.W_600,
+                                            color=c["on_surface_variant"],
+                                        ),
+                                        google_drive_group,
                                     ],
                                 ),
                             ),
@@ -743,7 +759,11 @@ def build_settings_view(
 
 
 def _build_gdrive_backups_section(
-    page: ft.Page, c: dict, navigate_to_settings, show_snack
+    page: ft.Page,
+    c: dict,
+    navigate_to_settings,
+    show_snack,
+    navigate_to_history,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -762,13 +782,10 @@ def _build_gdrive_backups_section(
     )
     from utils.gdrive_backup import (
         get_interval_seconds,
-        get_last_backup_at,
-        list_history,
         run_backup_now,
-        seconds_until_due,
         set_interval_seconds,
     )
-    from utils.gdrive_client import DriveApiError, create_backup_folder
+    from utils.gdrive_client import DriveApiError, create_folder, list_folders
 
     pending_message = page.session.store.get("gdrive_link_message")
     if pending_message:
@@ -792,17 +809,22 @@ def _build_gdrive_backups_section(
 
         return _handler
 
-    folder_name_field = ft.TextField(
-        label="Nombre de la carpeta", value="Respaldos DiezApp"
-    )
-    folder_dialog_state = {"account_id": None}
+    folder_name_field = ft.TextField(label="Nombre de la carpeta")
+    folder_dialog_state = {
+        "account_id": None,
+        "parent_id": "root",
+        "parent_name": "Mi unidad",
+        "stack": [],
+    }
+    folder_title = ft.Text("Mi unidad", size=17, weight=ft.FontWeight.W_600)
+    folder_loading = ft.ProgressRing(width=22, height=22, visible=False)
+    folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
 
     def _close_folder_dialog(e):
         page.pop_dialog()
 
-    async def _confirm_folder(e):
+    async def _load_folder_list(parent_id, parent_name):
         account_id = folder_dialog_state["account_id"]
-        page.pop_dialog()
         account = next((a for a in list_accounts() if a["id"] == account_id), None)
         if account is None:
             return
@@ -810,40 +832,109 @@ def _build_gdrive_backups_section(
         if not access_token:
             show_snack("No se pudo autenticar la cuenta")
             return
-        folder_name = folder_name_field.value or "Respaldos DiezApp"
+        folder_dialog_state["parent_id"] = parent_id
+        folder_dialog_state["parent_name"] = parent_name
+        folder_title.value = parent_name
+        folder_loading.visible = True
+        folder_list.controls = []
+        page.update()
         try:
-            folder_id = await create_backup_folder(access_token, folder_name)
+            folders = await list_folders(access_token, parent_id)
         except DriveApiError as error:
-            show_snack(
-                f"Drive {error.status_code} ({error.reason}): {error.message}"
-            )
-            return
-        except httpx.HTTPStatusError as error:
-            status = error.response.status_code
-            if status == 401:
-                show_snack("La sesión de Google expiró; vuelve a vincular la cuenta")
-            elif status == 403:
-                show_snack(
-                    "Google Drive rechazó el acceso; habilita Drive API en Google Cloud"
-                )
-            else:
-                show_snack(f"Google Drive devolvió un error ({status})")
+            show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
             return
         except httpx.HTTPError:
             show_snack("No se pudo conectar con Google Drive")
             return
-        except Exception:  # noqa: BLE001 — any Drive API failure should just show a snack, not crash
-            show_snack("No se pudo crear la carpeta en Drive")
+        finally:
+            folder_loading.visible = False
+        folder_list.controls = [
+            ft.ListTile(
+                leading=ft.Icon(ft.Icons.FOLDER_OUTLINED, color=c["primary"]),
+                title=ft.Text(folder["name"]),
+                trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
+                on_click=lambda e, item=folder: _enter_folder(item),
+            )
+            for folder in folders
+        ] or [
+            ft.Container(
+                padding=ft.Padding.symmetric(vertical=16),
+                content=ft.Text("No hay subcarpetas", color=c["on_surface_variant"]),
+            )
+        ]
+        page.update()
+
+    async def _enter_folder(folder):
+        folder_dialog_state["stack"].append(
+            (folder_dialog_state["parent_id"], folder_dialog_state["parent_name"])
+        )
+        await _load_folder_list(folder["id"], folder["name"])
+
+    async def _go_to_parent(e):
+        if not folder_dialog_state["stack"]:
+            return
+        parent_id, parent_name = folder_dialog_state["stack"].pop()
+        await _load_folder_list(parent_id, parent_name)
+
+    def _select_current_folder(e):
+        set_account_folder(
+            folder_dialog_state["account_id"],
+            folder_dialog_state["parent_id"],
+            folder_dialog_state["parent_name"],
+        )
+        page.pop_dialog()
+        navigate_to_settings()
+
+    async def _create_folder(e):
+        account_id = folder_dialog_state["account_id"]
+        account = next((a for a in list_accounts() if a["id"] == account_id), None)
+        folder_name = folder_name_field.value.strip()
+        if not account or not folder_name:
+            show_snack("Escribe un nombre para la carpeta")
+            return
+        access_token = await ensure_fresh_access_token(page, account)
+        if not access_token:
+            show_snack("No se pudo autenticar la cuenta")
+            return
+        try:
+            folder_id = await create_folder(
+                access_token, folder_name, folder_dialog_state["parent_id"]
+            )
+        except DriveApiError as error:
+            show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
+            return
+        except httpx.HTTPError:
+            show_snack("No se pudo conectar con Google Drive")
             return
         set_account_folder(account_id, folder_id, folder_name)
+        page.pop_dialog()
         navigate_to_settings()
 
     folder_dialog = ft.AlertDialog(
-        title=ft.Text("Elegir carpeta", size=17, weight=ft.FontWeight.W_600),
-        content=folder_name_field,
+        title=folder_title,
+        content=ft.Column(
+            tight=True,
+            controls=[
+                ft.Row(
+                    controls=[
+                        ft.IconButton(
+                            ft.Icons.ARROW_BACK,
+                            tooltip="Carpeta padre",
+                            on_click=_go_to_parent,
+                        ),
+                        folder_loading,
+                    ]
+                ),
+                folder_list,
+                ft.Divider(height=16),
+                ft.Text("Crear carpeta aquí", size=13, color=c["on_surface_variant"]),
+                folder_name_field,
+            ],
+        ),
         actions=[
             ft.TextButton("Cancelar", on_click=_close_folder_dialog),
-            ft.FilledTonalButton("Crear", on_click=_confirm_folder),
+            ft.FilledTonalButton("Usar esta carpeta", on_click=_select_current_folder),
+            ft.FilledButton("Crear", on_click=_create_folder),
         ],
         actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
@@ -851,8 +942,12 @@ def _build_gdrive_backups_section(
     def _open_folder_dialog(account_id):
         def _handler(e):
             folder_dialog_state["account_id"] = account_id
+            folder_dialog_state["parent_id"] = "root"
+            folder_dialog_state["parent_name"] = "Mi unidad"
+            folder_dialog_state["stack"] = []
             folder_name_field.value = "Respaldos DiezApp"
             page.show_dialog(folder_dialog)
+            page.run_task(_load_folder_list, "root", "Mi unidad")
 
         return _handler
 
@@ -870,6 +965,11 @@ def _build_gdrive_backups_section(
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 controls=[
+                    ft.Icon(
+                        ft.Icons.ACCOUNT_CIRCLE_OUTLINED,
+                        size=28,
+                        color=c["primary"],
+                    ),
                     ft.Column(
                         spacing=2,
                         expand=True,
@@ -883,7 +983,7 @@ def _build_gdrive_backups_section(
                             ft.Container(
                                 on_click=_open_folder_dialog(account["id"]),
                                 content=ft.Text(
-                                    subtitle,
+                                    f"Carpeta: {subtitle}",
                                     size=13,
                                     color=c["on_surface_variant"]
                                     if has_folder
@@ -895,7 +995,7 @@ def _build_gdrive_backups_section(
                     ft.IconButton(
                         ft.Icons.LINK_OFF,
                         icon_size=20,
-                        tooltip="Desvincular",
+                        tooltip="Desvincular cuenta",
                         on_click=_unlink_account(account["id"]),
                     ),
                 ],
@@ -969,51 +1069,99 @@ def _build_gdrive_backups_section(
         on_click=_open_freq_dialog,
     )
 
-    # ── Last / next backup indicators ────────────────────────────────
-    last_backup_at = get_last_backup_at()
-    last_backup_text = (
-        "Sin copias aún"
-        if last_backup_at is None
-        else last_backup_at.astimezone().strftime("%d/%m/%Y %H:%M")
+    # ── Manual "Respaldar ahora" button ──────────────────────────────
+    backup_now_button = ft.IconButton(
+        icon=ft.Icons.CLOUD_UPLOAD_OUTLINED,
+        icon_size=22,
+        tooltip="Respaldar ahora",
     )
-    remaining = seconds_until_due()
-    if remaining is None:
-        next_backup_text = "Configura una frecuencia"
-    elif remaining <= 0:
-        next_backup_text = "Pendiente"
-    else:
-        next_dt = datetime.now(UTC) + timedelta(seconds=remaining)
-        next_backup_text = next_dt.astimezone().strftime("%d/%m/%Y %H:%M")
 
-    status_cell = ft.Container(
-        padding=ft.Padding.symmetric(vertical=10, horizontal=18),
+    backup_accounts = [account for account in accounts if account.get("folder_id")]
+    backup_account_checks = [
+        ft.Checkbox(
+            label=account["google_account_email"],
+            value=True,
+        )
+        for account in backup_accounts
+    ]
+
+    def _close_backup_dialog(e):
+        page.pop_dialog()
+
+    async def _confirm_backup(e):
+        selected_ids = {
+            account["id"]
+            for account, checkbox in zip(
+                backup_accounts, backup_account_checks, strict=True
+            )
+            if checkbox.value
+        }
+        if not selected_ids:
+            show_snack("Selecciona al menos una cuenta")
+            return
+        page.pop_dialog()
+        await _run_backup(selected_ids)
+
+    backup_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Respaldar ahora", size=17, weight=ft.FontWeight.W_600),
+        content_padding=ft.Padding.only(left=24, right=24, top=12, bottom=8),
         content=ft.Column(
-            spacing=2,
+            tight=True,
+            spacing=4,
             controls=[
                 ft.Text(
-                    f"Última copia: {last_backup_text}",
-                    size=13,
+                    "Elige dónde guardar esta copia.",
+                    size=14,
                     color=c["on_surface_variant"],
                 ),
-                ft.Text(
-                    f"Próxima copia: {next_backup_text}",
-                    size=13,
-                    color=c["on_surface_variant"],
+                *backup_account_checks,
+            ],
+        ),
+        actions=[
+            ft.TextButton("Cancelar", on_click=_close_backup_dialog),
+            ft.FilledButton("Respaldar", on_click=_confirm_backup),
+        ],
+        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+    )
+
+    backup_action = ft.Container(
+        padding=ft.Padding.symmetric(vertical=12, horizontal=18),
+        content=ft.Row(
+            spacing=12,
+            controls=[
+                ft.Icon(
+                    ft.Icons.CLOUD_UPLOAD_OUTLINED,
+                    size=24,
+                    color=c["primary"],
                 ),
+                ft.Column(
+                    expand=True,
+                    spacing=2,
+                    controls=[
+                        ft.Text(
+                            "Respaldo manual",
+                            size=14,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface"],
+                        ),
+                        ft.Text(
+                            "Guarda una copia en tus cuentas vinculadas",
+                            size=12,
+                            color=c["on_surface_variant"],
+                        ),
+                    ],
+                ),
+                backup_now_button,
             ],
         ),
     )
 
-    # ── Manual "Respaldar ahora" button ──────────────────────────────
-    backup_now_button = ft.FilledTonalButton(
-        "Respaldar ahora", icon=ft.Icons.CLOUD_UPLOAD_OUTLINED
-    )
-
-    async def _on_backup_now(e):
-        backup_now_button.text = "Respaldando..."
+    async def _run_backup(selected_ids):
+        backup_now_button.icon = ft.ProgressRing(width=16, height=16)
         backup_now_button.disabled = True
         page.update()
-        result = await run_backup_now(page)
+        result = await run_backup_now(page, selected_ids)
         status = result["status"]
         if status == "skipped":
             show_snack(result.get("message", "No hay cuentas configuradas"))
@@ -1025,114 +1173,119 @@ def _build_gdrive_backups_section(
             show_snack("No se pudo completar la copia de seguridad")
         navigate_to_settings()
 
-    backup_now_button.on_click = _on_backup_now
+    def _open_backup_dialog(e):
+        if not backup_accounts:
+            show_snack("Configura una carpeta en al menos una cuenta")
+            return
+        for checkbox in backup_account_checks:
+            checkbox.value = True
+        page.show_dialog(backup_dialog)
 
-    # ── History log ──────────────────────────────────────────────────
-    status_labels = {"success": "Éxito", "partial": "Parcial", "failed": "Error"}
-    history_rows = []
-    for entry in list_history(limit=10):
-        try:
-            ts = (
-                datetime.fromisoformat(entry["started_at"])
-                .astimezone()
-                .strftime("%d/%m/%Y %H:%M")
-            )
-        except ValueError:
-            ts = entry["started_at"]
-        emails = ", ".join(r.get("email", "") for r in entry["details"]) or "—"
-        status_color = (
-            c["primary"]
-            if entry["status"] == "success"
-            else ft.Colors.RED
-            if entry["status"] == "failed"
-            else c["on_surface_variant"]
-        )
-        history_rows.append(
-            ft.Container(
-                padding=ft.Padding.symmetric(vertical=8, horizontal=18),
-                content=ft.Column(
-                    spacing=2,
-                    controls=[
-                        ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            controls=[
-                                ft.Text(ts, size=13, color=c["on_surface"]),
-                                ft.Text(
-                                    status_labels.get(entry["status"], entry["status"]),
-                                    size=12,
-                                    weight=ft.FontWeight.W_600,
-                                    color=status_color,
-                                ),
-                            ],
-                        ),
-                        ft.Text(emails, size=12, color=c["on_surface_variant"]),
-                    ],
-                ),
-            )
-        )
-    if not history_rows:
-        history_rows = [
-            ft.Container(
-                padding=ft.Padding.symmetric(vertical=10, horizontal=18),
-                content=ft.Text(
-                    "Sin respaldos aún", size=13, color=c["on_surface_variant"]
-                ),
-            )
-        ]
+    backup_now_button.on_click = _open_backup_dialog
 
     # ── Assemble section ──────────────────────────────────────────────
-    controls = []
-    for i, account in enumerate(accounts):
-        if i > 0:
-            controls.append(_divider())
-        controls.append(_account_row(account))
+    account_header = ft.Container(
+        padding=ft.Padding.only(top=18, bottom=12, left=18, right=18),
+        alignment=ft.Alignment(0, 0),
+        content=ft.Column(
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=6,
+            controls=[
+                ft.Icon(
+                    ft.Icons.CLOUD_OUTLINED,
+                    size=36,
+                    color=c["primary"],
+                ),
+                ft.Text(
+                    "Cuentas de respaldo",
+                    size=20,
+                    weight=ft.FontWeight.W_600,
+                    color=c["on_surface"],
+                    text_align=ft.TextAlign.CENTER,
+                ),
+                ft.Text(
+                    "Aún no hay cuentas vinculadas"
+                    if not accounts
+                    else f"{len(accounts)} de 2 cuentas vinculadas",
+                    size=13,
+                    color=c["on_surface_variant"],
+                    text_align=ft.TextAlign.CENTER,
+                ),
+            ],
+        ),
+    )
 
-    if can_add_account():
-        if accounts:
-            controls.append(_divider())
-        controls.append(
-            _settings_cell(
-                icon=ft.Icons.ADD_LINK,
-                title="Conectar cuenta de Google",
-                subtitle="drive.file",
-                colors=c,
+    can_link_more = can_add_account()
+    controls = [account_header]
+
+    if can_link_more:
+        connect_button = (
+            ft.FilledButton(
+                "Conectar Google",
+                icon=ft.Icons.ACCOUNT_CIRCLE_OUTLINED,
+                on_click=_link_account,
+            )
+            if not accounts
+            else ft.OutlinedButton(
+                "Añadir cuenta",
+                icon=ft.Icons.ADD,
                 on_click=_link_account,
             )
         )
+        controls.append(
+            ft.Container(
+                padding=ft.Padding.symmetric(vertical=12, horizontal=18),
+                alignment=ft.Alignment(0, 0),
+                content=connect_button,
+            )
+        )
 
-    controls.append(_divider())
+    if accounts:
+        controls.append(_divider())
+        controls.extend(
+            control
+            for account in accounts
+            for control in (_account_row(account), _divider())
+        )
+
     controls.append(freq_cell)
     controls.append(_divider())
-    controls.append(status_cell)
+    controls.append(backup_action)
+    controls.append(_divider())
     controls.append(
-        ft.Container(
-            padding=ft.Padding.symmetric(vertical=8, horizontal=18),
-            content=backup_now_button,
+        _settings_cell(
+            icon=ft.Icons.HISTORY_OUTLINED,
+            title="Copias realizadas",
+            subtitle=None,
+            colors=c,
+            on_click=lambda e: navigate_to_history(),
         )
     )
-    controls.append(_divider())
-    controls.extend(history_rows)
 
-    return ft.Container(
-        bgcolor=c["card_bg"],
-        border_radius=16,
-        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
-        content=ft.Column(spacing=0, controls=controls),
-    )
+    return ft.Column(spacing=0, controls=controls)
 
 
-def _settings_cell(icon, title, subtitle, colors, on_click):
+def _settings_cell(icon, title, subtitle=None, colors=None, on_click=None):
     """Helper to build a consistent settings row.
 
     ``subtitle`` may be a plain string (wrapped in a new ``ft.Text``) or an
     existing ``ft.Text`` control, so callers that need to update the label
     later (e.g. live sync status) can keep a reference to it.
     """
-    subtitle_control = (
-        subtitle
-        if isinstance(subtitle, ft.Text)
-        else ft.Text(subtitle, size=14, color=colors["on_surface_variant"])
-    )
+    trailing_controls = [
+        ft.Icon(
+            ft.Icons.CHEVRON_RIGHT,
+            color=colors["on_surface_variant"],
+            size=20,
+        )
+    ]
+    if subtitle is not None:
+        subtitle_control = (
+            subtitle
+            if isinstance(subtitle, ft.Text)
+            else ft.Text(subtitle, size=14, color=colors["on_surface_variant"])
+        )
+        trailing_controls.insert(0, subtitle_control)
     return ft.Container(
         on_click=on_click,
         padding=ft.Padding.symmetric(vertical=14, horizontal=18),
@@ -1153,14 +1306,7 @@ def _settings_cell(icon, title, subtitle, colors, on_click):
                 ),
                 ft.Row(
                     spacing=4,
-                    controls=[
-                        subtitle_control,
-                        ft.Icon(
-                            ft.Icons.CHEVRON_RIGHT,
-                            color=colors["on_surface_variant"],
-                            size=20,
-                        ),
-                    ],
+                    controls=trailing_controls,
                 ),
             ],
         ),

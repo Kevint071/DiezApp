@@ -13,6 +13,7 @@ import httpx
 
 DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files"
 DRIVE_UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/drive/v3/files"
+FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
 
 class DriveApiError(Exception):
@@ -35,24 +36,62 @@ def _raise_for_drive_error(resp: httpx.Response) -> None:
         details = error.get("errors", [{}])[0]
         reason = details.get("reason") or error.get("status") or reason
         message = error.get("message") or message
-    except (ValueError, AttributeError, IndexError, TypeError):
+    except ValueError, AttributeError, IndexError, TypeError:
         pass
     raise DriveApiError(resp.status_code, reason, message)
 
 
 async def create_backup_folder(access_token: str, folder_name: str) -> str:
     """Create a new Drive folder (in "My Drive" root) and return its file ID."""
+    return await create_folder(access_token, folder_name, "root")
+
+
+async def create_folder(access_token: str, folder_name: str, parent_id: str) -> str:
+    """Create a new Drive folder below ``parent_id`` and return its file ID."""
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
             DRIVE_FILES_ENDPOINT,
             headers={"Authorization": f"Bearer {access_token}"},
             json={
                 "name": folder_name,
-                "mimeType": "application/vnd.google-apps.folder",
+                "mimeType": FOLDER_MIME_TYPE,
+                "parents": [parent_id],
             },
         )
         _raise_for_drive_error(resp)
         return resp.json()["id"]
+
+
+async def list_folders(
+    access_token: str, parent_id: str = "root"
+) -> list[dict[str, str]]:
+    """List folders directly below ``parent_id`` visible to the app."""
+    folders = []
+    page_token = None
+    async with httpx.AsyncClient(timeout=20) as client:
+        while True:
+            params = {
+                "q": (
+                    f"'{parent_id}' in parents and "
+                    f"mimeType = '{FOLDER_MIME_TYPE}' and trashed = false"
+                ),
+                "fields": "nextPageToken,files(id,name)",
+                "orderBy": "name",
+                "pageSize": "100",
+            }
+            if page_token:
+                params["pageToken"] = page_token
+            resp = await client.get(
+                DRIVE_FILES_ENDPOINT,
+                headers={"Authorization": f"Bearer {access_token}"},
+                params=params,
+            )
+            _raise_for_drive_error(resp)
+            data = resp.json()
+            folders.extend(data.get("files", []))
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                return folders
 
 
 async def upload_backup_file(

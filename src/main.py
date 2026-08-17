@@ -248,9 +248,44 @@ def _main(page: ft.Page):
 
         calculator.reset()
         content = build_settings_view(
-            page, state, save_settings, lambda: route_change(), get_colors
+            page,
+            state,
+            save_settings,
+            lambda: route_change(),
+            get_colors,
+            lambda: page.navigate("/google-drive"),
         )
         return _apply_root("/settings", _build_appbar("Configuración"), content)
+
+    def _build_google_drive_view() -> ft.View:
+        from views.google_drive_view import build_google_drive_view
+
+        content = build_google_drive_view(
+            page,
+            get_colors,
+            lambda: route_change(),
+            lambda: page.navigate("/google-drive/history"),
+        )
+        return ft.View(
+            route="/google-drive",
+            padding=0,
+            appbar=_build_appbar(
+                "Copias de seguridad", show_back=True, back_route="/settings"
+            ),
+            controls=[content],
+        )
+
+    def _build_google_drive_history_view() -> ft.View:
+        from views.google_drive_view import build_google_drive_history_view
+
+        return ft.View(
+            route="/google-drive/history",
+            padding=0,
+            appbar=_build_appbar(
+                "Copias realizadas", show_back=True, back_route="/google-drive"
+            ),
+            controls=[build_google_drive_history_view(page, get_colors)],
+        )
 
     # ── Nested (drill-down) views ─────────────────────────
     def _build_pdf_preview_view() -> ft.View:
@@ -396,7 +431,9 @@ def _main(page: ft.Page):
         nav_bar.bgcolor = ft.Colors.TRANSPARENT
         nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
 
-        if route.startswith("/notes"):
+        if route in ("/google-drive", "/google-drive/history"):
+            root_idx, root_view = 4, _build_google_drive_view()
+        elif route.startswith("/notes"):
             root_idx, root_view = 3, _build_notes_view()
         elif route.startswith("/settings"):
             root_idx, root_view = 4, _build_settings_view()
@@ -425,6 +462,8 @@ def _main(page: ft.Page):
             new_views.append(_build_note_detail_view())
         elif route == "/pdf-export/preview":
             new_views.append(_build_pdf_preview_view())
+        elif route == "/google-drive/history":
+            new_views.append(_build_google_drive_history_view())
         elif route in ("/settings/conflicts", "/settings/conflicts/detail"):
             from views.conflicts_view import (
                 build_conflict_detail_view_route,
@@ -455,7 +494,7 @@ def _main(page: ft.Page):
 
         result = await complete_link_flow(page, dict(page.query.to_dict))
         page.session.store.set("gdrive_link_message", result["message"])
-        page.navigate("/settings")
+        page.navigate("/google-drive")
 
     async def _gdrive_scheduler():
         """Startup catch-up + in-app interval loop, both calling run_backup_now()

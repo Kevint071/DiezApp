@@ -65,12 +65,18 @@ async def _upload_with_retry(
     }
 
 
-async def run_backup_now(page: ft.Page) -> dict:
-    """Snapshot + upload to all linked accounts with a configured folder.
+async def run_backup_now(page: ft.Page, account_ids: set[str] | None = None) -> dict:
+    """Snapshot + upload to selected linked accounts with a configured folder.
 
-    Returns {"status": "success"|"partial"|"failed"|"skipped", "results": [...]}.
+    ``account_ids=None`` keeps the scheduler behavior of uploading to every
+    configured account. A set limits a manual run to the selected accounts.
     """
-    accounts = [a for a in list_accounts() if a.get("folder_id")]
+    accounts = [
+        account
+        for account in list_accounts()
+        if account.get("folder_id")
+        and (account_ids is None or account["id"] in account_ids)
+    ]
     if not accounts:
         return {
             "status": "skipped",
