@@ -828,6 +828,11 @@ def _build_gdrive_backups_section(
     folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
     folder_delete_state = {"active": False, "selected": set()}
     current_folders = []
+    folder_back_button = ft.IconButton(
+        ft.Icons.ARROW_BACK,
+        tooltip="Carpeta padre",
+        visible=False,
+    )
 
     def _close_folder_dialog(e):
         page.pop_dialog()
@@ -843,6 +848,7 @@ def _build_gdrive_backups_section(
             return
         folder_dialog_state["parent_id"] = parent_id
         folder_dialog_state["parent_name"] = parent_name
+        folder_back_button.visible = bool(folder_dialog_state["stack"])
         path_names = [
             "Mi unidad"
         ] + [
@@ -985,6 +991,8 @@ def _build_gdrive_backups_section(
         parent_id, parent_name = folder_dialog_state["stack"].pop()
         await _load_folder_list(parent_id, parent_name)
 
+    folder_back_button.on_click = _go_to_parent
+
     def _select_current_folder(e):
         set_account_folder(
             folder_dialog_state["account_id"],
@@ -1028,11 +1036,7 @@ def _build_gdrive_backups_section(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
                         folder_actions,
-                        ft.IconButton(
-                            ft.Icons.ARROW_BACK,
-                            tooltip="Carpeta padre",
-                            on_click=_go_to_parent,
-                        ),
+                        folder_back_button,
                         folder_loading,
                     ]
                 ),
