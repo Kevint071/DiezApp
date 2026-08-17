@@ -9,31 +9,23 @@ from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handl
 def _build_home_card(page: ft.Page, colors_fn, icon, title, subtitle, accent, on_click):
     c = colors_fn(page)
     return ft.Container(
-        bgcolor=c["card_bg"],
-        border_radius=20,
-        padding=ft.Padding.all(18),
-        border=ft.Border.all(1, ft.Colors.with_opacity(0.06, c["on_surface"])),
-        shadow=ft.BoxShadow(
-            blur_radius=18,
-            spread_radius=-4,
-            color=ft.Colors.with_opacity(0.12, "#000000"),
-            offset=ft.Offset(0, 6),
-        ),
+        border_radius=14,
+        padding=ft.Padding.symmetric(vertical=12, horizontal=14),
         on_click=on_click,
         ink=True,
-        ink_color=ft.Colors.with_opacity(0.1, accent),
+        ink_color=ft.Colors.with_opacity(0.08, accent),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.START,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=14,
             controls=[
                 ft.Container(
-                    width=52,
-                    height=52,
-                    border_radius=16,
+                    width=44,
+                    height=44,
+                    border_radius=13,
                     bgcolor=ft.Colors.with_opacity(0.14, accent),
                     alignment=ft.Alignment.CENTER,
-                    content=ft.Icon(icon, color=accent, size=26),
+                    content=ft.Icon(icon, color=accent, size=24),
                 ),
                 ft.Column(
                     expand=True,
@@ -41,7 +33,7 @@ def _build_home_card(page: ft.Page, colors_fn, icon, title, subtitle, accent, on
                     controls=[
                         ft.Text(
                             title,
-                            size=16,
+                            size=17,
                             weight=ft.FontWeight.W_700,
                             color=c["on_surface"],
                             max_lines=2,
@@ -91,7 +83,7 @@ def build_home_view(page: ft.Page, colors_fn, on_open_calculator, on_open_monthl
                                 margin=ft.Margin.symmetric(horizontal=24),
                                 content=ft.Column(
                                     expand=True,
-                                    spacing=16,
+                                    spacing=12,
                                     controls=[
                                         ft.Text(
                                             "¿Qué deseas calcular?",
