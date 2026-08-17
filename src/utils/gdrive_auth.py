@@ -1,188 +1,104 @@
-"""Google OAuth2 (Authorization Code + PKCE) for linking up to 2 Drive accounts.
+"""Google OAuth2 login for linking up to 2 Drive accounts, proxied through the
+diezmapp-api Next.js backend (see ../../../diezmapp-api/src/app/api/auth).
 
-Flet's built-in `page.login()`/`GoogleOAuthProvider` assumes a reachable HTTP
-redirect target and a mandatory `client_secret` — not a fit for a serverless
-packaged mobile app (see design.md, Decision 1). Two alternatives were tried
-and reverted (see design.md Decision 0 history): a Desktop-app/loopback
-redirect (unsupported for Android per Google's own docs) and the OAuth
-Device Authorization flow (meant for TVs/limited-input devices, not phones
-with a full browser — Google explicitly recommends against it here). This
-module instead talks directly to Google's OAuth endpoints using the
-Authorization Code + PKCE flow with a custom-scheme redirect, relying on
-Flet's built-in `[tool.flet.<platform>.deep_linking]` mechanism (configured
-in ``pyproject.toml``) to route the incoming redirect back into the app as a
-normal ``page.route`` change (see main.py's handling of the "/callback"
-route). This is one of the two redirect mechanisms documented by AppAuth/RFC
-8252 for native apps; Google's docs now discourage it in favor of verified
-HTTPS App Links (which need a domain the app owns) — accepted here as a
-reasonable trade-off for a personal, sideloaded (non-Play-Store) app.
+Google no longer accepts a custom-scheme `redirect_uri` (e.g.
+`oauth2redirect://...`) for the Authorization Code flow — the authorization
+server rejects it outright with `Error 400: invalid_request`. Only a real
+`https://` redirect_uri is accepted now (see README-setup-android-oauth.md
+for the history of what was tried before this).
+
+This module therefore never talks to Google directly. Instead:
+1. `start_link_flow` opens the system browser at the backend's
+   `/api/auth/login`, passing an `app_state` nonce it generated.
+2. The backend runs the full Authorization Code + PKCE exchange against
+   Google using its own `https://` redirect_uri and a confidential "Web
+   application" OAuth client (client_secret lives only on the server).
+3. The backend redirects back into this app via a custom-scheme deep link
+   (Android/iOS allow this because it's *our own server* redirecting, not
+   Google), landing on the "/callback" route (see main.py) with the tokens
+   and the original `app_state` as query params.
+4. Refreshing an expired access_token also requires client_secret, so
+   `ensure_fresh_access_token` posts to the backend's `/api/auth/refresh`
+   instead of calling Google directly.
 """
 
-import base64
-import hashlib
-import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlencode
 
 import flet as ft
 import httpx
 
 from utils.db import get_connection
 
-AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
-USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
-SCOPE = "https://www.googleapis.com/auth/drive.file openid email"
+# Base URL of the deployed diezmapp-api backend. Not a secret: it only ever
+# forwards data the user's own browser already has (see design.md).
+BACKEND_BASE_URL = "https://diezapp-api.vercel.app"
+LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/login"
+REFRESH_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/refresh"
 
-# Redirect host/path must match the `host`/path used in the
-# `[tool.flet.android.deep_linking]` / `[tool.flet.ios.deep_linking]` entries
-# in pyproject.toml. The scheme itself is per-platform (each OAuth client
-# type gets its own reversed-domain scheme), so the redirect_uri is built
-# per-platform below.
-REDIRECT_HOST = "oauth2redirect"
-REDIRECT_PATH = "/callback"
+# Must match the backend's APP_SHARED_SECRET env var (defense in depth for
+# /api/auth/refresh; leave empty if the backend doesn't set one either).
+BACKEND_SHARED_SECRET = ""
 
 MAX_ACCOUNTS = 2
-ANDROID_CLIENT_ID = (
-    "105025843954-9p82u5mujmfakqmt4t52bt8pb9ntak4o.apps.googleusercontent.com"
-)
-
-_CLIENT_IDS = {
-    ft.PagePlatform.ANDROID: ANDROID_CLIENT_ID,
-    ft.PagePlatform.IOS: "",
-}
-
-
-def _client_id_for(page: ft.Page) -> str | None:
-    platform = page.platform
-    if isinstance(platform, str):
-        platform = next(
-            (item for item in ft.PagePlatform if item.value == platform.lower()),
-            platform,
-        )
-    client_id = _CLIENT_IDS.get(platform)
-    if client_id:
-        return client_id
-    # Plain `flet run` uses the desktop platform. Reuse the public Android
-    # client ID for local UI testing; the native redirect still requires an
-    # Android build (`flet run --android` or `flet build apk`).
-    if platform != ft.PagePlatform.IOS:
-        return _CLIENT_IDS.get(ft.PagePlatform.ANDROID) or None
-    return None
-
-
-def _scheme_for_client_id(client_id: str) -> str:
-    # Google's convention for "Android"/"iOS" (installed app) OAuth client
-    # types: the reversed-domain form of the client ID, e.g.
-    # "123-abc.apps.googleusercontent.com" -> "com.googleusercontent.apps.123-abc".
-    prefix = client_id.split(".apps.googleusercontent.com")[0]
-    return f"com.googleusercontent.apps.{prefix}"
 
 
 def is_configured(page: ft.Page) -> bool:
-    """Whether an OAuth Client ID is configured for the current platform."""
-    return _client_id_for(page) is not None
-
-
-def redirect_uri_for(page: ft.Page) -> str:
-    client_id = _client_id_for(page)
-    scheme = _scheme_for_client_id(client_id)
-    return f"{scheme}://{REDIRECT_HOST}{REDIRECT_PATH}"
-
-
-def _generate_pkce_pair() -> tuple[str, str]:
-    verifier = base64.urlsafe_b64encode(secrets.token_bytes(64)).rstrip(b"=").decode()
-    digest = hashlib.sha256(verifier.encode()).digest()
-    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
-    return verifier, challenge
+    """Whether the backend proxy URL is configured."""
+    return bool(BACKEND_BASE_URL)
 
 
 async def start_link_flow(page: ft.Page) -> bool:
-    """Open the Google consent screen for linking a new account.
+    """Open the backend's login endpoint to start linking a new account.
 
     Returns False (without opening anything) if the 2-account limit is
-    already reached or no OAuth Client ID is configured for this platform.
+    already reached or the backend proxy isn't configured.
     """
     if not is_configured(page):
         return False
     if not can_add_account():
         return False
 
-    client_id = _client_id_for(page)
-    verifier, challenge = _generate_pkce_pair()
-    state = uuid.uuid4().hex
-    page.session.store.set(
-        "gdrive_oauth_pending", {"verifier": verifier, "state": state}
-    )
+    app_state = uuid.uuid4().hex
+    page.session.store.set("gdrive_oauth_pending", {"state": app_state})
 
-    params = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri_for(page),
-        "response_type": "code",
-        "scope": SCOPE,
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-        "state": state,
-        "prompt": "select_account consent",
-        "access_type": "offline",
-    }
-    url = f"{AUTH_ENDPOINT}?{urlencode(params)}"
+    url = f"{LOGIN_ENDPOINT}?app_state={app_state}"
     await ft.UrlLauncher().launch_url(url)
     return True
 
 
 async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
-    """Handle the redirect back from Google (called from the "/callback" route).
+    """Handle the deep-link redirect back from the backend proxy (called
+    from the "/callback" route).
 
     Returns a dict: {"ok": bool, "message": str}.
     """
     pending = page.session.store.get("gdrive_oauth_pending")
     page.session.store.remove("gdrive_oauth_pending")
 
-    error = query_params.get("error")
-    if error:
-        return {"ok": False, "message": "Vinculación cancelada"}
-
-    code = query_params.get("code")
-    returned_state = query_params.get("state")
-    if not pending or not code or returned_state != pending.get("state"):
+    returned_state = query_params.get("app_state")
+    if not pending or returned_state != pending.get("state"):
         return {"ok": False, "message": "No se pudo completar la vinculación"}
 
-    client_id = _client_id_for(page)
-    if not client_id:
-        return {"ok": False, "message": "OAuth de Google no configurado"}
+    if query_params.get("error"):
+        return {"ok": False, "message": "Vinculación cancelada"}
+
+    access_token = query_params.get("access_token")
+    email = query_params.get("email")
+    if not access_token or not email:
+        return {"ok": False, "message": "No se pudo completar la vinculación"}
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            token_resp = await client.post(
-                TOKEN_ENDPOINT,
-                data={
-                    "client_id": client_id,
-                    "code": code,
-                    "code_verifier": pending["verifier"],
-                    "grant_type": "authorization_code",
-                    "redirect_uri": redirect_uri_for(page),
-                },
-            )
-            token_resp.raise_for_status()
-            tokens = token_resp.json()
-
-            userinfo_resp = await client.get(
-                USERINFO_ENDPOINT,
-                headers={"Authorization": f"Bearer {tokens['access_token']}"},
-            )
-            userinfo_resp.raise_for_status()
-            email = userinfo_resp.json().get("email", "")
-    except httpx.HTTPError:
-        return {"ok": False, "message": "Error de red al vincular la cuenta"}
+        expires_in = int(query_params.get("expires_in", 3600))
+    except ValueError:
+        expires_in = 3600
 
     try:
         add_account(
             email=email,
-            access_token=tokens["access_token"],
-            refresh_token=tokens.get("refresh_token", ""),
-            expires_in=tokens.get("expires_in", 3600),
+            access_token=access_token,
+            refresh_token=query_params.get("refresh_token", ""),
+            expires_in=expires_in,
         )
     except ValueError as e:
         return {"ok": False, "message": str(e)}
@@ -191,12 +107,9 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
 
 
 async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
-    """Return a valid access token for `account`, refreshing it if expired.
-
-    Refresh tokens are issued per Client ID, and the account was linked while
-    running on `page.platform`'s client — so refreshing must reuse the same
-    platform's client_id, not any other configured one.
-    """
+    """Return a valid access token for `account`, refreshing it via the
+    backend proxy if expired (refreshing requires client_secret, which only
+    the backend holds)."""
     expiry = account.get("token_expiry_at")
     if expiry:
         try:
@@ -210,19 +123,13 @@ async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
     if not refresh_token:
         return account.get("access_token")
 
-    client_id = _client_id_for(page)
-    if not client_id:
-        return None
-
+    headers = {"X-App-Secret": BACKEND_SHARED_SECRET} if BACKEND_SHARED_SECRET else {}
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(
-                TOKEN_ENDPOINT,
-                data={
-                    "client_id": client_id,
-                    "refresh_token": refresh_token,
-                    "grant_type": "refresh_token",
-                },
+                REFRESH_ENDPOINT,
+                json={"refresh_token": refresh_token},
+                headers=headers,
             )
             resp.raise_for_status()
             tokens = resp.json()

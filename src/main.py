@@ -386,8 +386,9 @@ def _main(page: ft.Page):
         route = page.route
 
         if route.startswith("/callback"):
-            # Google OAuth redirect (custom-scheme deep link, see
-            # utils/gdrive_auth.py + pyproject.toml's [tool.flet.*.deep_linking]).
+            # Redirect from the diezmapp-api backend OAuth proxy (custom-scheme
+            # deep link, see utils/gdrive_auth.py + pyproject.toml's
+            # [tool.flet.*.deep_linking]).
             page.run_task(_handle_gdrive_callback)
             return
 
