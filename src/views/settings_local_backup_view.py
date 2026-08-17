@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import flet as ft
+from diezapp.features.conflicts.application.conflict_service import ConflictService
 
 
 def build_local_backup_section(
@@ -13,6 +14,7 @@ def build_local_backup_section(
     navigate_to_settings,
     settings_cell,
     is_desktop,
+    conflicts_service: ConflictService,
 ):
     """Build export, import and conflict controls for the local SQLite backup."""
 
@@ -192,7 +194,6 @@ def build_local_backup_section(
     page.update()
 
     def process_calculations(imported: list, mode: str) -> dict:
-        from utils.conflicts import calcs_differ, save_conflicts
         from utils.storage import load_calculations, save_calculations
 
         if mode == "replace":
@@ -204,20 +205,19 @@ def build_local_backup_section(
         for item in imported:
             item_id = item.get("id")
             if item_id and item_id in existing_map:
-                if calcs_differ(existing_map[item_id], item):
+                if conflicts_service.calculations_differ(existing_map[item_id], item):
                     conflicts.append(
                         {"existing": existing_map[item_id], "imported": item}
                     )
             else:
                 to_add.append(item)
         if conflicts:
-            save_conflicts(conflicts, to_add, kind="calculations")
+            conflicts_service.save(conflicts, to_add, kind="calculations")
         else:
             save_calculations(existing + to_add)
         return {"added": len(to_add), "conflicts": len(conflicts)}
 
     def process_notes(imported: list, mode: str) -> dict:
-        from utils.conflicts import notes_differ, save_conflicts
         from utils.notes import load_notes, save_notes
 
         if mode == "replace":
@@ -229,26 +229,25 @@ def build_local_backup_section(
         for item in imported:
             item_id = item.get("id")
             if item_id and item_id in existing_map:
-                if notes_differ(existing_map[item_id], item):
+                if conflicts_service.notes_differ(existing_map[item_id], item):
                     conflicts.append(
                         {"existing": existing_map[item_id], "imported": item}
                     )
             else:
                 to_add.append(item)
         if conflicts:
-            save_conflicts(conflicts, to_add, kind="notes")
+            conflicts_service.save(conflicts, to_add, kind="notes")
         else:
             save_notes(existing + to_add)
         return {"added": len(to_add), "conflicts": len(conflicts)}
 
     async def confirm_import(e):
         page.pop_dialog()
-        from utils.conflicts import conflict_count
 
         target = import_target["value"]
         mode = import_mode["value"]
-        if (target in ("calcs", "both") and conflict_count() > 0) or (
-            target in ("notes", "both") and conflict_count(kind="notes") > 0
+        if (target in ("calcs", "both") and conflicts_service.count() > 0) or (
+            target in ("notes", "both") and conflicts_service.count(kind="notes") > 0
         ):
             show_snack("Resuelve los conflictos antes de importar")
             return
@@ -372,10 +371,8 @@ def build_local_backup_section(
         on_click=open_import_dialog,
     )
 
-    from utils.conflicts import conflict_count
-
-    calc_conflicts = conflict_count()
-    note_conflicts = conflict_count(kind="notes")
+    calc_conflicts = conflicts_service.count()
+    note_conflicts = conflicts_service.count(kind="notes")
     total_conflicts = calc_conflicts + note_conflicts
 
     def go_to_conflicts(kind: str):

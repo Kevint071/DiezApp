@@ -1,7 +1,5 @@
 from diezapp.features.conflicts.application.conflict_service import (
     ConflictService,
-    calcs_differ,
-    notes_differ,
 )
 from diezapp.infrastructure.persistence.sqlite_conflict_repository import (
     SqliteConflictRepository,
@@ -17,6 +15,14 @@ __all__ = [
 ]
 
 _service = ConflictService(SqliteConflictRepository())
+
+
+def calcs_differ(first: dict, second: dict) -> bool:
+    return _service.calculations_differ(first, second)
+
+
+def notes_differ(first: dict, second: dict) -> bool:
+    return _service.notes_differ(first, second)
 
 
 def load_conflicts(kind: str = "calculations") -> dict:

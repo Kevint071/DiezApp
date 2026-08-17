@@ -12,14 +12,6 @@ CALC_DIFF_FIELDS = [
 NOTE_DIFF_FIELDS = ["title", "content"]
 
 
-def calcs_differ(first: dict, second: dict) -> bool:
-    return any(first.get(key) != second.get(key) for key in CALC_DIFF_FIELDS)
-
-
-def notes_differ(first: dict, second: dict) -> bool:
-    return any(first.get(key) != second.get(key) for key in NOTE_DIFF_FIELDS)
-
-
 class ConflictService:
     def __init__(self, repository: ConflictRepository):
         self.repository = repository
@@ -40,3 +32,9 @@ class ConflictService:
 
     def count(self, kind: str = "calculations") -> int:
         return len(self.load(kind)["conflicts"])
+
+    def calculations_differ(self, first: dict, second: dict) -> bool:
+        return any(first.get(key) != second.get(key) for key in CALC_DIFF_FIELDS)
+
+    def notes_differ(self, first: dict, second: dict) -> bool:
+        return any(first.get(key) != second.get(key) for key in NOTE_DIFF_FIELDS)

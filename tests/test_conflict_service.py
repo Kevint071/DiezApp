@@ -29,3 +29,12 @@ def test_conflict_service_saves_counts_and_clears_by_kind():
     assert service.load("notes")["pending_add"] == [{"id": "2"}]
     service.clear("notes")
     assert service.count("notes") == 0
+
+
+def test_conflict_service_compares_calculations_and_notes():
+    service = ConflictService(InMemoryConflictRepository())
+
+    assert service.calculations_differ({"amount": 100}, {"amount": 200}) is True
+    assert service.calculations_differ({"amount": 100}, {"amount": 100}) is False
+    assert service.notes_differ({"title": "A"}, {"title": "B"}) is True
+    assert service.notes_differ({"content": "A"}, {"content": "A"}) is False

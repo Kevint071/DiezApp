@@ -232,6 +232,7 @@ def _main(page: ft.Page):
             lambda: route_change(),
             get_colors,
             lambda: page.navigate(routes.GOOGLE_DRIVE),
+            dependencies.conflicts,
         )
         return _apply_root(routes.SETTINGS, _build_appbar("Configuración"), content)
 
