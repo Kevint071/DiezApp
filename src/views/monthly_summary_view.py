@@ -322,24 +322,26 @@ def build_breakdown_view(
         )
 
         footer = ft.Container(
-            bgcolor=c["hero_bg"],
-            border_radius=12,
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            margin=ft.Margin.only(top=12, bottom=20),
+            border=ft.Border(
+                top=ft.BorderSide(1, c["divider"]),
+                bottom=ft.BorderSide(1, c["divider"]),
+            ),
+            padding=ft.Padding.symmetric(vertical=12, horizontal=16),
+            margin=ft.Margin.only(top=8, bottom=20),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 controls=[
                     ft.Text(
                         "Total",
-                        size=14,
-                        weight=ft.FontWeight.W_600,
-                        color=c["hero_fg"],
+                        size=12,
+                        weight=ft.FontWeight.W_700,
+                        color=c["primary"],
                     ),
                     ft.Text(
                         _format_currency(running_total),
                         size=16,
                         weight=ft.FontWeight.W_700,
-                        color=c["hero_fg"],
+                        color=c["on_surface"],
                     ),
                 ],
             ),
@@ -400,10 +402,12 @@ def build_breakdown_view(
             if len(months) > 1:
                 controls.append(
                     ft.Container(
-                        bgcolor=c["primary"],
-                        border_radius=12,
-                        padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-                        margin=ft.Margin.only(top=4, bottom=24),
+                        border=ft.Border(
+                            top=ft.BorderSide(2, c["primary"]),
+                            bottom=ft.BorderSide(1, c["divider"]),
+                        ),
+                        padding=ft.Padding.symmetric(vertical=14, horizontal=16),
+                        margin=ft.Margin.only(top=8, bottom=24),
                         content=ft.Row(
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             controls=[
@@ -411,9 +415,9 @@ def build_breakdown_view(
                                     "Suma total"
                                     if indicator_key == "fondo_local"
                                     else "Promedio",
-                                    size=14,
-                                    weight=ft.FontWeight.W_600,
-                                    color=c["on_primary"],
+                                    size=12,
+                                    weight=ft.FontWeight.W_700,
+                                    color=c["primary"],
                                 ),
                                 ft.Text(
                                     _format_currency(
@@ -423,7 +427,7 @@ def build_breakdown_view(
                                     ),
                                     size=16,
                                     weight=ft.FontWeight.W_700,
-                                    color=c["on_primary"],
+                                    color=c["on_surface"],
                                 ),
                             ],
                         ),
