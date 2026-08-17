@@ -49,9 +49,7 @@ async def create_backup_folder(access_token: str, folder_name: str) -> str:
 
 async def create_folder(access_token: str, folder_name: str, parent_id: str) -> str:
     """Create a new Drive folder below ``parent_id`` and return its file ID."""
-    async with httpx.AsyncClient(
-        timeout=20, verify=DRIVE_SSL_CONTEXT
-    ) as client:
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
         resp = await client.post(
             DRIVE_FILES_ENDPOINT,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -67,9 +65,7 @@ async def create_folder(access_token: str, folder_name: str, parent_id: str) -> 
 
 async def delete_folder(access_token: str, folder_id: str) -> None:
     """Delete a folder selected by the user from Google Drive."""
-    async with httpx.AsyncClient(
-        timeout=20, verify=DRIVE_SSL_CONTEXT
-    ) as client:
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
         resp = await client.delete(
             f"{DRIVE_FILES_ENDPOINT}/{folder_id}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -83,9 +79,7 @@ async def list_folders(
     """List folders directly below ``parent_id`` visible to the app."""
     folders = []
     page_token = None
-    async with httpx.AsyncClient(
-        timeout=20, verify=DRIVE_SSL_CONTEXT
-    ) as client:
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
         while True:
             params = {
                 "q": (
@@ -131,9 +125,7 @@ async def upload_backup_file(
         + f"\r\n--{boundary}--".encode()
     )
 
-    async with httpx.AsyncClient(
-        timeout=60, verify=DRIVE_SSL_CONTEXT
-    ) as client:
+    async with httpx.AsyncClient(timeout=60, verify=DRIVE_SSL_CONTEXT) as client:
         resp = await client.post(
             f"{DRIVE_UPLOAD_ENDPOINT}?uploadType=multipart",
             headers={

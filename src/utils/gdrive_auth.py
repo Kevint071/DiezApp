@@ -70,9 +70,7 @@ async def start_link_flow(page: ft.Page) -> bool:
         current_url = urlsplit(page.url)
         web_scheme = {"ws": "http", "wss": "https"}.get(current_url.scheme)
         if web_scheme and current_url.netloc:
-            params["web_return_url"] = (
-                f"{web_scheme}://{current_url.netloc}/callback"
-            )
+            params["web_return_url"] = f"{web_scheme}://{current_url.netloc}/callback"
     url = f"{LOGIN_ENDPOINT}?{urlencode(params)}"
     await ft.UrlLauncher().launch_url(url)
     return True
@@ -91,9 +89,7 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
 
     returned_state = query_params.get("app_state")
     is_web_runtime = page.web or (page.url or "").startswith(("ws://", "wss://"))
-    if not is_web_runtime and (
-        not pending or returned_state != pending.get("state")
-    ):
+    if not is_web_runtime and (not pending or returned_state != pending.get("state")):
         if pending:
             page.session.store.remove("gdrive_oauth_pending")
         return {"ok": False, "message": "No se pudo completar la vinculación"}
@@ -249,5 +245,3 @@ def _update_account_token(account_id: str, access_token: str, expiry_iso: str):
         (access_token, expiry_iso, account_id),
     )
     conn.commit()
-
-
