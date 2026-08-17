@@ -7,6 +7,9 @@ from diezapp.features.conflicts.application.conflict_service import ConflictServ
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
+from diezapp.features.monthly_summary.domain.monthly_summary_service import (
+    MonthlySummaryService,
+)
 from diezapp.features.notes.application.note_service import NoteService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.features.settings.application.settings_service import SettingsService
@@ -31,6 +34,7 @@ class AppDependencies:
     calculations: CalculationService
     conflicts: ConflictService
     local_backup: LocalBackupService
+    monthly_summary: MonthlySummaryService
     notes: NoteService
     pdf_export: PdfExportService
     settings: SettingsService
@@ -43,10 +47,12 @@ def create_dependencies() -> AppDependencies:
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
     pdf_generator = PdfGenerator()
+    monthly_summary = MonthlySummaryService(calculation_repository)
     return AppDependencies(
         calculations=CalculationService(calculation_repository),
         conflicts=ConflictService(conflict_repository),
         local_backup=LocalBackupService(backup_adapter),
+        monthly_summary=monthly_summary,
         notes=NoteService(note_repository),
         pdf_export=PdfExportService(pdf_generator),
         settings=SettingsService(settings_repository),

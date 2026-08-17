@@ -365,7 +365,9 @@ def _main(page: ft.Page):
     def _build_monthly_view() -> ft.View:
         from views.monthly_summary_view import build_monthly_summary_view
 
-        content = build_monthly_summary_view(page, get_colors)
+        content = build_monthly_summary_view(
+            page, get_colors, dependencies.monthly_summary
+        )
         return ft.View(
             route=routes.MONTHLY,
             padding=0,
@@ -395,6 +397,7 @@ def _main(page: ft.Page):
             page,
             get_colors,
             months,
+            dependencies.monthly_summary,
             on_indicator_change=_on_indicator_change,
         )
         return ft.View(

@@ -2,8 +2,10 @@ from datetime import UTC, datetime
 
 import flet as ft
 
+from diezapp.features.monthly_summary.domain.monthly_summary_service import (
+    MonthlySummaryService,
+)
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.storage import load_calculations
 from utils.theme import get_navigation_bar_style
 
 MONTHS = [
@@ -76,53 +78,6 @@ def _load_monthly_state(page: ft.Page, current_year: int) -> dict:
         "mode": saved.get("mode", "monthly"),
         "monthly_selected": saved.get("monthly_selected"),
         "selected_months": set(selected_months),
-    }
-
-
-def _get_month_calculations(year: int, month: int) -> list:
-    calculations = load_calculations()
-    filtered = []
-    for calc in calculations:
-        try:
-            calc_date = datetime.fromisoformat(calc.get("created_at", ""))
-            if calc_date.year == year and calc_date.month == month:
-                filtered.append(calc)
-        except ValueError, TypeError:
-            continue
-    # Oldest first for progressive sum
-    filtered.reverse()
-    return filtered
-
-
-def _month_totals(year: int, month: int) -> dict:
-    calcs = _get_month_calculations(year, month)
-    return {key: sum(calc.get(key, 0.0) for calc in calcs) for key, _ in INDICATORS}
-
-
-def _sum_month_totals(months: list) -> dict:
-    totals = {key: 0.0 for key, _ in INDICATORS}
-    for year, month in months:
-        month_totals = _month_totals(year, month)
-        for key in totals:
-            totals[key] += month_totals[key]
-    return totals
-
-
-def _average_totals(months: list) -> dict:
-    if not months:
-        return {key: 0.0 for key, _ in INDICATORS}
-    totals = _sum_month_totals(months)
-    return {key: value / len(months) for key, value in totals.items()}
-
-
-def _general_totals(months: list) -> dict:
-    if not months:
-        return {key: 0.0 for key, _ in INDICATORS}
-
-    summed_totals = _sum_month_totals(months)
-    return {
-        key: value if key == "fondo_local" else value / len(months)
-        for key, value in summed_totals.items()
     }
 
 
@@ -199,7 +154,11 @@ def _build_summary_card(c, totals: dict, on_detail, mode: str) -> ft.Container:
 
 
 def build_breakdown_view(
-    page: ft.Page, colors_fn, months: list, on_indicator_change=None
+    page: ft.Page,
+    colors_fn,
+    months: list,
+    monthly_summary: MonthlySummaryService,
+    on_indicator_change=None,
 ):
     c = colors_fn(page)
     months = sorted(months or [])
@@ -208,7 +167,7 @@ def build_breakdown_view(
     body_container = ft.Container(expand=True)
 
     def _build_month_section(year: int, month: int, indicator_key: str):
-        calcs = _get_month_calculations(year, month)
+        calcs = monthly_summary.month_calculations(year, month)
         rows = []
         running_total = 0.0
 
@@ -507,7 +466,9 @@ def build_breakdown_view(
     return content, indicator_navigation
 
 
-def build_monthly_summary_view(page: ft.Page, colors_fn):
+def build_monthly_summary_view(
+    page: ft.Page, colors_fn, monthly_summary: MonthlySummaryService
+):
     c = colors_fn(page)
     now = datetime.now(UTC).astimezone()
     state = _load_monthly_state(page, now.year)
@@ -612,7 +573,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
                 hint_text.value = "Selecciona un mes"
             else:
                 year, month = selected
-                totals = _month_totals(year, month)
+                totals = monthly_summary.month_totals(year, month)
                 summary_container.visible = True
                 summary_container.content = _build_summary_card(
                     c, totals, _on_detail_tap([selected]), "monthly"
@@ -625,7 +586,7 @@ def build_monthly_summary_view(page: ft.Page, colors_fn):
                 summary_container.content = None
                 hint_text.value = "Selecciona uno o más meses"
             else:
-                totals = _general_totals(selected_months)
+                totals = monthly_summary.general_totals(selected_months)
                 summary_container.visible = True
                 summary_container.content = _build_summary_card(
                     c, totals, _on_detail_tap(selected_months), "general"
