@@ -2,7 +2,7 @@ from datetime import datetime
 
 import flet as ft
 
-from views.settings_view import _build_gdrive_backups_section
+from views.settings_google_drive_section import _build_gdrive_backups_section
 
 
 def build_google_drive_view(
