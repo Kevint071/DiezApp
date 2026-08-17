@@ -778,7 +778,6 @@ def _build_gdrive_backups_section(
         list_accounts,
         remove_account,
         set_account_folder,
-        start_folder_picker,
         start_link_flow,
     )
     from utils.gdrive_backup import (
@@ -817,7 +816,8 @@ def _build_gdrive_backups_section(
         "parent_name": "Mi unidad",
         "stack": [],
     }
-    folder_title = ft.Text("Mi unidad", size=17, weight=ft.FontWeight.W_600)
+    folder_title = ft.Text("Seleccionar carpeta", size=17, weight=ft.FontWeight.W_600)
+    folder_path = ft.Text("Mi unidad", size=13, color=c["on_surface_variant"])
     folder_loading = ft.ProgressRing(width=22, height=22, visible=False)
     folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
 
@@ -835,7 +835,10 @@ def _build_gdrive_backups_section(
             return
         folder_dialog_state["parent_id"] = parent_id
         folder_dialog_state["parent_name"] = parent_name
-        folder_title.value = parent_name
+        path_names = ["Mi unidad"] + [name for _, name in folder_dialog_state["stack"]]
+        if parent_name != "Mi unidad":
+            path_names.append(parent_name)
+        folder_path.value = " / ".join(path_names)
         folder_loading.visible = True
         folder_list.controls = []
         page.update()
@@ -849,6 +852,7 @@ def _build_gdrive_backups_section(
             return
         finally:
             folder_loading.visible = False
+            page.update()
         folder_list.controls = [
             ft.ListTile(
                 leading=ft.Icon(ft.Icons.FOLDER_OUTLINED, color=c["primary"]),
@@ -911,22 +915,13 @@ def _build_gdrive_backups_section(
         page.pop_dialog()
         navigate_to_settings()
 
-    async def _open_google_picker(e):
-        account_id = folder_dialog_state["account_id"]
-        account = next((item for item in list_accounts() if item["id"] == account_id), None)
-        if account is None:
-            show_snack("La cuenta ya no está vinculada")
-            return
-        page.pop_dialog()
-        if not await start_folder_picker(page, account):
-            show_snack("No se pudo abrir Google Picker")
-
     folder_dialog = ft.AlertDialog(
-        title=folder_title,
+        title=ft.Column(spacing=2, controls=[folder_title, folder_path]),
         content=ft.Column(
             tight=True,
             controls=[
                 ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
                         ft.IconButton(
                             ft.Icons.ARROW_BACK,
@@ -936,19 +931,18 @@ def _build_gdrive_backups_section(
                         folder_loading,
                     ]
                 ),
-                folder_list,
+                ft.Container(
+                    height=260,
+                    width=360,
+                    content=folder_list,
+                ),
                 ft.Divider(height=16),
-                ft.Text("Crear carpeta aquí", size=13, color=c["on_surface_variant"]),
+                ft.Text("Crear carpeta en esta ubicación", size=13, color=c["on_surface_variant"]),
                 folder_name_field,
             ],
         ),
         actions=[
             ft.TextButton("Cancelar", on_click=_close_folder_dialog),
-            ft.OutlinedButton(
-                "Elegir en Google Drive",
-                icon=ft.Icons.FOLDER_OPEN_OUTLINED,
-                on_click=_open_google_picker,
-            ),
             ft.FilledTonalButton("Usar esta carpeta", on_click=_select_current_folder),
             ft.FilledButton("Crear", on_click=_create_folder),
         ],
@@ -962,6 +956,7 @@ def _build_gdrive_backups_section(
             folder_dialog_state["parent_name"] = "Mi unidad"
             folder_dialog_state["stack"] = []
             folder_name_field.value = "Respaldos DiezApp"
+            folder_path.value = "Mi unidad"
             page.show_dialog(folder_dialog)
             page.run_task(_load_folder_list, "root", "Mi unidad")
 

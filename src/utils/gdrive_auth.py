@@ -24,7 +24,6 @@ This module therefore never talks to Google directly. Instead:
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlencode
 
 import flet as ft
 import httpx
@@ -36,7 +35,6 @@ from utils.db import get_connection
 BACKEND_BASE_URL = "https://diezapp-api.vercel.app"
 LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/login"
 REFRESH_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/refresh"
-PICKER_LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/picker/login"
 
 # Must match the backend's APP_SHARED_SECRET env var (defense in depth for
 # /api/auth/refresh; leave empty if the backend doesn't set one either).
@@ -65,24 +63,6 @@ async def start_link_flow(page: ft.Page) -> bool:
     page.session.store.set("gdrive_oauth_pending", {"state": app_state})
 
     url = f"{LOGIN_ENDPOINT}?app_state={app_state}"
-    await ft.UrlLauncher().launch_url(url)
-    return True
-
-
-async def start_folder_picker(page: ft.Page, account: dict) -> bool:
-    """Open Google's mobile Picker to choose a Drive folder for an account."""
-    if not is_configured(page) or not account.get("id"):
-        return False
-    app_state = uuid.uuid4().hex
-    page.session.store.set(
-        "gdrive_picker_pending",
-        {"state": app_state, "account_id": account["id"]},
-    )
-    url = f"{PICKER_LOGIN_ENDPOINT}?{urlencode({
-        'app_state': app_state,
-        'account_id': account['id'],
-        'login_hint': account.get('google_account_email', ''),
-    })}"
     await ft.UrlLauncher().launch_url(url)
     return True
 
@@ -124,38 +104,6 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
         return {"ok": False, "message": str(e)}
 
     return {"ok": True, "message": f"Cuenta {email} vinculada"}
-
-
-async def complete_folder_picker(page: ft.Page, query_params: dict) -> dict:
-    """Validate the Picker deep link and save its folder on the target account."""
-    pending = page.session.store.get("gdrive_picker_pending")
-    page.session.store.remove("gdrive_picker_pending")
-    if not pending or query_params.get("app_state") != pending.get("state"):
-        return {"ok": False, "message": "No se pudo completar la selección"}
-    if query_params.get("error"):
-        return {"ok": False, "message": "Selección de carpeta cancelada"}
-
-    account_id = query_params.get("account_id")
-    folder_id = query_params.get("folder_id")
-    folder_name = query_params.get("folder_name")
-    if account_id != pending.get("account_id") or not folder_id or not folder_name:
-        return {"ok": False, "message": "Google Picker no devolvió una carpeta válida"}
-
-    account = next((item for item in list_accounts() if item["id"] == account_id), None)
-    if account is None:
-        return {"ok": False, "message": "La cuenta ya no está vinculada"}
-    if query_params.get("email", "").casefold() != account["google_account_email"].casefold():
-        return {"ok": False, "message": "Selecciona la misma cuenta de Google vinculada"}
-    access_token = query_params.get("access_token")
-    if access_token:
-        _update_account_credentials(
-            account_id,
-            access_token,
-            query_params.get("refresh_token") or account.get("refresh_token", ""),
-            int(query_params.get("expires_in", 3600)),
-        )
-    set_account_folder(account_id, folder_id, folder_name)
-    return {"ok": True, "message": f"Carpeta seleccionada: {folder_name}"}
 
 
 async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
@@ -280,14 +228,3 @@ def _update_account_token(account_id: str, access_token: str, expiry_iso: str):
     conn.commit()
 
 
-def _update_account_credentials(
-    account_id: str, access_token: str, refresh_token: str, expires_in: int
-):
-    expiry = datetime.now(UTC) + timedelta(seconds=expires_in)
-    conn = get_connection()
-    conn.execute(
-        "UPDATE gdrive_accounts SET access_token = ?, refresh_token = ?, "
-        "token_expiry_at = ? WHERE id = ?",
-        (access_token, refresh_token, expiry.isoformat(), account_id),
-    )
-    conn.commit()

@@ -490,13 +490,9 @@ def _main(page: ft.Page):
             await page.push_route(page.views[-1].route)
 
     async def _handle_gdrive_callback():
-        from utils.gdrive_auth import complete_folder_picker, complete_link_flow
+        from utils.gdrive_auth import complete_link_flow
 
-        query_params = dict(page.query.to_dict)
-        if query_params.get("picker") == "1":
-            result = await complete_folder_picker(page, query_params)
-        else:
-            result = await complete_link_flow(page, query_params)
+        result = await complete_link_flow(page, dict(page.query.to_dict))
         page.session.store.set("gdrive_link_message", result["message"])
         page.navigate("/google-drive")
 
