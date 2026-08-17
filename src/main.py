@@ -210,6 +210,7 @@ def _main(page: ft.Page):
             lambda: page.navigate(routes.NOTES_NEW),
             _open_note,
             lambda: route_change(),
+            dependencies.notes,
             _set_actions,
         )
         return _apply_root(routes.NOTES, appbar, content)
@@ -280,11 +281,10 @@ def _main(page: ft.Page):
         )
 
     def _build_new_note_view() -> ft.View:
-        from utils.notes import add_note
         from views.notes_view import build_new_note_view
 
         def _on_save(title, content):
-            add_note(content, title)
+            dependencies.notes.add(content, title)
             page.navigate(routes.NOTES)
 
         content = build_new_note_view(page, get_colors, _on_save)
@@ -296,11 +296,10 @@ def _main(page: ft.Page):
         )
 
     def _build_note_detail_view() -> ft.View:
-        from utils.notes import load_notes
         from views.notes_view import build_note_detail_view
 
         note_id = page.session.store.get("note_id")
-        note = next((n for n in load_notes() if n["id"] == note_id), None)
+        note = next((n for n in dependencies.notes.list() if n["id"] == note_id), None)
         if note is None:
             return _build_notes_view()
 
@@ -316,6 +315,7 @@ def _main(page: ft.Page):
             note,
             lambda: page.navigate(routes.NOTES),
             _set_actions,
+            dependencies.notes,
             _register_leave_guard,
         )
         view = ft.View(

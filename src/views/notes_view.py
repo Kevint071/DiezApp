@@ -1,8 +1,7 @@
 from datetime import datetime
 
 import flet as ft
-
-from utils.notes import delete_note, load_notes, update_note
+from diezapp.features.notes.application.note_service import NoteService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
 
 PREVIEW_LIMIT = 100
@@ -37,10 +36,16 @@ def _sort_notes_for_display(notes: list) -> list:
 
 
 def build_notes_view(
-    page: ft.Page, colors_fn, on_add, on_open, on_refresh, set_header_actions=None
+    page: ft.Page,
+    colors_fn,
+    on_add,
+    on_open,
+    on_refresh,
+    notes_service: NoteService,
+    set_header_actions=None,
 ):
     c = colors_fn(page)
-    notes = _sort_notes_for_display(load_notes())
+    notes = _sort_notes_for_display(notes_service.list())
 
     add_btn = ft.FilledButton(
         "Nueva nota",
@@ -329,6 +334,7 @@ def build_note_detail_view(
     note: dict,
     on_delete,
     set_header_actions,
+    notes_service: NoteService,
     register_leave_guard=None,
 ):
     c = colors_fn(page)
@@ -436,7 +442,7 @@ def build_note_detail_view(
             return
 
         def _do_delete(ev):
-            delete_note(note["id"])
+            notes_service.delete(note["id"])
             page.pop_dialog()
             on_delete()
 
@@ -464,7 +470,7 @@ def build_note_detail_view(
             err_txt.visible = True
             page.update()
             return False
-        updated = update_note(note["id"], text, title)
+        updated = notes_service.update(note["id"], text, title)
         note["content"] = text
         note["title"] = title
         note["updated_at"] = (
