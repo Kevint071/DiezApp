@@ -3,8 +3,10 @@ import os
 from datetime import date, datetime
 
 import flet as ft
+from diezapp.features.calculations.application.calculation_service import (
+    CalculationService,
+)
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.storage import delete_calculation, load_calculations, update_calculation
 from utils.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,
@@ -14,7 +16,12 @@ from utils.theme import (
 )
 
 
-def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None):
+def build_date_range_picker_view(
+    page: ft.Page,
+    colors_fn,
+    calculations_service: CalculationService,
+    on_show_filtered=None,
+):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
     today = datetime.now().astimezone().date()
@@ -313,7 +320,7 @@ def build_date_range_picker_view(page: ft.Page, colors_fn, on_show_filtered=None
         s, en = _get_range()
         if not s or not en:
             return
-        calculations = load_calculations()
+        calculations = calculations_service.list()
         has_calcs = False
         for calc in calculations:
             try:
@@ -498,11 +505,15 @@ def apply_saved_calculations_appbar(
 
 
 def build_saved_calculations_view(
-    page: ft.Page, colors_fn, on_refresh, date_range=None
+    page: ft.Page,
+    colors_fn,
+    on_refresh,
+    calculations_service: CalculationService,
+    date_range=None,
 ):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
-    all_calculations = load_calculations()
+    all_calculations = calculations_service.list()
 
     if date_range:
         start_date, end_date = date_range
@@ -770,8 +781,10 @@ def build_saved_calculations_view(
                 new_amount = float(edit_field.value.replace(".", ""))
             except ValueError, AttributeError:
                 return
-            update_calculation(calc_id, new_amount)
-            calc["amount"] = new_amount
+            updated_calculation = calculations_service.update(calc_id, new_amount)
+            if updated_calculation is None:
+                return
+            calc.update(updated_calculation)
             txt_amount.value = _format_currency(new_amount)
             _recalculate(new_amount)
             calc["updated_at"] = datetime.now().astimezone().isoformat()
@@ -800,7 +813,7 @@ def build_saved_calculations_view(
                 return
 
             def _do_delete(ev):
-                delete_calculation(calc_id)
+                calculations_service.delete(calc_id)
                 page.pop_dialog()
                 on_refresh()
 

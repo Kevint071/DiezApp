@@ -172,7 +172,7 @@ def _main(page: ft.Page):
         # `page.navigate` no-ops when the target route equals the current
         # one, so refreshing in place must call the route handler directly.
         content = build_saved_calculations_view(
-            page, get_colors, lambda: route_change()
+            page, get_colors, lambda: route_change(), dependencies.calculations
         )
         return _apply_root(routes.SAVED, _build_appbar("Cálculos guardados"), content)
 
@@ -184,7 +184,10 @@ def _main(page: ft.Page):
             page.navigate(routes.PDF_PREVIEW)
 
         content = build_date_range_picker_view(
-            page, get_colors, on_show_filtered=_on_show_filtered
+            page,
+            get_colors,
+            dependencies.calculations,
+            on_show_filtered=_on_show_filtered,
         )
         return _apply_root(routes.PDF_EXPORT, _build_appbar("Exportar PDF"), content)
 
@@ -264,6 +267,7 @@ def _main(page: ft.Page):
             page,
             get_colors,
             lambda: route_change(),
+            dependencies.calculations,
             date_range=(start, end),
         )
         return ft.View(

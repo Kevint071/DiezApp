@@ -28,3 +28,40 @@ class CalculationService:
         calculations.insert(0, calculation)
         self.repository.replace_all(calculations)
         return calculation
+
+    def list(self) -> list[dict]:
+        return self.repository.list()
+
+    def update(self, calculation_id: str, new_amount: float) -> dict | None:
+        calculations = self.repository.list()
+        for calculation in calculations:
+            if calculation["id"] != calculation_id:
+                continue
+            distribution = calculate_distribution(
+                new_amount, calculation["fund_percentage"]
+            )
+            calculation.update(
+                {
+                    "amount": distribution.amount,
+                    "envio_21": distribution.envio_21,
+                    "restante": distribution.restante,
+                    "fondo_local": distribution.fondo_local,
+                    "sostenimiento": distribution.sostenimiento,
+                    "updated_at": datetime.now(UTC).astimezone().isoformat(),
+                }
+            )
+            self.repository.replace_all(calculations)
+            return calculation
+        return None
+
+    def delete(self, calculation_id: str) -> bool:
+        calculations = self.repository.list()
+        remaining = [
+            calculation
+            for calculation in calculations
+            if calculation["id"] != calculation_id
+        ]
+        if len(remaining) == len(calculations):
+            return False
+        self.repository.replace_all(remaining)
+        return True
