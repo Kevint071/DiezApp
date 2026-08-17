@@ -4,7 +4,6 @@ import traceback
 from urllib.parse import parse_qsl, urlparse
 
 import flet as ft
-
 from utils.app_settings import load_settings, save_settings
 from utils.theme import (
     DARK_THEME,
@@ -70,6 +69,7 @@ def _main(page: ft.Page):
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
+    gdrive_callback_state = {"processing": False}
 
     def _register_leave_guard(fn):
         leave_guard["check"] = fn
@@ -430,7 +430,8 @@ def _main(page: ft.Page):
                 callback_route = route
             if callback_route:
                 page.session.store.set("gdrive_callback_route", callback_route)
-            page.run_task(_handle_gdrive_callback)
+            if not gdrive_callback_state["processing"]:
+                page.run_task(_handle_gdrive_callback)
             return
 
         current_navigation_colors = get_colors(page)
@@ -498,15 +499,21 @@ def _main(page: ft.Page):
     async def _handle_gdrive_callback():
         from utils.gdrive_auth import complete_link_flow
 
+        if gdrive_callback_state["processing"]:
+            return
+        gdrive_callback_state["processing"] = True
         callback_route = page.session.store.get("gdrive_callback_route")
         if callback_route:
             page.session.store.remove("gdrive_callback_route")
-        query_params = dict(page.query.to_dict)
-        if callback_route:
-            query_params = dict(parse_qsl(urlparse(callback_route).query))
-        result = await complete_link_flow(page, query_params)
-        page.session.store.set("gdrive_link_message", result["message"])
-        page.navigate("/google-drive")
+        try:
+            query_params = dict(page.query.to_dict)
+            if callback_route:
+                query_params = dict(parse_qsl(urlparse(callback_route).query))
+            result = await complete_link_flow(page, query_params)
+            page.session.store.set("gdrive_link_message", result["message"])
+            page.navigate("/google-drive")
+        finally:
+            gdrive_callback_state["processing"] = False
 
     async def _gdrive_scheduler():
         """Startup catch-up + in-app interval loop, both calling run_backup_now()

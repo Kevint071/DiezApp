@@ -599,6 +599,22 @@ def _build_gdrive_backups_section(
         for account in backup_accounts
     ]
 
+    def _refresh_backup_accounts():
+        backup_accounts[:] = [
+            account for account in list_accounts() if account.get("folder_id")
+        ]
+        backup_account_checks[:] = [
+            ft.Checkbox(
+                label=account["google_account_email"],
+                value=True,
+            )
+            for account in backup_accounts
+        ]
+        backup_dialog.content.controls = [
+            backup_dialog.content.controls[0],
+            *backup_account_checks,
+        ]
+
     def _close_backup_dialog(e):
         page.pop_dialog()
 
@@ -688,6 +704,7 @@ def _build_gdrive_backups_section(
         navigate_to_settings()
 
     def _open_backup_dialog(e):
+        _refresh_backup_accounts()
         if not backup_accounts:
             show_snack("Configura una carpeta en al menos una cuenta")
             return

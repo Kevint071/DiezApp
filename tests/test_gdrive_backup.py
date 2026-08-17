@@ -126,6 +126,35 @@ class TestRunBackupNowAggregation:
         assert len(history) == 1
         assert history[0]["status"] == "success"
 
+    def test_overlapping_runs_are_skipped(self, monkeypatch):
+        acc = _account(1)
+        upload_started = asyncio.Event()
+        release_upload = asyncio.Event()
+        monkeypatch.setattr(gdrive_backup, "list_accounts", lambda: [acc])
+        monkeypatch.setattr(
+            gdrive_backup, "ensure_fresh_access_token", _async_return("tok")
+        )
+
+        async def _upload(*args, **kwargs):
+            upload_started.set()
+            await release_upload.wait()
+            return "file-id"
+
+        monkeypatch.setattr(gdrive_backup, "upload_backup_file", _upload)
+
+        async def _run_both():
+            first = asyncio.create_task(gdrive_backup.run_backup_now(_FakePage()))
+            await upload_started.wait()
+            second = await gdrive_backup.run_backup_now(_FakePage())
+            release_upload.set()
+            return await first, second
+
+        first, second = asyncio.run(_run_both())
+
+        assert first["status"] == "success"
+        assert second["status"] == "skipped"
+        assert "curso" in second["message"]
+
 
 class TestScheduler:
     def test_no_interval_configured_returns_none(self):

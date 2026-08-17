@@ -24,6 +24,23 @@ LAST_BACKUP_SETTING = "last_backup_success_at"
 INTERVAL_SETTING = "backup_interval_seconds"
 
 
+class _BackupExecutionState:
+    def __init__(self):
+        self._running = False
+
+    def try_start(self) -> bool:
+        if self._running:
+            return False
+        self._running = True
+        return True
+
+    def finish(self):
+        self._running = False
+
+
+_backup_state = _BackupExecutionState()
+
+
 def _snapshot_db() -> str:
     """Consistent snapshot of app.db via SQLite's Online Backup API."""
     file_name = datetime.now(UTC).strftime("backup_%Y%m%d_%H%M%S.db")
@@ -66,6 +83,20 @@ async def _upload_with_retry(
 
 
 async def run_backup_now(page: ft.Page, account_ids: set[str] | None = None) -> dict:
+    """Run one backup, ignoring overlapping manual or scheduled requests."""
+    if not _backup_state.try_start():
+        return {
+            "status": "skipped",
+            "results": [],
+            "message": "Ya hay una copia de seguridad en curso",
+        }
+    try:
+        return await _run_backup_now(page, account_ids)
+    finally:
+        _backup_state.finish()
+
+
+async def _run_backup_now(page: ft.Page, account_ids: set[str] | None = None) -> dict:
     """Snapshot + upload to selected linked accounts with a configured folder.
 
     ``account_ids=None`` keeps the scheduler behavior of uploading to every
