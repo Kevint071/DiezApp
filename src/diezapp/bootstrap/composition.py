@@ -86,18 +86,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
     navigation_style["label_behavior"] = ft.NavigationBarLabelBehavior.ALWAYS_HIDE
 
     def _on_nav_change(e):
-        idx = e.control.selected_index
-        prev_idx = nav_state.selected_index
-
-        def _perform():
-            nav_state.select(idx)
-            page.navigate(_NAV_ROUTES[idx])
-
-        def _cancel():
-            nav_bar.selected_index = prev_idx
-            page.update()
-
-        _guard_navigation(_perform, _cancel)
+        router.handle_navigation_change(e, _NAV_ROUTES)
 
     nav_bar = ft.NavigationBar(
         selected_index=0,
@@ -550,6 +539,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         _build_nested,
         _on_callback,
         nav_state,
+        _guard_navigation,
     )
 
     def route_change(event=None):

@@ -8,6 +8,7 @@ from diezapp.navigation.navigation_state import NavigationState
 RootBuilder = Callable[[str], tuple[int, ft.View]]
 NestedBuilder = Callable[[str], list[ft.View]]
 CallbackHandler = Callable[[ft.ControlEvent | None], None]
+NavigationGuard = Callable[[Callable[[], None], Callable[[], None]], None]
 
 
 class AppRouter:
@@ -21,6 +22,7 @@ class AppRouter:
         build_nested: NestedBuilder,
         on_callback: CallbackHandler,
         navigation_state: NavigationState | None = None,
+        navigation_guard: NavigationGuard | None = None,
     ):
         self.page = page
         self.navigation_bar = navigation_bar
@@ -28,6 +30,26 @@ class AppRouter:
         self.build_nested = build_nested
         self.on_callback = on_callback
         self.navigation_state = navigation_state or NavigationState()
+        self.navigation_guard = navigation_guard
+
+    def handle_navigation_change(
+        self, event: ft.ControlEvent, root_routes: tuple[str, ...]
+    ) -> None:
+        index = event.control.selected_index
+        previous_index = self.navigation_state.selected_index
+
+        def navigate() -> None:
+            self.navigation_state.select(index)
+            self.page.navigate(root_routes[index])
+
+        def cancel() -> None:
+            self.navigation_bar.selected_index = previous_index
+            self.page.update()
+
+        if self.navigation_guard:
+            self.navigation_guard(navigate, cancel)
+        else:
+            navigate()
 
     def handle_route_change(self, event: ft.RouteChangeEvent | None = None):
         route = self.page.route
