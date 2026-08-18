@@ -2,6 +2,7 @@ import asyncio
 from urllib.parse import parse_qsl, urlparse
 
 import flet as ft
+
 from diezapp.bootstrap.app import configure_page
 from diezapp.bootstrap.dependencies import create_dependencies
 from diezapp.bootstrap.error_handler import show_fatal_error
@@ -247,6 +248,7 @@ def _main(page: ft.Page):
             lambda: route_change(),
             lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
             dependencies.google_drive_link,
+            dependencies.google_drive_url_opener,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,

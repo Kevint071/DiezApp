@@ -26,9 +26,12 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import flet as ft
+
 from diezapp.features.google_drive.application.link_account import LinkAccountService
 from diezapp.features.google_drive.application.start_link import build_login_url
+from diezapp.features.google_drive.application.url_opener import UrlOpener
 from diezapp.features.google_drive.domain.models import DriveAccount
+from diezapp.infrastructure.google.flet_url_opener import FletUrlOpener
 from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
@@ -47,6 +50,7 @@ _account_repository = SqliteDriveAccountRepository()
 _token_repository = SqliteDriveTokenRepository()
 _oauth_client = BackendOAuthClient()
 _link_account_service = LinkAccountService(_account_repository, MAX_ACCOUNTS)
+_url_opener = FletUrlOpener()
 
 
 def is_configured(page: ft.Page) -> bool:
@@ -54,7 +58,7 @@ def is_configured(page: ft.Page) -> bool:
     return bool(BACKEND_BASE_URL)
 
 
-async def start_link_flow(page: ft.Page) -> bool:
+async def start_link_flow(page: ft.Page, url_opener: UrlOpener | None = None) -> bool:
     """Open the backend's login endpoint to start linking a new account.
 
     Returns False (without opening anything) if the 2-account limit is
@@ -71,7 +75,8 @@ async def start_link_flow(page: ft.Page) -> bool:
         page.session.store.remove("gdrive_callback_done")
 
     url = build_login_url(LOGIN_ENDPOINT, app_state, page.url)
-    await ft.UrlLauncher().launch_url(url)
+    opener = url_opener or _url_opener
+    await opener.open_url(url)
     return True
 
 

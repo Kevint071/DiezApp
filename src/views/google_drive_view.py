@@ -1,8 +1,8 @@
 from datetime import datetime
 
 import flet as ft
-from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 
+from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from views.settings_google_drive_section import _build_gdrive_backups_section
 
 
@@ -12,6 +12,7 @@ def build_google_drive_view(
     refresh_view,
     navigate_to_history,
     account_service,
+    url_opener,
 ):
     """Build the dedicated Google Drive account and backup management view."""
     colors = colors_fn(page)
@@ -34,6 +35,7 @@ def build_google_drive_view(
                 show_snack,
                 navigate_to_history,
                 account_service,
+                url_opener,
             ),
         ),
     )

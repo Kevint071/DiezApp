@@ -5,6 +5,7 @@ from diezapp.features.calculations.application.calculation_service import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.google_drive.application.link_account import LinkAccountService
+from diezapp.features.google_drive.application.url_opener import UrlOpener
 from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
@@ -16,6 +17,7 @@ from diezapp.features.notes.application.note_service import NoteService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.features.settings.application.settings_service import SettingsService
 from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapter
+from diezapp.infrastructure.google.flet_url_opener import FletUrlOpener
 from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
@@ -43,6 +45,7 @@ class AppDependencies:
     conflicts: ConflictService
     google_drive_history: BackupHistoryRepository
     google_drive_link: LinkAccountService
+    google_drive_url_opener: UrlOpener
     local_backup: LocalBackupService
     monthly_summary: MonthlySummaryService
     notes: NoteService
@@ -65,6 +68,7 @@ def create_dependencies() -> AppDependencies:
         conflicts=ConflictService(conflict_repository),
         google_drive_history=backup_history_repository,
         google_drive_link=LinkAccountService(drive_account_repository),
+        google_drive_url_opener=FletUrlOpener(),
         local_backup=LocalBackupService(backup_adapter),
         monthly_summary=monthly_summary,
         notes=NoteService(note_repository),

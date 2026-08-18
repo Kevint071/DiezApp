@@ -2,13 +2,13 @@ from datetime import timedelta
 
 import flet as ft
 import httpx
+
 from diezapp.infrastructure.google.drive_client import (
     DriveApiError,
     create_folder,
     delete_folder,
     list_folders,
 )
-
 from views.settings_components import build_settings_cell as _settings_cell
 
 
@@ -19,6 +19,7 @@ def _build_gdrive_backups_section(
     show_snack,
     navigate_to_history,
     account_service,
+    url_opener,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -49,7 +50,7 @@ def _build_gdrive_backups_section(
         if not is_configured(page):
             show_snack("OAuth de Google no configurado")
             return
-        started = await start_link_flow(page)
+        started = await start_link_flow(page, url_opener)
         if not started:
             show_snack("Ya hay 2 cuentas vinculadas")
 
