@@ -32,7 +32,11 @@ class LinkAccountService:
         query_params: dict,
         pending_state: str | None,
         is_web_runtime: bool,
+        callback_done: bool = False,
     ) -> dict:
+        if callback_done:
+            return {"ok": False, "message": "La vinculación ya fue procesada"}
+
         returned_state = query_params.get("app_state")
         if not is_web_runtime and (
             not pending_state or returned_state != pending_state

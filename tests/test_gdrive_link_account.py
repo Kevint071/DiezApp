@@ -77,3 +77,18 @@ def test_complete_link_reports_cancelled_callback():
 
     assert result == {"ok": False, "message": "Vinculación cancelada"}
     assert repository.accounts == []
+
+
+def test_complete_link_rejects_repeated_callback():
+    repository = FakeDriveAccountRepository()
+    service = LinkAccountService(repository)
+
+    result = service.complete_link(
+        {"access_token": "token", "email": "user"},
+        pending_state=None,
+        is_web_runtime=True,
+        callback_done=True,
+    )
+
+    assert result == {"ok": False, "message": "La vinculación ya fue procesada"}
+    assert repository.accounts == []

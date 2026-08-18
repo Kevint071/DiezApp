@@ -24,11 +24,10 @@ This module therefore never talks to Google directly. Instead:
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlencode, urlsplit
 
 import flet as ft
-
 from diezapp.features.google_drive.application.link_account import LinkAccountService
+from diezapp.features.google_drive.application.start_link import build_login_url
 from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
@@ -66,13 +65,7 @@ async def start_link_flow(page: ft.Page) -> bool:
     if page.session.store.get("gdrive_callback_done"):
         page.session.store.remove("gdrive_callback_done")
 
-    params = {"app_state": app_state}
-    if page.url:
-        current_url = urlsplit(page.url)
-        web_scheme = {"ws": "http", "wss": "https"}.get(current_url.scheme)
-        if web_scheme and current_url.netloc:
-            params["web_return_url"] = f"{web_scheme}://{current_url.netloc}/callback"
-    url = f"{LOGIN_ENDPOINT}?{urlencode(params)}"
+    url = build_login_url(LOGIN_ENDPOINT, app_state, page.url)
     await ft.UrlLauncher().launch_url(url)
     return True
 
@@ -83,14 +76,14 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
 
     Returns a dict: {"ok": bool, "message": str}.
     """
-    if page.session.store.get("gdrive_callback_done"):
-        return {"ok": False, "message": "La vinculación ya fue procesada"}
-
     pending = page.session.store.get("gdrive_oauth_pending")
     pending_state = pending.get("state") if pending else None
     is_web_runtime = page.web or (page.url or "").startswith(("ws://", "wss://"))
     result = _link_account_service.complete_link(
-        query_params, pending_state, is_web_runtime
+        query_params,
+        pending_state,
+        is_web_runtime,
+        callback_done=page.session.store.get("gdrive_callback_done", False),
     )
     if not result["ok"]:
         if pending and result["message"] in (
