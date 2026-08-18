@@ -235,7 +235,9 @@ def _main(page: ft.Page):
         return _apply_root(routes.NOTES, appbar, content)
 
     def _build_settings_view() -> ft.View:
-        from views.settings_view import build_settings_view
+        from diezapp.features.settings.presentation.settings_page import (
+            build_settings_view,
+        )
 
         calculator.reset()
         content = build_settings_view(

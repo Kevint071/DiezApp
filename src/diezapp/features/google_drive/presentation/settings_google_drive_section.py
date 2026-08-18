@@ -16,7 +16,9 @@ from diezapp.features.google_drive.application.refresh_access_token import (
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
-from views.settings_components import build_settings_cell as _settings_cell
+from diezapp.features.settings.presentation.settings_components import (
+    build_settings_cell as _settings_cell,
+)
 
 
 def _show_folder_error(show_snack, error: DriveFolderError):

@@ -8,13 +8,19 @@ from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
 from diezapp.features.notes.application.note_service import NoteService
+from diezapp.features.settings.presentation.settings_components import (
+    build_settings_cell as _settings_cell,
+)
+from diezapp.features.settings.presentation.settings_local_backup_section import (
+    build_local_backup_section,
+)
+from diezapp.features.settings.presentation.settings_preferences_section import (
+    build_preferences_section,
+)
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
 )
-from views.settings_components import build_settings_cell as _settings_cell
-from views.settings_local_backup_view import build_local_backup_section
-from views.settings_preferences_view import build_preferences_section
 
 _DESKTOP_PLATFORMS = {
     ft.PagePlatform.WINDOWS,
