@@ -6,19 +6,17 @@ per design.md Decision 4 (one code path for "a backup happens").
 """
 
 import asyncio
-import os
-import sqlite3
-import tempfile
 from datetime import UTC, datetime
 
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
+from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
 )
 
-from utils.db import get_connection, get_setting, set_setting
+from utils.db import get_setting, set_setting
 from utils.gdrive_auth import ensure_fresh_access_token, list_accounts
 from utils.gdrive_client import upload_backup_file
 
@@ -26,19 +24,11 @@ RETRY_DELAYS_SECONDS = [5, 30, 120]
 LAST_BACKUP_SETTING = "last_backup_success_at"
 INTERVAL_SETTING = "backup_interval_seconds"
 _history_repository = SqliteBackupHistoryRepository()
+_snapshot_adapter = SqliteSnapshotAdapter()
 
 
 def _snapshot_db() -> str:
-    """Consistent snapshot of app.db via SQLite's Online Backup API."""
-    file_name = datetime.now(UTC).strftime("backup_%Y%m%d_%H%M%S.db")
-    dest_path = os.path.join(tempfile.gettempdir(), file_name)
-    src_conn = get_connection()
-    dest_conn = sqlite3.connect(dest_path)
-    try:
-        src_conn.backup(dest_conn)
-    finally:
-        dest_conn.close()
-    return dest_path
+    return _snapshot_adapter.create_snapshot()
 
 
 async def run_backup_now(page, account_ids: set[str] | None = None) -> dict:
