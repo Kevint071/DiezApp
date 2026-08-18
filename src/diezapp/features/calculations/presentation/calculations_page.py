@@ -13,6 +13,11 @@ from diezapp.features.calculations.application.delete_calculation import (
 from diezapp.features.calculations.application.update_calculation import (
     UpdateCalculation,
 )
+from diezapp.features.calculations.presentation.calculation_components import (
+    build_data_row,
+    format_currency,
+    format_date,
+)
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.shared.presentation.scroll_divider import (
@@ -577,16 +582,6 @@ def build_saved_calculations_view(
             ),
         )
 
-    def _format_currency(value: float) -> str:
-        return f"${value:,.0f}".replace(",", ".")
-
-    def _format_date(date_str: str) -> str:
-        try:
-            d = datetime.fromisoformat(date_str)
-            return d.strftime("%d/%m/%Y %I:%M %p")
-        except ValueError, TypeError:
-            return date_str
-
     def _build_item(calc: dict):
         calc_id = calc["id"]
         fund_pct = calc.get("fund_percentage", 1)
@@ -606,38 +601,38 @@ def build_saved_calculations_view(
             return out
 
         txt_amount = ft.Text(
-            _format_currency(calc["amount"]),
+            format_currency(calc["amount"]),
             size=14,
             weight=ft.FontWeight.W_600,
             color=c["primary"],
         )
         txt_envio = ft.Text(
-            _format_currency(calc["envio_21"]),
+            format_currency(calc["envio_21"]),
             size=14,
             weight=ft.FontWeight.W_600,
             color=c["primary"],
         )
         txt_restante = ft.Text(
-            _format_currency(calc["restante"]),
+            format_currency(calc["restante"]),
             size=14,
             weight=ft.FontWeight.W_600,
             color=c["primary"],
         )
         txt_fondo = ft.Text(
-            _format_currency(calc["fondo_local"]),
+            format_currency(calc["fondo_local"]),
             size=14,
             weight=ft.FontWeight.W_600,
             color=c["primary"],
         )
         txt_sost = ft.Text(
-            _format_currency(calc["sostenimiento"]),
+            format_currency(calc["sostenimiento"]),
             size=14,
             weight=ft.FontWeight.W_600,
             color=c["primary"],
         )
 
         date_txt = ft.Text(
-            _format_date(calc.get("updated_at") or calc.get("created_at", "")),
+            format_date(calc.get("updated_at") or calc.get("created_at", "")),
             size=12,
             weight=ft.FontWeight.W_600,
             color=c["on_surface_variant"],
@@ -699,45 +694,14 @@ def build_saved_calculations_view(
             ),
         )
 
-        def _data_row(
-            label: str,
-            value_ctrl: ft.Control,
-            is_amount: bool = False,
-            last: bool = False,
-        ):
-            right = (
-                ft.Row(spacing=0, tight=True, controls=[txt_amount, edit_field])
-                if is_amount
-                else value_ctrl
-            )
-            return ft.Container(
-                padding=ft.Padding.symmetric(vertical=12, horizontal=16),
-                border=None
-                if last
-                else ft.Border.only(bottom=ft.BorderSide(0.5, c["divider"])),
-                content=ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.Text(
-                            label,
-                            size=13,
-                            weight=ft.FontWeight.W_400,
-                            color=label_color,
-                        ),
-                        right,
-                    ],
-                ),
-            )
-
         def _recalculate(amount: float):
             val_21 = amount * 0.21
             val_79 = amount * 0.79
             val_fondo = val_79 * (fund_pct / 100)
-            txt_envio.value = _format_currency(val_21)
-            txt_restante.value = _format_currency(val_79)
-            txt_fondo.value = _format_currency(val_fondo)
-            txt_sost.value = _format_currency(amount - val_21 - val_fondo)
+            txt_envio.value = format_currency(val_21)
+            txt_restante.value = format_currency(val_79)
+            txt_fondo.value = format_currency(val_fondo)
+            txt_sost.value = format_currency(amount - val_21 - val_fondo)
 
         def _on_change(e):
             raw = edit_field.value.replace(".", "").replace(",", "")
@@ -775,7 +739,7 @@ def build_saved_calculations_view(
             edit_btn.visible = True
             delete_btn.visible = True
             edit_actions.visible = False
-            txt_amount.value = _format_currency(state["original_amount"])
+            txt_amount.value = format_currency(state["original_amount"])
             _recalculate(state["original_amount"])
             if state["container"]:
                 state["container"].border = ft.Border.all(1, c["outline"])
@@ -799,10 +763,10 @@ def build_saved_calculations_view(
             if updated_calculation is None:
                 return
             calc.update(updated_calculation)
-            txt_amount.value = _format_currency(new_amount)
+            txt_amount.value = format_currency(new_amount)
             _recalculate(new_amount)
             calc["updated_at"] = datetime.now().astimezone().isoformat()
-            date_txt.value = _format_date(calc["updated_at"])
+            date_txt.value = format_date(calc["updated_at"])
             state["editing"] = False
             txt_amount.visible = True
             edit_field.visible = False
@@ -880,11 +844,29 @@ def build_saved_calculations_view(
                         ),
                     ),
                     # ── Data rows ───────────────────────────────
-                    _data_row("Cantidad neta", txt_amount, is_amount=True),
-                    _data_row("Envío (21%)", txt_envio),
-                    _data_row("Restante", txt_restante),
-                    _data_row(f"Fondo local ({fund_pct}%)", txt_fondo),
-                    _data_row("Sostenimiento", txt_sost, last=True),
+                    build_data_row(
+                        "Cantidad neta",
+                        edit_field,
+                        label_color,
+                        c["divider"],
+                        is_amount=True,
+                        amount_control=txt_amount,
+                    ),
+                    build_data_row("Envío (21%)", txt_envio, label_color, c["divider"]),
+                    build_data_row("Restante", txt_restante, label_color, c["divider"]),
+                    build_data_row(
+                        f"Fondo local ({fund_pct}%)",
+                        txt_fondo,
+                        label_color,
+                        c["divider"],
+                    ),
+                    build_data_row(
+                        "Sostenimiento",
+                        txt_sost,
+                        label_color,
+                        c["divider"],
+                        last=True,
+                    ),
                     # ── Edit actions (visible only when editing) ─
                     edit_actions,
                     ft.Container(height=10),
