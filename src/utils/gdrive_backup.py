@@ -13,7 +13,9 @@ import tempfile
 import uuid
 from datetime import UTC, datetime
 
-import flet as ft
+from diezapp.features.google_drive.application.run_backup import (
+    GoogleDriveBackupService,
+)
 
 from utils.db import get_connection, get_setting, set_setting
 from utils.gdrive_auth import ensure_fresh_access_token, list_accounts
@@ -22,23 +24,6 @@ from utils.gdrive_client import upload_backup_file
 RETRY_DELAYS_SECONDS = [5, 30, 120]
 LAST_BACKUP_SETTING = "last_backup_success_at"
 INTERVAL_SETTING = "backup_interval_seconds"
-
-
-class _BackupExecutionState:
-    def __init__(self):
-        self._running = False
-
-    def try_start(self) -> bool:
-        if self._running:
-            return False
-        self._running = True
-        return True
-
-    def finish(self):
-        self._running = False
-
-
-_backup_state = _BackupExecutionState()
 
 
 def _snapshot_db() -> str:
@@ -54,92 +39,11 @@ def _snapshot_db() -> str:
     return dest_path
 
 
-async def _upload_with_retry(
-    page: ft.Page, account: dict, file_path: str, file_name: str
-) -> dict:
-    last_error = "Error desconocido"
-    # 3 attempts total; pre-delays before attempts 2/3 use the first two
-    # backoff values (5s, 30s) — the 3rd (2min) is the ceiling if a future
-    # attempt count is added, unused with exactly 3 attempts.
-    for delay in [0, *RETRY_DELAYS_SECONDS[:-1]]:
-        if delay:
-            await asyncio.sleep(delay)
-        access_token = await ensure_fresh_access_token(page, account)
-        if not access_token:
-            last_error = "No se pudo renovar el token de acceso"
-            continue
-        try:
-            await upload_backup_file(
-                access_token, account["folder_id"], file_path, file_name
-            )
-            return {"email": account["google_account_email"], "ok": True}
-        except Exception as e:  # noqa: BLE001 — any upload failure should retry, not crash the run
-            last_error = str(e)
-    return {
-        "email": account["google_account_email"],
-        "ok": False,
-        "error": last_error,
-    }
-
-
-async def run_backup_now(page: ft.Page, account_ids: set[str] | None = None) -> dict:
-    """Run one backup, ignoring overlapping manual or scheduled requests."""
-    if not _backup_state.try_start():
-        return {
-            "status": "skipped",
-            "results": [],
-            "message": "Ya hay una copia de seguridad en curso",
-        }
-    try:
-        return await _run_backup_now(page, account_ids)
-    finally:
-        _backup_state.finish()
-
-
-async def _run_backup_now(page: ft.Page, account_ids: set[str] | None = None) -> dict:
-    """Snapshot + upload to selected linked accounts with a configured folder.
-
-    ``account_ids=None`` keeps the scheduler behavior of uploading to every
-    configured account. A set limits a manual run to the selected accounts.
-    """
-    accounts = [
-        account
-        for account in list_accounts()
-        if account.get("folder_id")
-        and (account_ids is None or account["id"] in account_ids)
-    ]
-    if not accounts:
-        return {
-            "status": "skipped",
-            "results": [],
-            "message": "No hay cuentas configuradas",
-        }
-
-    started_at = datetime.now(UTC)
-    file_path = _snapshot_db()
-    file_name = os.path.basename(file_path)
-    try:
-        results = await asyncio.gather(
-            *[_upload_with_retry(page, acc, file_path, file_name) for acc in accounts]
-        )
-    finally:
-        if os.path.exists(file_path):
-            os.unlink(file_path)
-
-    ok_count = sum(1 for r in results if r["ok"])
-    if ok_count == len(results):
-        status = "success"
-    elif ok_count > 0:
-        status = "partial"
-    else:
-        status = "failed"
-
-    finished_at = datetime.now(UTC)
-    if status in ("success", "partial"):
-        set_setting(LAST_BACKUP_SETTING, finished_at.isoformat())
-
-    _write_history(started_at, finished_at, status, results)
-    return {"status": status, "results": results}
+async def run_backup_now(page, account_ids: set[str] | None = None) -> dict:
+    """Compatibility facade for the Google Drive backup use case."""
+    return await _backup_service.run(
+        lambda account: ensure_fresh_access_token(page, account), account_ids
+    )
 
 
 def _write_history(
@@ -158,6 +62,22 @@ def _write_history(
         ),
     )
     conn.commit()
+
+
+_backup_service = GoogleDriveBackupService(
+    list_accounts=lambda: list_accounts(),
+    snapshot_db=lambda: _snapshot_db(),
+    upload_file=lambda access_token, folder_id, file_path, file_name: (
+        upload_backup_file(access_token, folder_id, file_path, file_name)
+    ),
+    write_history=lambda started_at, finished_at, status, results: _write_history(
+        started_at, finished_at, status, results
+    ),
+    save_success_at=lambda timestamp: set_setting(
+        LAST_BACKUP_SETTING, timestamp.isoformat()
+    ),
+    sleep=lambda seconds: asyncio.sleep(seconds),
+)
 
 
 def list_history(limit: int = 20) -> list[dict]:
