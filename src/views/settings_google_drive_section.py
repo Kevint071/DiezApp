@@ -6,6 +6,9 @@ import httpx
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
 )
+from diezapp.features.google_drive.application.run_backup import (
+    GoogleDriveBackupService,
+)
 from diezapp.infrastructure.google.drive_client import (
     DriveApiError,
     create_folder,
@@ -24,6 +27,7 @@ def _build_gdrive_backups_section(
     account_service,
     url_opener,
     schedule_settings: BackupScheduleSettings,
+    backup_service: GoogleDriveBackupService,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -36,7 +40,6 @@ def _build_gdrive_backups_section(
         is_configured,
         start_link_flow,
     )
-    from utils.gdrive_backup import run_backup_now
 
     pending_message = page.session.store.get("gdrive_link_message")
     if pending_message:
@@ -696,7 +699,9 @@ def _build_gdrive_backups_section(
         backup_now_button.icon = ft.ProgressRing(width=16, height=16)
         backup_now_button.disabled = True
         page.update()
-        result = await run_backup_now(page, selected_ids)
+        result = await backup_service.run(
+            lambda account: ensure_fresh_access_token(page, account), selected_ids
+        )
         status = result["status"]
         if status == "skipped":
             show_snack(result.get("message", "No hay cuentas configuradas"))

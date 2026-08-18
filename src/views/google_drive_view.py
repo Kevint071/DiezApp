@@ -5,6 +5,9 @@ import flet as ft
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
 )
+from diezapp.features.google_drive.application.run_backup import (
+    GoogleDriveBackupService,
+)
 from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from views.settings_google_drive_section import _build_gdrive_backups_section
 
@@ -17,6 +20,7 @@ def build_google_drive_view(
     account_service,
     url_opener,
     schedule_settings: BackupScheduleSettings,
+    backup_service: GoogleDriveBackupService,
 ):
     """Build the dedicated Google Drive account and backup management view."""
     colors = colors_fn(page)
@@ -41,6 +45,7 @@ def build_google_drive_view(
                 account_service,
                 url_opener,
                 schedule_settings,
+                backup_service,
             ),
         ),
     )

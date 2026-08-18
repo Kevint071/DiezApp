@@ -18,6 +18,9 @@ from diezapp.features.google_drive.application.backup_schedule_settings import (
 )
 from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
 from diezapp.features.google_drive.application.link_account import LinkAccountService
+from diezapp.features.google_drive.application.run_backup import (
+    GoogleDriveBackupService,
+)
 from diezapp.features.google_drive.application.url_opener import UrlOpener
 from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.local_backup.application.local_backup_service import (
@@ -30,6 +33,8 @@ from diezapp.features.notes.application.note_service import NoteService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.features.settings.application.settings_service import SettingsService
 from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapter
+from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
+from diezapp.infrastructure.google.drive_client import upload_backup_file
 from diezapp.infrastructure.google.flet_url_opener import FletUrlOpener
 from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
@@ -63,6 +68,7 @@ class AppDependencies:
     update_calculation: UpdateCalculation
     conflicts: ConflictService
     google_drive_history: BackupHistoryRepository
+    google_drive_backup: GoogleDriveBackupService
     google_drive_link: LinkAccountService
     google_drive_scheduler: BackupScheduler
     google_drive_schedule_settings: BackupScheduleSettings
@@ -81,6 +87,7 @@ def create_dependencies() -> AppDependencies:
     backup_history_repository = SqliteBackupHistoryRepository()
     backup_schedule_repository = SqliteBackupScheduleRepository()
     backup_adapter = SqliteBackupAdapter()
+    snapshot_adapter = SqliteSnapshotAdapter()
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
     pdf_generator = PdfGenerator()
@@ -92,6 +99,13 @@ def create_dependencies() -> AppDependencies:
         delete_calculation=calculations.delete_calculation,
         update_calculation=calculations.update_calculation,
         conflicts=ConflictService(conflict_repository),
+        google_drive_backup=GoogleDriveBackupService(
+            list_accounts=drive_account_repository.list,
+            snapshot_db=snapshot_adapter.create_snapshot,
+            upload_file=upload_backup_file,
+            write_history=backup_history_repository.save,
+            save_success_at=backup_schedule_repository.set_last_backup_at,
+        ),
         google_drive_history=backup_history_repository,
         google_drive_link=LinkAccountService(drive_account_repository),
         google_drive_scheduler=BackupScheduler(
