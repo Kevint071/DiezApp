@@ -206,7 +206,7 @@ def _main(page: ft.Page):
         return _apply_root(routes.PDF_EXPORT, _build_appbar("Exportar PDF"), content)
 
     def _build_notes_view() -> ft.View:
-        from views.notes_view import build_notes_view
+        from diezapp.features.notes.presentation.notes_page import build_notes_view
 
         appbar = _build_appbar("Notas")
 
@@ -314,7 +314,7 @@ def _main(page: ft.Page):
         )
 
     def _build_new_note_view() -> ft.View:
-        from views.notes_view import build_new_note_view
+        from diezapp.features.notes.presentation.notes_page import build_new_note_view
 
         def _on_save(title, content):
             dependencies.notes.add(content, title)
@@ -331,7 +331,9 @@ def _main(page: ft.Page):
         )
 
     def _build_note_detail_view() -> ft.View:
-        from views.notes_view import build_note_detail_view
+        from diezapp.features.notes.presentation.notes_page import (
+            build_note_detail_view,
+        )
 
         note_id = page.session.store.get("note_id")
         note = next((n for n in dependencies.notes.list() if n["id"] == note_id), None)
@@ -385,7 +387,9 @@ def _main(page: ft.Page):
         return view
 
     def _build_monthly_view() -> ft.View:
-        from views.monthly_summary_view import build_monthly_summary_view
+        from diezapp.features.monthly_summary.presentation.monthly_summary_page import (
+            build_monthly_summary_view,
+        )
 
         content = build_monthly_summary_view(
             page, get_colors, dependencies.monthly_summary
@@ -400,7 +404,7 @@ def _main(page: ft.Page):
         )
 
     def _build_monthly_breakdown_view() -> ft.View:
-        from views.monthly_summary_view import (
+        from diezapp.features.monthly_summary.presentation.monthly_summary_page import (
             build_breakdown_view,
             get_breakdown_title,
         )
