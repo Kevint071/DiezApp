@@ -253,7 +253,9 @@ def _main(page: ft.Page):
         return _apply_root(routes.SETTINGS, _build_appbar("Configuración"), content)
 
     def _build_google_drive_view() -> ft.View:
-        from views.google_drive_view import build_google_drive_view
+        from diezapp.features.google_drive.presentation.google_drive_page import (
+            build_google_drive_view,
+        )
 
         content = build_google_drive_view(
             page,
@@ -266,6 +268,7 @@ def _main(page: ft.Page):
             dependencies.google_drive_backup,
             dependencies.google_drive_refresh_token,
             dependencies.google_drive_oauth,
+            dependencies.google_drive_folders,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,
@@ -277,7 +280,9 @@ def _main(page: ft.Page):
         )
 
     def _build_google_drive_history_view() -> ft.View:
-        from views.google_drive_view import build_google_drive_history_view
+        from diezapp.features.google_drive.presentation.google_drive_page import (
+            build_google_drive_history_view,
+        )
 
         return ft.View(
             route=routes.GOOGLE_DRIVE_HISTORY,

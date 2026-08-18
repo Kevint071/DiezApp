@@ -1,10 +1,13 @@
 from datetime import timedelta
 
 import flet as ft
-import httpx
 
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
+)
+from diezapp.features.google_drive.application.drive_folder_service import (
+    DriveFolderError,
+    DriveFolderService,
 )
 from diezapp.features.google_drive.application.oauth_flow import GoogleDriveOAuthFlow
 from diezapp.features.google_drive.application.refresh_access_token import (
@@ -13,13 +16,14 @@ from diezapp.features.google_drive.application.refresh_access_token import (
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
-from diezapp.infrastructure.google.drive_client import (
-    DriveApiError,
-    create_folder,
-    delete_folder,
-    list_folders,
-)
 from views.settings_components import build_settings_cell as _settings_cell
+
+
+def _show_folder_error(show_snack, error: DriveFolderError):
+    if error.status_code is not None:
+        show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
+    else:
+        show_snack(error.message)
 
 
 def _build_gdrive_backups_section(
@@ -34,6 +38,7 @@ def _build_gdrive_backups_section(
     backup_service: GoogleDriveBackupService,
     refresh_access_token: RefreshAccessToken,
     oauth_flow: GoogleDriveOAuthFlow,
+    folder_service: DriveFolderService,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -100,12 +105,9 @@ def _build_gdrive_backups_section(
         folder_list.controls = []
         page.update()
         try:
-            folders = await list_folders(access_token, "root")
-        except DriveApiError as error:
-            show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
-            return
-        except httpx.HTTPError:
-            show_snack("No se pudo conectar con Google Drive")
+            folders = await folder_service.list(access_token, "root")
+        except DriveFolderError as error:
+            _show_folder_error(show_snack, error)
             return
         finally:
             folder_loading.visible = False
@@ -185,12 +187,9 @@ def _build_gdrive_backups_section(
             return
         try:
             for folder_id in selected_ids:
-                await delete_folder(access_token, folder_id)
-        except DriveApiError as error:
-            show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
-            return
-        except httpx.HTTPError:
-            show_snack("No se pudo conectar con Google Drive")
+                await folder_service.delete(access_token, folder_id)
+        except DriveFolderError as error:
+            _show_folder_error(show_snack, error)
             return
         if account.get("folder_id") in selected_ids:
             account_service.set_account_folder(account["id"], None, None)
@@ -312,14 +311,11 @@ def _build_gdrive_backups_section(
             show_snack("No se pudo autenticar la cuenta")
             return
         try:
-            folder_id = await create_folder(
+            folder_id = await folder_service.create(
                 access_token, folder_name, folder_dialog_state["parent_id"]
             )
-        except DriveApiError as error:
-            show_snack(f"Drive {error.status_code} ({error.reason}): {error.message}")
-            return
-        except httpx.HTTPError:
-            show_snack("No se pudo conectar con Google Drive")
+        except DriveFolderError as error:
+            _show_folder_error(show_snack, error)
             return
         current_folders.append({"id": folder_id, "name": folder_name})
         _select_folder(current_folders[-1])

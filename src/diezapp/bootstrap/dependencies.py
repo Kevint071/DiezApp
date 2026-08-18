@@ -17,6 +17,9 @@ from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
 )
 from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
+from diezapp.features.google_drive.application.drive_folder_service import (
+    DriveFolderService,
+)
 from diezapp.features.google_drive.application.link_account import LinkAccountService
 from diezapp.features.google_drive.application.oauth_flow import GoogleDriveOAuthFlow
 from diezapp.features.google_drive.application.refresh_access_token import (
@@ -39,6 +42,7 @@ from diezapp.features.settings.application.settings_service import SettingsServi
 from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapter
 from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
 from diezapp.infrastructure.google.drive_client import upload_backup_file
+from diezapp.infrastructure.google.drive_folder_client import DriveFolderClient
 from diezapp.infrastructure.google.flet_url_opener import FletUrlOpener
 from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
@@ -77,6 +81,7 @@ class AppDependencies:
     conflicts: ConflictService
     google_drive_history: BackupHistoryRepository
     google_drive_backup: GoogleDriveBackupService
+    google_drive_folders: DriveFolderService
     google_drive_link: LinkAccountService
     google_drive_oauth: GoogleDriveOAuthFlow
     google_drive_refresh_token: RefreshAccessToken
@@ -122,6 +127,7 @@ def create_dependencies() -> AppDependencies:
             write_history=backup_history_repository.save,
             save_success_at=backup_schedule_repository.set_last_backup_at,
         ),
+        google_drive_folders=DriveFolderService(DriveFolderClient()),
         google_drive_history=backup_history_repository,
         google_drive_link=link_account_service,
         google_drive_oauth=GoogleDriveOAuthFlow(link_account_service, url_opener),
