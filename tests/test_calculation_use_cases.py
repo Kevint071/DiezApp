@@ -1,3 +1,5 @@
+import pytest
+
 from diezapp.features.calculations.application.create_calculation import (
     CreateCalculation,
 )
@@ -56,6 +58,14 @@ def test_update_calculation_returns_none_for_unknown_id():
     repository = InMemoryCalculationRepository()
 
     assert UpdateCalculation(repository).execute("missing", 2000) is None
+
+
+def test_update_calculation_rejects_negative_amount():
+    repository = InMemoryCalculationRepository()
+    calculation = CreateCalculation(repository).execute(1000, 10)
+
+    with pytest.raises(ValueError, match="amount"):
+        UpdateCalculation(repository).execute(calculation["id"], -1)
 
 
 def test_delete_calculation_removes_existing_calculation():

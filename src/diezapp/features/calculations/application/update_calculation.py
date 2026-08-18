@@ -2,21 +2,26 @@ from datetime import UTC, datetime
 
 from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.domain.repositories import CalculationRepository
-from diezapp.features.calculator.domain.calculator_service import (
-    calculate_distribution,
+from diezapp.features.calculator.application.calculate_distribution import (
+    CalculateDistribution,
 )
 
 
 class UpdateCalculation:
-    def __init__(self, repository: CalculationRepository):
+    def __init__(
+        self,
+        repository: CalculationRepository,
+        calculate_distribution: CalculateDistribution | None = None,
+    ):
         self.repository = repository
+        self.calculate_distribution = calculate_distribution or CalculateDistribution()
 
     def execute(self, calculation_id: str, new_amount: float) -> Calculation | None:
         calculations = self.repository.list()
         for calculation in calculations:
             if calculation["id"] != calculation_id:
                 continue
-            distribution = calculate_distribution(
+            distribution = self.calculate_distribution.execute(
                 new_amount, calculation["fund_percentage"]
             )
             calculation.update(

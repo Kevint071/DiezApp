@@ -23,7 +23,7 @@ class CalculationService:
         self.repository = repository
         calculate_distribution = calculate_distribution or CalculateDistribution()
         self.create = CreateCalculation(repository, calculate_distribution)
-        self.update_calculation = UpdateCalculation(repository)
+        self.update_calculation = UpdateCalculation(repository, calculate_distribution)
         self.delete_calculation = DeleteCalculation(repository)
 
     def add(self, amount: float, fund_percentage: int) -> Calculation:
