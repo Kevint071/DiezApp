@@ -1,14 +1,13 @@
-import asyncio
-from urllib.parse import parse_qsl, urlparse
-
 import flet as ft
 
 from diezapp.bootstrap.dependencies import AppDependencies
+from diezapp.bootstrap.lifecycle import run_google_drive_scheduler
 from diezapp.features.calculator.presentation.calculator_page import CalculatorView
 from diezapp.features.home.presentation.home_page import build_home_view
 from diezapp.features.settings.domain.models import AppSettings
 from diezapp.navigation import routes
 from diezapp.navigation.navigation_state import NavigationState
+from diezapp.navigation.oauth_callback_handler import OAuthCallbackHandler
 from diezapp.navigation.router import AppRouter
 from diezapp.shared.presentation.theme import (
     get_colors,
@@ -23,7 +22,6 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
-    gdrive_callback_state = {"processing": False}
 
     def _register_leave_guard(fn):
         leave_guard["check"] = fn
@@ -488,57 +486,18 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             return views
         return []
 
-    def _on_callback(event):
-        callback_route = getattr(event, "route", None) if event is not None else None
-        if not callback_route and "?" in page.route:
-            callback_route = page.route
-        if callback_route:
-            page.session.store.set("gdrive_callback_route", callback_route)
-        if not gdrive_callback_state["processing"]:
-            page.run_task(_handle_gdrive_callback)
-
-    async def _handle_gdrive_callback():
-        if gdrive_callback_state["processing"]:
-            return
-        gdrive_callback_state["processing"] = True
-        callback_route = page.session.store.get("gdrive_callback_route")
-        if callback_route:
-            page.session.store.remove("gdrive_callback_route")
-        try:
-            query_params = dict(page.query.to_dict)
-            if callback_route:
-                query_params = dict(parse_qsl(urlparse(callback_route).query))
-            result = dependencies.google_drive_oauth.complete(
-                page.session.store,
-                query_params,
-                page.web or (page.url or "").startswith(("ws://", "wss://")),
-            )
-            page.session.store.set("gdrive_link_message", result["message"])
-            page.navigate(routes.GOOGLE_DRIVE)
-        finally:
-            gdrive_callback_state["processing"] = False
-
-    async def _gdrive_scheduler():
-        """Startup catch-up + in-app interval loop, both calling run_backup_now()
-        (design.md Decision 4: exactly one code path for "a backup happens")."""
-        if dependencies.google_drive_scheduler.is_due():
-            await dependencies.google_drive_backup.run(
-                dependencies.google_drive_refresh_token.execute
-            )
-        while True:
-            remaining = dependencies.google_drive_scheduler.seconds_until_due()
-            await asyncio.sleep(60 if remaining is None else max(1, min(remaining, 60)))
-            if dependencies.google_drive_scheduler.is_due():
-                await dependencies.google_drive_backup.run(
-                    dependencies.google_drive_refresh_token.execute
-                )
+    callback_handler = OAuthCallbackHandler(
+        page,
+        dependencies.google_drive_oauth,
+        lambda message: page.session.store.set("gdrive_link_message", message),
+    )
 
     router = AppRouter(
         page,
         nav_bar,
         _build_root,
         _build_nested,
-        _on_callback,
+        callback_handler.handle,
         nav_state,
         _guard_navigation,
     )
@@ -551,4 +510,10 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
     page.on_view_pop = router.handle_view_pop
 
     route_change()
-    page.run_task(_gdrive_scheduler)
+    page.run_task(
+        run_google_drive_scheduler(
+            dependencies.google_drive_scheduler,
+            dependencies.google_drive_backup,
+            dependencies.google_drive_refresh_token,
+        )
+    )
