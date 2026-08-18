@@ -64,7 +64,16 @@ class AppRouter:
         self.page.update()
 
     async def handle_view_pop(self, event: ft.ViewPopEvent):
-        if event.view is not None and event.view in self.page.views:
+        if event.view is None or event.view not in self.page.views:
+            return
+
+        def proceed() -> None:
             self.page.views.remove(event.view)
-        if self.page.views:
-            await self.page.push_route(self.page.views[-1].route)
+            if self.page.views:
+                self.page.run_task(self.page.push_route(self.page.views[-1].route))
+
+        if self.navigation_guard:
+            self.navigation_guard(proceed, lambda: None)
+        else:
+            await self.page.push_route(self.page.views[-2].route)
+            self.page.views.remove(event.view)

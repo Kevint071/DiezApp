@@ -22,6 +22,9 @@ class FakePage:
     def navigate(self, route):
         self.navigated_routes.append(route)
 
+    def run_task(self, task):
+        return asyncio.create_task(task)
+
 
 class FakeNavigationBar:
     selected_index = 0
@@ -63,6 +66,50 @@ def test_view_pop_pushes_previous_route():
     root = SimpleNamespace(route="/")
     detail = SimpleNamespace(route="/detail")
     router = create_router(page, lambda route: (0, root), lambda route: [])
+    page.views = [root, detail]
+
+    asyncio.run(router.handle_view_pop(SimpleNamespace(view=detail)))
+
+    assert page.views == [root]
+    assert page.pushed_routes == ["/"]
+
+
+def test_view_pop_guard_can_cancel_without_removing_view():
+    page = FakePage("/detail")
+    root = SimpleNamespace(route="/")
+    detail = SimpleNamespace(route="/detail")
+    router = AppRouter(
+        page,
+        FakeNavigationBar(),
+        lambda route: (0, root),
+        lambda route: [],
+        lambda _event: None,
+        navigation_guard=lambda _proceed, _cancel: None,
+    )
+    page.views = [root, detail]
+
+    async def run_pop():
+        await router.handle_view_pop(SimpleNamespace(view=detail))
+        await asyncio.sleep(0)
+
+    asyncio.run(run_pop())
+
+    assert page.views == [root, detail]
+    assert page.pushed_routes == []
+
+
+def test_view_pop_guard_can_proceed_to_previous_route():
+    page = FakePage("/detail")
+    root = SimpleNamespace(route="/")
+    detail = SimpleNamespace(route="/detail")
+    router = AppRouter(
+        page,
+        FakeNavigationBar(),
+        lambda route: (0, root),
+        lambda route: [],
+        lambda _event: None,
+        navigation_guard=lambda proceed, _cancel: proceed(),
+    )
     page.views = [root, detail]
 
     asyncio.run(router.handle_view_pop(SimpleNamespace(view=detail)))
