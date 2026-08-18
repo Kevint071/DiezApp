@@ -70,7 +70,11 @@ class AppRouter:
         def proceed() -> None:
             self.page.views.remove(event.view)
             if self.page.views:
-                self.page.run_task(self.page.push_route(self.page.views[-1].route))
+
+                async def push_previous_route():
+                    await self.page.push_route(self.page.views[-1].route)
+
+                self.page.run_task(push_previous_route)
 
         if self.navigation_guard:
             self.navigation_guard(proceed, lambda: None)

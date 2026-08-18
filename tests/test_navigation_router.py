@@ -22,8 +22,8 @@ class FakePage:
     def navigate(self, route):
         self.navigated_routes.append(route)
 
-    def run_task(self, task):
-        return asyncio.create_task(task)
+    def run_task(self, handler, *args):
+        return asyncio.create_task(handler(*args))
 
 
 class FakeNavigationBar:

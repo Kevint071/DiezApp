@@ -510,10 +510,12 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
     page.on_view_pop = router.handle_view_pop
 
     route_change()
-    page.run_task(
-        run_google_drive_scheduler(
+
+    async def start_google_drive_scheduler():
+        await run_google_drive_scheduler(
             dependencies.google_drive_scheduler,
             dependencies.google_drive_backup,
             dependencies.google_drive_refresh_token,
         )
-    )
+
+    page.run_task(start_google_drive_scheduler)
