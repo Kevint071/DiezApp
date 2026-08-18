@@ -28,8 +28,9 @@ from urllib.parse import urlencode, urlsplit
 
 import flet as ft
 import httpx
-
-from utils.db import get_connection
+from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
+    SqliteDriveAccountRepository,
+)
 
 # Base URL of the deployed diezmapp-api backend. Not a secret: it only ever
 # forwards data the user's own browser already has (see design.md).
@@ -42,6 +43,7 @@ REFRESH_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/refresh"
 BACKEND_SHARED_SECRET = ""
 
 MAX_ACCOUNTS = 2
+_account_repository = SqliteDriveAccountRepository()
 
 
 def is_configured(page: ft.Page) -> bool:
@@ -157,37 +159,18 @@ async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
 
     new_access_token = tokens["access_token"]
     new_expiry = datetime.now(UTC) + timedelta(seconds=tokens.get("expires_in", 3600))
-    _update_account_token(account["id"], new_access_token, new_expiry.isoformat())
+    _account_repository.update_token(
+        account["id"], new_access_token, new_expiry.isoformat()
+    )
     return new_access_token
 
 
-# ── Data-access layer (gdrive_accounts) ──────────────────────────────
-
-
 def list_accounts() -> list[dict]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT id, google_account_email, display_label, folder_id, folder_name, "
-        "access_token, refresh_token, token_expiry_at, created_at "
-        "FROM gdrive_accounts ORDER BY created_at"
-    ).fetchall()
-    cols = [
-        "id",
-        "google_account_email",
-        "display_label",
-        "folder_id",
-        "folder_name",
-        "access_token",
-        "refresh_token",
-        "token_expiry_at",
-        "created_at",
-    ]
-    return [dict(zip(cols, row, strict=True)) for row in rows]
+    return _account_repository.list()
 
 
 def count_accounts() -> int:
-    conn = get_connection()
-    return conn.execute("SELECT COUNT(*) FROM gdrive_accounts").fetchone()[0]
+    return _account_repository.count()
 
 
 def can_add_account() -> bool:
@@ -200,48 +183,17 @@ def add_account(
     if not can_add_account():
         raise ValueError(f"Ya hay {MAX_ACCOUNTS} cuentas vinculadas")
 
-    account_id = uuid.uuid4().hex
-    now = datetime.now(UTC)
-    expiry = now + timedelta(seconds=expires_in)
-    conn = get_connection()
-    conn.execute(
-        "INSERT INTO gdrive_accounts "
-        "(id, google_account_email, display_label, folder_id, folder_name, "
-        "access_token, refresh_token, token_expiry_at, created_at) "
-        "VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?)",
-        (
-            account_id,
-            email,
-            email,
-            access_token,
-            refresh_token,
-            expiry.isoformat(),
-            now.isoformat(),
-        ),
+    return _account_repository.add(
+        email=email,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=expires_in,
     )
-    conn.commit()
-    return account_id
 
 
 def remove_account(account_id: str):
-    conn = get_connection()
-    conn.execute("DELETE FROM gdrive_accounts WHERE id = ?", (account_id,))
-    conn.commit()
+    _account_repository.remove(account_id)
 
 
 def set_account_folder(account_id: str, folder_id: str, folder_name: str):
-    conn = get_connection()
-    conn.execute(
-        "UPDATE gdrive_accounts SET folder_id = ?, folder_name = ? WHERE id = ?",
-        (folder_id, folder_name, account_id),
-    )
-    conn.commit()
-
-
-def _update_account_token(account_id: str, access_token: str, expiry_iso: str):
-    conn = get_connection()
-    conn.execute(
-        "UPDATE gdrive_accounts SET access_token = ?, token_expiry_at = ? WHERE id = ?",
-        (access_token, expiry_iso, account_id),
-    )
-    conn.commit()
+    _account_repository.set_folder(account_id, folder_id, folder_name)
