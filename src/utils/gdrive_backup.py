@@ -14,13 +14,13 @@ from diezapp.features.google_drive.application.run_backup import (
 )
 from diezapp.features.google_drive.domain.backup_results import BackupSummary
 from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
+from diezapp.infrastructure.google.drive_client import upload_backup_file
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
 )
 
 from utils.db import get_setting, set_setting
 from utils.gdrive_auth import ensure_fresh_access_token, list_accounts
-from utils.gdrive_client import upload_backup_file
 
 RETRY_DELAYS_SECONDS = [5, 30, 120]
 LAST_BACKUP_SETTING = "last_backup_success_at"

@@ -2,6 +2,12 @@ from datetime import timedelta
 
 import flet as ft
 import httpx
+from diezapp.infrastructure.google.drive_client import (
+    DriveApiError,
+    create_folder,
+    delete_folder,
+    list_folders,
+)
 
 from views.settings_components import build_settings_cell as _settings_cell
 
@@ -30,12 +36,6 @@ def _build_gdrive_backups_section(
         get_last_backup_at,
         run_backup_now,
         set_interval_seconds,
-    )
-    from utils.gdrive_client import (
-        DriveApiError,
-        create_folder,
-        delete_folder,
-        list_folders,
     )
 
     pending_message = page.session.store.get("gdrive_link_message")
