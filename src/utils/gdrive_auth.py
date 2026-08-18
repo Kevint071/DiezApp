@@ -27,6 +27,8 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode, urlsplit
 
 import flet as ft
+
+from diezapp.features.google_drive.application.link_account import LinkAccountService
 from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
@@ -40,6 +42,7 @@ LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/login"
 MAX_ACCOUNTS = 2
 _account_repository = SqliteDriveAccountRepository()
 _oauth_client = BackendOAuthClient()
+_link_account_service = LinkAccountService(_account_repository, MAX_ACCOUNTS)
 
 
 def is_configured(page: ft.Page) -> bool:
@@ -84,43 +87,23 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
         return {"ok": False, "message": "La vinculación ya fue procesada"}
 
     pending = page.session.store.get("gdrive_oauth_pending")
-
-    returned_state = query_params.get("app_state")
+    pending_state = pending.get("state") if pending else None
     is_web_runtime = page.web or (page.url or "").startswith(("ws://", "wss://"))
-    if not is_web_runtime and (not pending or returned_state != pending.get("state")):
-        if pending:
+    result = _link_account_service.complete_link(
+        query_params, pending_state, is_web_runtime
+    )
+    if not result["ok"]:
+        if pending and result["message"] in (
+            "No se pudo completar la vinculación",
+            "Vinculación cancelada",
+        ):
             page.session.store.remove("gdrive_oauth_pending")
-        return {"ok": False, "message": "No se pudo completar la vinculación"}
-
-    if query_params.get("error"):
-        if pending:
-            page.session.store.remove("gdrive_oauth_pending")
-        return {"ok": False, "message": "Vinculación cancelada"}
-
-    access_token = query_params.get("access_token")
-    email = query_params.get("email")
-    if not access_token or not email:
-        return {"ok": False, "message": "El callback no recibió los datos de Google"}
-
-    try:
-        expires_in = int(query_params.get("expires_in", 3600))
-    except ValueError:
-        expires_in = 3600
-
-    try:
-        add_account(
-            email=email,
-            access_token=access_token,
-            refresh_token=query_params.get("refresh_token", ""),
-            expires_in=expires_in,
-        )
-    except ValueError as e:
-        return {"ok": False, "message": str(e)}
+        return result
 
     if pending:
         page.session.store.remove("gdrive_oauth_pending")
     page.session.store.set("gdrive_callback_done", True)
-    return {"ok": True, "message": f"Cuenta {email} vinculada"}
+    return result
 
 
 async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
@@ -161,16 +144,13 @@ def count_accounts() -> int:
 
 
 def can_add_account() -> bool:
-    return count_accounts() < MAX_ACCOUNTS
+    return _link_account_service.can_add_account()
 
 
 def add_account(
     email: str, access_token: str, refresh_token: str, expires_in: int
 ) -> str:
-    if not can_add_account():
-        raise ValueError(f"Ya hay {MAX_ACCOUNTS} cuentas vinculadas")
-
-    return _account_repository.add(
+    return _link_account_service.add_account(
         email=email,
         access_token=access_token,
         refresh_token=refresh_token,
