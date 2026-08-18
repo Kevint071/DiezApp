@@ -86,7 +86,7 @@ def build_local_backup_section(
         )
         method = export_method["value"]
         if method == "save" and is_desktop(page):
-            from utils.desktop_files import pick_save_path
+            from diezapp.infrastructure.files.desktop_file_picker import pick_save_path
 
             output_path = await pick_save_path(file_name)
             if not output_path:
@@ -260,7 +260,7 @@ def build_local_backup_section(
 
         temp_path = None
         if is_desktop(page):
-            from utils.desktop_files import pick_open_path
+            from diezapp.infrastructure.files.desktop_file_picker import pick_open_path
 
             source_path = await pick_open_path()
             if not source_path:

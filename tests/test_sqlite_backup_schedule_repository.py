@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
 
+from diezapp.infrastructure.database.connection import set_setting
 from diezapp.infrastructure.persistence.sqlite_backup_schedule_repository import (
     INTERVAL_SETTING,
     LAST_BACKUP_SETTING,
     SqliteBackupScheduleRepository,
 )
-from utils.db import set_setting
 
 
 def test_sqlite_backup_schedule_repository_round_trips_settings():

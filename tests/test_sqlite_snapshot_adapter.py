@@ -1,8 +1,8 @@
 import os
 import sqlite3
 
+from diezapp.infrastructure.database.connection import get_connection
 from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
-from utils.db import get_connection
 
 
 def test_snapshot_contains_current_database_data():

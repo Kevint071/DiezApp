@@ -1,10 +1,10 @@
+from diezapp.infrastructure.database.connection import get_connection
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
 )
 from diezapp.infrastructure.persistence.sqlite_drive_token_repository import (
     SqliteDriveTokenRepository,
 )
-from utils.db import get_connection
 
 
 def test_update_changes_only_selected_account_token():
