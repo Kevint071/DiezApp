@@ -45,6 +45,9 @@ dev = [
 pythonpath = ["src"]
 testpaths = ["tests"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["diezapp", "utils", "views"]
+
 [tool.flet]
 org = "com.diezapp"      # usa tu dominio real o algo único, ej: "com.kevindev"
 product = "DiezApp"
