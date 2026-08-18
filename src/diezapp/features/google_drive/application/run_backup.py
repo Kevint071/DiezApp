@@ -3,8 +3,12 @@ import os
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
+from diezapp.features.google_drive.domain.backup_results import (
+    BackupResult,
+    BackupSummary,
+)
+
 Account = dict
-BackupResult = dict
 TokenProvider = Callable[[Account], Awaitable[str | None]]
 UploadFile = Callable[[str, str, str, str], Awaitable[object]]
 
@@ -33,7 +37,7 @@ class GoogleDriveBackupService:
         self,
         token_provider: TokenProvider,
         account_ids: set[str] | None = None,
-    ) -> dict:
+    ) -> BackupSummary:
         if self._running:
             return {
                 "status": "skipped",
@@ -50,7 +54,7 @@ class GoogleDriveBackupService:
         self,
         token_provider: TokenProvider,
         account_ids: set[str] | None,
-    ) -> dict:
+    ) -> BackupSummary:
         accounts = [
             account
             for account in self._list_accounts()

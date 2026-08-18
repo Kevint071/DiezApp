@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
+from diezapp.features.google_drive.domain.backup_results import BackupSummary
 from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
@@ -31,7 +32,7 @@ def _snapshot_db() -> str:
     return _snapshot_adapter.create_snapshot()
 
 
-async def run_backup_now(page, account_ids: set[str] | None = None) -> dict:
+async def run_backup_now(page, account_ids: set[str] | None = None) -> BackupSummary:
     """Compatibility facade for the Google Drive backup use case."""
     return await _backup_service.run(
         lambda account: ensure_fresh_access_token(page, account), account_ids
