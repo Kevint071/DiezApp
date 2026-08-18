@@ -45,6 +45,6 @@ class OAuthCallbackHandler:
                 self.page.web or (self.page.url or "").startswith(("ws://", "wss://")),
             )
             self.on_completed(result["message"])
-            self.page.navigate(routes.GOOGLE_DRIVE)
+            await self.page.push_route(routes.GOOGLE_DRIVE)
         finally:
             self.processing = False

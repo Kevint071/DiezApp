@@ -10,7 +10,7 @@ LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/login"
 
 
 class SessionStore(Protocol):
-    def get(self, key: str, default=None): ...
+    def get(self, key: str): ...
 
     def set(self, key: str, value) -> None: ...
 
@@ -56,7 +56,7 @@ class GoogleDriveOAuthFlow:
             query_params,
             pending_state,
             is_web_runtime,
-            callback_done=store.get("gdrive_callback_done", False),
+            callback_done=bool(store.get("gdrive_callback_done")),
         )
         if not result["ok"]:
             if pending and result["message"] in (
