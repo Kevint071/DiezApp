@@ -27,48 +27,6 @@ PRIMARY_DARK = "#34D399"
 HERO_BG_DARK = "#064E3B"
 SECONDARY_DARK = "#2DD4BF"
 
-LIGHT_THEME = ft.Theme(
-    color_scheme=ft.ColorScheme(
-        primary=PRIMARY,
-        on_primary=ON_PRIMARY,
-        primary_container=PRIMARY_CONTAINER,
-        on_primary_container=ON_PRIMARY_CONTAINER,
-        secondary=SECONDARY,
-        surface=SURFACE_LIGHT,
-        on_surface=ON_SURFACE_LIGHT,
-        on_surface_variant=ON_SURFACE_VARIANT_LIGHT,
-        outline=OUTLINE_LIGHT,
-        surface_container_highest=SURFACE_VARIANT_LIGHT,
-    ),
-    system_overlay_style=ft.SystemOverlayStyle(
-        system_navigation_bar_color=SURFACE_LIGHT,
-        system_navigation_bar_icon_brightness=ft.Brightness.DARK,
-        status_bar_color=ft.Colors.TRANSPARENT,
-        status_bar_icon_brightness=ft.Brightness.DARK,
-    ),
-)
-
-DARK_THEME = ft.Theme(
-    color_scheme=ft.ColorScheme(
-        primary=PRIMARY_DARK,
-        on_primary="#064E3B",
-        primary_container=HERO_BG_DARK,
-        on_primary_container="#A7F3D0",
-        secondary=SECONDARY_DARK,
-        surface=SURFACE_DARK,
-        on_surface=ON_SURFACE_DARK,
-        on_surface_variant=ON_SURFACE_VARIANT_DARK,
-        outline=OUTLINE_DARK,
-        surface_container_highest=SURFACE_VARIANT_DARK,
-    ),
-    system_overlay_style=ft.SystemOverlayStyle(
-        system_navigation_bar_color=SURFACE_DARK,
-        system_navigation_bar_icon_brightness=ft.Brightness.LIGHT,
-        status_bar_color=ft.Colors.TRANSPARENT,
-        status_bar_icon_brightness=ft.Brightness.LIGHT,
-    ),
-)
-
 FOCUS_LIGHT = "#64748B"
 FOCUS_DARK = "#94A3B8"
 ERROR_LIGHT = "#FEE2E2"
