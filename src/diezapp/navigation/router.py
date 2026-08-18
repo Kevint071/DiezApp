@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import flet as ft
 
@@ -33,7 +33,7 @@ class AppRouter:
         self.navigation_guard = navigation_guard
 
     def handle_navigation_change(
-        self, event: ft.ControlEvent, root_routes: tuple[str, ...]
+        self, event: ft.ControlEvent, root_routes: Sequence[str]
     ) -> None:
         index = event.control.selected_index
         previous_index = self.navigation_state.selected_index

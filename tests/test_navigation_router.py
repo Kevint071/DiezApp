@@ -71,6 +71,23 @@ def test_view_pop_pushes_previous_route():
     assert page.pushed_routes == ["/"]
 
 
+def test_nested_route_preserves_root_view_and_builds_nested_stack():
+    page = FakePage("/monthly/breakdown")
+    root = SimpleNamespace(route="/monthly")
+    monthly = SimpleNamespace(route="/monthly")
+    breakdown = SimpleNamespace(route="/monthly/breakdown")
+    router = create_router(
+        page,
+        lambda route: (0, root),
+        lambda route: [monthly, breakdown],
+    )
+
+    router.handle_route_change()
+
+    assert page.views == [root, monthly, breakdown]
+    assert page.views[0].route == "/monthly"
+
+
 def test_navigation_change_updates_state_and_route():
     page = FakePage("/")
     state = NavigationState()
