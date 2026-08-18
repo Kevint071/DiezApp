@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import flet as ft
+from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 
 from views.settings_google_drive_section import _build_gdrive_backups_section
 
@@ -29,14 +30,15 @@ def build_google_drive_view(
     )
 
 
-def build_google_drive_history_view(page: ft.Page, colors_fn):
+def build_google_drive_history_view(
+    page: ft.Page, colors_fn, history_repository: BackupHistoryRepository
+):
     """Build the dedicated list of completed backup attempts."""
     colors = colors_fn(page)
-    from utils.gdrive_backup import list_history
 
     status_labels = {"success": "Éxito", "partial": "Parcial", "failed": "Error"}
     rows = []
-    for entry in list_history(limit=50):
+    for entry in history_repository.list(limit=50):
         try:
             timestamp = (
                 datetime.fromisoformat(entry["started_at"])

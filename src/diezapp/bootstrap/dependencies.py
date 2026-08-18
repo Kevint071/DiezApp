@@ -5,6 +5,7 @@ from diezapp.features.calculations.application.calculation_service import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.google_drive.application.link_account import LinkAccountService
+from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
@@ -16,6 +17,9 @@ from diezapp.features.pdf_export.application.pdf_export_service import PdfExport
 from diezapp.features.settings.application.settings_service import SettingsService
 from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapter
 from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
+from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
+    SqliteBackupHistoryRepository,
+)
 from diezapp.infrastructure.persistence.sqlite_calculation_repository import (
     SqliteCalculationRepository,
 )
@@ -37,6 +41,7 @@ from diezapp.infrastructure.persistence.sqlite_settings_repository import (
 class AppDependencies:
     calculations: CalculationService
     conflicts: ConflictService
+    google_drive_history: BackupHistoryRepository
     google_drive_link: LinkAccountService
     local_backup: LocalBackupService
     monthly_summary: MonthlySummaryService
@@ -49,6 +54,7 @@ def create_dependencies() -> AppDependencies:
     calculation_repository = SqliteCalculationRepository()
     conflict_repository = SqliteConflictRepository()
     drive_account_repository = SqliteDriveAccountRepository()
+    backup_history_repository = SqliteBackupHistoryRepository()
     backup_adapter = SqliteBackupAdapter()
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
@@ -57,6 +63,7 @@ def create_dependencies() -> AppDependencies:
     return AppDependencies(
         calculations=CalculationService(calculation_repository),
         conflicts=ConflictService(conflict_repository),
+        google_drive_history=backup_history_repository,
         google_drive_link=LinkAccountService(drive_account_repository),
         local_backup=LocalBackupService(backup_adapter),
         monthly_summary=monthly_summary,

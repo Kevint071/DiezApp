@@ -265,7 +265,11 @@ def _main(page: ft.Page):
             appbar=_build_appbar(
                 "Copias realizadas", show_back=True, back_route=routes.GOOGLE_DRIVE
             ),
-            controls=[build_google_drive_history_view(page, get_colors)],
+            controls=[
+                build_google_drive_history_view(
+                    page, get_colors, dependencies.google_drive_history
+                )
+            ],
         )
 
     # ── Nested (drill-down) views ─────────────────────────
