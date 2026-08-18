@@ -4,6 +4,7 @@ from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
+from diezapp.features.google_drive.application.link_account import LinkAccountService
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
@@ -21,6 +22,9 @@ from diezapp.infrastructure.persistence.sqlite_calculation_repository import (
 from diezapp.infrastructure.persistence.sqlite_conflict_repository import (
     SqliteConflictRepository,
 )
+from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
+    SqliteDriveAccountRepository,
+)
 from diezapp.infrastructure.persistence.sqlite_note_repository import (
     SqliteNoteRepository,
 )
@@ -33,6 +37,7 @@ from diezapp.infrastructure.persistence.sqlite_settings_repository import (
 class AppDependencies:
     calculations: CalculationService
     conflicts: ConflictService
+    google_drive_link: LinkAccountService
     local_backup: LocalBackupService
     monthly_summary: MonthlySummaryService
     notes: NoteService
@@ -43,6 +48,7 @@ class AppDependencies:
 def create_dependencies() -> AppDependencies:
     calculation_repository = SqliteCalculationRepository()
     conflict_repository = SqliteConflictRepository()
+    drive_account_repository = SqliteDriveAccountRepository()
     backup_adapter = SqliteBackupAdapter()
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
@@ -51,6 +57,7 @@ def create_dependencies() -> AppDependencies:
     return AppDependencies(
         calculations=CalculationService(calculation_repository),
         conflicts=ConflictService(conflict_repository),
+        google_drive_link=LinkAccountService(drive_account_repository),
         local_backup=LocalBackupService(backup_adapter),
         monthly_summary=monthly_summary,
         notes=NoteService(note_repository),

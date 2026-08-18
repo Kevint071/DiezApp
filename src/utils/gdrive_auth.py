@@ -74,7 +74,11 @@ async def start_link_flow(page: ft.Page) -> bool:
     return True
 
 
-async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
+async def complete_link_flow(
+    page: ft.Page,
+    query_params: dict,
+    link_account_service: LinkAccountService | None = None,
+) -> dict:
     """Handle the deep-link redirect back from the backend proxy (called
     from the "/callback" route).
 
@@ -83,7 +87,8 @@ async def complete_link_flow(page: ft.Page, query_params: dict) -> dict:
     pending = page.session.store.get("gdrive_oauth_pending")
     pending_state = pending.get("state") if pending else None
     is_web_runtime = page.web or (page.url or "").startswith(("ws://", "wss://"))
-    result = _link_account_service.complete_link(
+    service = link_account_service or _link_account_service
+    result = service.complete_link(
         query_params,
         pending_state,
         is_web_runtime,

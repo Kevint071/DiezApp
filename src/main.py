@@ -493,7 +493,9 @@ def _main(page: ft.Page):
             query_params = dict(page.query.to_dict)
             if callback_route:
                 query_params = dict(parse_qsl(urlparse(callback_route).query))
-            result = await complete_link_flow(page, query_params)
+            result = await complete_link_flow(
+                page, query_params, dependencies.google_drive_link
+            )
             page.session.store.set("gdrive_link_message", result["message"])
             page.navigate(routes.GOOGLE_DRIVE)
         finally:
