@@ -7,8 +7,11 @@ from diezapp.features.calculations.application.calculation_service import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
+from diezapp.shared.presentation.scroll_divider import (
+    build_scroll_divider,
+    make_scroll_divider_handler,
+)
+from diezapp.shared.presentation.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 
 # Per-kind configuration: how to load/save items, their unique id field, and
 # which fields to render in the comparison cards. This lets the same

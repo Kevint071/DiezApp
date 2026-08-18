@@ -9,7 +9,7 @@ from diezapp.bootstrap.error_handler import show_fatal_error
 from diezapp.navigation import routes
 from diezapp.navigation.navigation_state import NavigationState
 from diezapp.navigation.router import AppRouter
-from utils.theme import (
+from diezapp.shared.presentation.theme import (
     get_colors,
     get_navigation_bar_style,
 )

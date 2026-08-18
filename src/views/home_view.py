@@ -3,7 +3,10 @@ monthly summary."""
 
 import flet as ft
 
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
+from diezapp.shared.presentation.scroll_divider import (
+    build_scroll_divider,
+    make_scroll_divider_handler,
+)
 
 
 def _build_home_card(page: ft.Page, colors_fn, icon, title, subtitle, accent, on_click):

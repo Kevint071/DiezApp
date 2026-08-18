@@ -5,8 +5,11 @@ import flet as ft
 from diezapp.features.monthly_summary.domain.monthly_summary_service import (
     MonthlySummaryService,
 )
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.theme import get_navigation_bar_style
+from diezapp.shared.presentation.scroll_divider import (
+    build_scroll_divider,
+    make_scroll_divider_handler,
+)
+from diezapp.shared.presentation.theme import get_navigation_bar_style
 
 MONTHS = [
     "Enero",

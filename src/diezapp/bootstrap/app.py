@@ -1,7 +1,7 @@
 import flet as ft
 
 from diezapp.features.settings.application.settings_service import SettingsService
-from utils.theme import DARK_THEME, LIGHT_THEME
+from diezapp.shared.presentation.theme import DARK_THEME, LIGHT_THEME
 
 
 def configure_page(page: ft.Page, settings_service: SettingsService) -> dict:

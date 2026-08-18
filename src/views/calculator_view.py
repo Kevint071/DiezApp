@@ -14,7 +14,10 @@ from diezapp.features.calculator.domain.calculator_service import (
     calculate_distribution,
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
+from diezapp.shared.presentation.scroll_divider import (
+    build_scroll_divider,
+    make_scroll_divider_handler,
+)
 
 
 class CalculatorView:

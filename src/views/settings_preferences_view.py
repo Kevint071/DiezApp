@@ -1,6 +1,6 @@
 import flet as ft
 
-from utils.theme import (
+from diezapp.shared.presentation.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,
     OUTLINE_LIGHT_INPUT,

@@ -15,8 +15,11 @@ from diezapp.features.calculations.application.update_calculation import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
-from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.theme import (
+from diezapp.shared.presentation.scroll_divider import (
+    build_scroll_divider,
+    make_scroll_divider_handler,
+)
+from diezapp.shared.presentation.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,
     ON_SURFACE_DARK,

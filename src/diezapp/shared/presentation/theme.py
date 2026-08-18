@@ -1,16 +1,5 @@
 import flet as ft
 
-# ── Brand Palette ────────────────────────────────────────
-# Modern emerald palette — clean, trustworthy, harmonious
-# --emerald-600:    #059669
-# --emerald-500:    #10B981
-# --emerald-400:    #34D399
-# --emerald-100:    #D1FAE5
-# --emerald-900:    #064E3B
-# --slate-50:       #F8FAFC
-# --slate-900:      #0F172A
-
-# ── Light Mode ───────────────────────────────────────────
 PRIMARY = "#059669"
 PRIMARY_LIGHT = "#10B981"
 ON_PRIMARY = "#FFFFFF"
@@ -26,7 +15,6 @@ DIVIDER_LIGHT = "#F1F5F9"
 HEADER_DIVIDER_LIGHT = "#E1E2E4"
 SECONDARY = "#0D9488"
 
-# ── Dark Mode ────────────────────────────────────────────
 SURFACE_DARK = "#0F172A"
 SURFACE_VARIANT_DARK = "#1E293B"
 ON_SURFACE_DARK = "#F1F5F9"
@@ -39,7 +27,6 @@ PRIMARY_DARK = "#34D399"
 HERO_BG_DARK = "#064E3B"
 SECONDARY_DARK = "#2DD4BF"
 
-# ── Themes ───────────────────────────────────────────────
 LIGHT_THEME = ft.Theme(
     color_scheme=ft.ColorScheme(
         primary=PRIMARY,
@@ -81,14 +68,13 @@ DARK_THEME = ft.Theme(
         status_bar_icon_brightness=ft.Brightness.LIGHT,
     ),
 )
-# ── Focus / Input States ───────────────────────────────────────
-FOCUS_LIGHT = "#64748B"  # slate-500 — subtle, neutral focus
-FOCUS_DARK = "#94A3B8"  # slate-400 — visible on dark, not neon
-ERROR_LIGHT = "#FEE2E2"  # red-100 bg
-ERROR_TEXT_LIGHT = "#DC2626"  # red-600 text
-ERROR_DARK = "#371520"  # dark red bg
-ERROR_TEXT_DARK = "#FCA5A5"  # red-300 text
-# ── Helpers ──────────────────────────────────────────────
+
+FOCUS_LIGHT = "#64748B"
+FOCUS_DARK = "#94A3B8"
+ERROR_LIGHT = "#FEE2E2"
+ERROR_TEXT_LIGHT = "#DC2626"
+ERROR_DARK = "#371520"
+ERROR_TEXT_DARK = "#FCA5A5"
 APPBAR_BGCOLOR_LIGHT = PRIMARY
 APPBAR_BGCOLOR_DARK = "#0a0c10"
 
@@ -98,7 +84,6 @@ def is_light(page: ft.Page) -> bool:
 
 
 def get_colors(page: ft.Page) -> dict:
-    """Return a dict of contextual colors for the current theme mode."""
     light = is_light(page)
     return {
         "surface": SURFACE_LIGHT if light else SURFACE_DARK,
