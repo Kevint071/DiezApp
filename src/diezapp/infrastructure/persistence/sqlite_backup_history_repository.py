@@ -2,7 +2,7 @@ import json
 import uuid
 
 from diezapp.features.google_drive.domain.models import BackupHistoryEntry
-from utils.db import get_connection
+from diezapp.infrastructure.database.connection import get_connection
 
 
 class SqliteBackupHistoryRepository:

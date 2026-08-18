@@ -1,7 +1,7 @@
 from typing import ClassVar
 
 from diezapp.features.calculations.domain.models import Calculation
-from utils.db import get_connection
+from diezapp.infrastructure.database.connection import get_connection
 
 
 class SqliteCalculationRepository:

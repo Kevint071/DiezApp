@@ -1,7 +1,7 @@
 import sqlite3
 
 from diezapp.features.settings.domain.models import AppSettings
-from utils.db import get_setting, set_setting
+from diezapp.infrastructure.database.connection import get_setting, set_setting
 
 _DEFAULTS: AppSettings = {"theme_mode": "light", "fund_percentage": 1}
 

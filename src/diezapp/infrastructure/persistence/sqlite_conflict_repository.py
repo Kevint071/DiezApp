@@ -1,7 +1,7 @@
 import json
 
 from diezapp.features.conflicts.domain.models import ConflictSet
-from utils.db import get_connection
+from diezapp.infrastructure.database.connection import get_connection
 
 
 class SqliteConflictRepository:

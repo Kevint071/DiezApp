@@ -1,7 +1,7 @@
 from typing import ClassVar
 
 from diezapp.features.notes.domain.models import Note
-from utils.db import get_connection
+from diezapp.infrastructure.database.connection import get_connection
 
 
 class SqliteNoteRepository:

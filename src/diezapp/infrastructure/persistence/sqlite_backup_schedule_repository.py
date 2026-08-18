@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from utils.db import get_setting, set_setting
+from diezapp.infrastructure.database.connection import get_setting, set_setting
 
 INTERVAL_SETTING = "backup_interval_seconds"
 LAST_BACKUP_SETTING = "last_backup_success_at"

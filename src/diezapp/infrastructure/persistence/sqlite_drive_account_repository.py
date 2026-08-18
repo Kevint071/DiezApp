@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from diezapp.features.google_drive.domain.models import DriveAccount
-from utils.db import get_connection
+from diezapp.infrastructure.database.connection import get_connection
 
 
 class SqliteDriveAccountRepository:
