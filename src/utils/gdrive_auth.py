@@ -27,7 +27,7 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode, urlsplit
 
 import flet as ft
-import httpx
+from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
 )
@@ -36,14 +36,10 @@ from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
 # forwards data the user's own browser already has (see design.md).
 BACKEND_BASE_URL = "https://diezapp-api.vercel.app"
 LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/login"
-REFRESH_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/refresh"
-
-# Must match the backend's APP_SHARED_SECRET env var (defense in depth for
-# /api/auth/refresh; leave empty if the backend doesn't set one either).
-BACKEND_SHARED_SECRET = ""
 
 MAX_ACCOUNTS = 2
 _account_repository = SqliteDriveAccountRepository()
+_oauth_client = BackendOAuthClient()
 
 
 def is_configured(page: ft.Page) -> bool:
@@ -144,17 +140,8 @@ async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
     if not refresh_token:
         return account.get("access_token")
 
-    headers = {"X-App-Secret": BACKEND_SHARED_SECRET} if BACKEND_SHARED_SECRET else {}
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                REFRESH_ENDPOINT,
-                json={"refresh_token": refresh_token},
-                headers=headers,
-            )
-            resp.raise_for_status()
-            tokens = resp.json()
-    except httpx.HTTPError:
+    tokens = await _oauth_client.refresh_access_token(refresh_token)
+    if tokens is None:
         return None
 
     new_access_token = tokens["access_token"]
