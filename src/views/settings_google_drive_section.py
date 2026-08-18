@@ -3,6 +3,9 @@ from datetime import timedelta
 import flet as ft
 import httpx
 
+from diezapp.features.google_drive.application.backup_schedule_settings import (
+    BackupScheduleSettings,
+)
 from diezapp.infrastructure.google.drive_client import (
     DriveApiError,
     create_folder,
@@ -20,6 +23,7 @@ def _build_gdrive_backups_section(
     navigate_to_history,
     account_service,
     url_opener,
+    schedule_settings: BackupScheduleSettings,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -32,12 +36,7 @@ def _build_gdrive_backups_section(
         is_configured,
         start_link_flow,
     )
-    from utils.gdrive_backup import (
-        get_interval_seconds,
-        get_last_backup_at,
-        run_backup_now,
-        set_interval_seconds,
-    )
+    from utils.gdrive_backup import run_backup_now
 
     pending_message = page.session.store.get("gdrive_link_message")
     if pending_message:
@@ -490,7 +489,7 @@ def _build_gdrive_backups_section(
             ),
         )
 
-    interval_seconds = get_interval_seconds()
+    interval_seconds = schedule_settings.get_interval_seconds()
     d0, rem0 = divmod(interval_seconds or 0, 86400)
     h0, rem0 = divmod(rem0, 3600)
     m0, _rem0 = divmod(rem0, 60)
@@ -522,7 +521,7 @@ def _build_gdrive_backups_section(
         if total <= 0:
             show_snack("La frecuencia debe ser mayor a 0")
             return
-        set_interval_seconds(total)
+        schedule_settings.set_interval_seconds(total)
         page.pop_dialog()
         navigate_to_settings()
 
@@ -561,7 +560,7 @@ def _build_gdrive_backups_section(
             return "Sin copias aún"
         return value.astimezone().strftime("%d/%m/%Y %H:%M")
 
-    last_backup_at = get_last_backup_at()
+    last_backup_at = schedule_settings.get_last_backup_at()
     next_backup_at = (
         last_backup_at + timedelta(seconds=interval_seconds)
         if last_backup_at and interval_seconds

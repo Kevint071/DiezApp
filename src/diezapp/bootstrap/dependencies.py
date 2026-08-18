@@ -13,6 +13,9 @@ from diezapp.features.calculations.application.update_calculation import (
     UpdateCalculation,
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
+from diezapp.features.google_drive.application.backup_schedule_settings import (
+    BackupScheduleSettings,
+)
 from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
 from diezapp.features.google_drive.application.link_account import LinkAccountService
 from diezapp.features.google_drive.application.url_opener import UrlOpener
@@ -47,7 +50,11 @@ from diezapp.infrastructure.persistence.sqlite_note_repository import (
 from diezapp.infrastructure.persistence.sqlite_settings_repository import (
     SqliteSettingsRepository,
 )
-from utils.gdrive_backup import get_interval_seconds, get_last_backup_at
+from utils.gdrive_backup import (
+    get_interval_seconds,
+    get_last_backup_at,
+    set_interval_seconds,
+)
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,7 @@ class AppDependencies:
     google_drive_history: BackupHistoryRepository
     google_drive_link: LinkAccountService
     google_drive_scheduler: BackupScheduler
+    google_drive_schedule_settings: BackupScheduleSettings
     google_drive_url_opener: UrlOpener
     local_backup: LocalBackupService
     monthly_summary: MonthlySummaryService
@@ -89,6 +97,11 @@ def create_dependencies() -> AppDependencies:
         google_drive_link=LinkAccountService(drive_account_repository),
         google_drive_scheduler=BackupScheduler(
             get_interval_seconds,
+            get_last_backup_at,
+        ),
+        google_drive_schedule_settings=BackupScheduleSettings(
+            get_interval_seconds,
+            set_interval_seconds,
             get_last_backup_at,
         ),
         google_drive_url_opener=FletUrlOpener(),

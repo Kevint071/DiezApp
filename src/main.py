@@ -258,6 +258,7 @@ def _main(page: ft.Page):
             lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
             dependencies.google_drive_link,
             dependencies.google_drive_url_opener,
+            dependencies.google_drive_schedule_settings,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,
