@@ -11,3 +11,11 @@ class DriveAccount(TypedDict):
     refresh_token: str
     token_expiry_at: str
     created_at: str
+
+
+class BackupHistoryEntry(TypedDict):
+    id: str
+    started_at: str
+    finished_at: str
+    status: str
+    details: list[dict]
