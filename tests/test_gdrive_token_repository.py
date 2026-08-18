@@ -1,13 +1,16 @@
+from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
+    SqliteDriveAccountRepository,
+)
 from diezapp.infrastructure.persistence.sqlite_drive_token_repository import (
     SqliteDriveTokenRepository,
 )
-from utils import gdrive_auth
 from utils.db import get_connection
 
 
 def test_update_changes_only_selected_account_token():
-    account_a = gdrive_auth.add_account("a@example.com", "token-a", "refresh-a", 3600)
-    account_b = gdrive_auth.add_account("b@example.com", "token-b", "refresh-b", 3600)
+    account_repository = SqliteDriveAccountRepository()
+    account_a = account_repository.add("a@example.com", "token-a", "refresh-a", 3600)
+    account_b = account_repository.add("b@example.com", "token-b", "refresh-b", 3600)
     repository = SqliteDriveTokenRepository()
 
     repository.update(account_a, "new-token-a", "2030-01-01T00:00:00+00:00")
