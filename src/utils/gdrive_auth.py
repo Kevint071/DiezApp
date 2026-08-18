@@ -28,6 +28,7 @@ from datetime import UTC, datetime, timedelta
 import flet as ft
 from diezapp.features.google_drive.application.link_account import LinkAccountService
 from diezapp.features.google_drive.application.start_link import build_login_url
+from diezapp.features.google_drive.domain.models import DriveAccount
 from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
@@ -108,7 +109,7 @@ async def complete_link_flow(
     return result
 
 
-async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
+async def ensure_fresh_access_token(page: ft.Page, account: DriveAccount) -> str | None:
     """Return a valid access token for `account`, refreshing it via the
     backend proxy if expired (refreshing requires client_secret, which only
     the backend holds)."""
@@ -135,7 +136,7 @@ async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
     return new_access_token
 
 
-def list_accounts() -> list[dict]:
+def list_accounts() -> list[DriveAccount]:
     return _account_repository.list()
 
 

@@ -1,6 +1,12 @@
 from typing import TypedDict
 
 
+class DriveTokens(TypedDict):
+    access_token: str
+    expires_in: int
+    refresh_token: str
+
+
 class DriveAccount(TypedDict):
     id: str
     google_account_email: str

@@ -1,4 +1,5 @@
 import httpx
+from diezapp.features.google_drive.domain.models import DriveTokens
 
 BACKEND_BASE_URL = "https://diezapp-api.vercel.app"
 REFRESH_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/refresh"
@@ -11,7 +12,7 @@ class BackendOAuthClient:
     def __init__(self, transport: httpx.AsyncBaseTransport | None = None):
         self._transport = transport
 
-    async def refresh_access_token(self, refresh_token: str) -> dict | None:
+    async def refresh_access_token(self, refresh_token: str) -> DriveTokens | None:
         headers = (
             {"X-App-Secret": BACKEND_SHARED_SECRET} if BACKEND_SHARED_SECRET else {}
         )
