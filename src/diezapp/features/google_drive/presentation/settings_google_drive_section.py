@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 import flet as ft
 
 from diezapp.features.google_drive.application.backup_schedule_settings import (
@@ -556,38 +554,6 @@ def _build_gdrive_backups_section(
         on_click=_open_freq_dialog,
     )
 
-    def _format_local_datetime(value):
-        if value is None:
-            return "Sin copias aún"
-        return value.astimezone().strftime("%d/%m/%Y %H:%M")
-
-    last_backup_at = schedule_settings.get_last_backup_at()
-    next_backup_at = (
-        last_backup_at + timedelta(seconds=interval_seconds)
-        if last_backup_at and interval_seconds
-        else None
-    )
-    backup_status = ft.Container(
-        padding=ft.Padding.symmetric(vertical=10, horizontal=18),
-        content=ft.Column(
-            spacing=4,
-            controls=[
-                ft.Text(
-                    f"Última copia: {_format_local_datetime(last_backup_at)}",
-                    size=13,
-                    color=c["on_surface_variant"],
-                ),
-                ft.Text(
-                    f"Próxima copia: {_format_local_datetime(next_backup_at)}"
-                    if interval_seconds
-                    else "Próxima copia: Sin configurar",
-                    size=13,
-                    color=c["on_surface_variant"],
-                ),
-            ],
-        ),
-    )
-
     backup_now_button = ft.IconButton(
         icon=ft.Icons.CLOUD_UPLOAD_OUTLINED,
         icon_size=22,
@@ -785,7 +751,6 @@ def _build_gdrive_backups_section(
         )
 
     controls.append(freq_cell)
-    controls.append(backup_status)
     controls.append(_divider())
     controls.append(backup_action)
     controls.append(_divider())
