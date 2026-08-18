@@ -1,10 +1,11 @@
 import flet as ft
 
 from diezapp.features.settings.application.settings_service import SettingsService
+from diezapp.features.settings.domain.models import AppSettings
 from diezapp.shared.presentation.theme import DARK_THEME, LIGHT_THEME
 
 
-def configure_page(page: ft.Page, settings_service: SettingsService) -> dict:
+def configure_page(page: ft.Page, settings_service: SettingsService) -> AppSettings:
     """Apply application-wide page settings and return session state."""
     page.title = "DiezApp"
     page.padding = ft.Padding.all(0)
@@ -15,4 +16,4 @@ def configure_page(page: ft.Page, settings_service: SettingsService) -> dict:
     )
     page.theme = LIGHT_THEME
     page.dark_theme = DARK_THEME
-    return {"fund_percentage": settings["fund_percentage"]}
+    return settings
