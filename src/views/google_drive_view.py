@@ -5,6 +5,7 @@ import flet as ft
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
 )
+from diezapp.features.google_drive.application.oauth_flow import GoogleDriveOAuthFlow
 from diezapp.features.google_drive.application.refresh_access_token import (
     RefreshAccessToken,
 )
@@ -25,6 +26,7 @@ def build_google_drive_view(
     schedule_settings: BackupScheduleSettings,
     backup_service: GoogleDriveBackupService,
     refresh_access_token: RefreshAccessToken,
+    oauth_flow: GoogleDriveOAuthFlow,
 ):
     """Build the dedicated Google Drive account and backup management view."""
     colors = colors_fn(page)
@@ -51,6 +53,7 @@ def build_google_drive_view(
                 schedule_settings,
                 backup_service,
                 refresh_access_token,
+                oauth_flow,
             ),
         ),
     )

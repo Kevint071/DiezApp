@@ -6,6 +6,7 @@ import httpx
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
 )
+from diezapp.features.google_drive.application.oauth_flow import GoogleDriveOAuthFlow
 from diezapp.features.google_drive.application.refresh_access_token import (
     RefreshAccessToken,
 )
@@ -32,6 +33,7 @@ def _build_gdrive_backups_section(
     schedule_settings: BackupScheduleSettings,
     backup_service: GoogleDriveBackupService,
     refresh_access_token: RefreshAccessToken,
+    oauth_flow: GoogleDriveOAuthFlow,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -39,11 +41,6 @@ def _build_gdrive_backups_section(
     same pattern already used by the export/import dialogs above — rather
     than patching individual controls in place.
     """
-    from utils.gdrive_auth import (
-        is_configured,
-        start_link_flow,
-    )
-
     pending_message = page.session.store.get("gdrive_link_message")
     if pending_message:
         page.session.store.remove("gdrive_link_message")
@@ -52,10 +49,10 @@ def _build_gdrive_backups_section(
     accounts = account_service.list_accounts()
 
     async def _link_account(e):
-        if not is_configured(page):
+        if not oauth_flow.is_configured():
             show_snack("OAuth de Google no configurado")
             return
-        started = await start_link_flow(page, url_opener)
+        started = await oauth_flow.start(page.session.store, page.url)
         if not started:
             show_snack("Ya hay 2 cuentas vinculadas")
 

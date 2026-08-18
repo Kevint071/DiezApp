@@ -261,6 +261,7 @@ def _main(page: ft.Page):
             dependencies.google_drive_schedule_settings,
             dependencies.google_drive_backup,
             dependencies.google_drive_refresh_token,
+            dependencies.google_drive_oauth,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,
@@ -504,8 +505,6 @@ def _main(page: ft.Page):
             page.run_task(_handle_gdrive_callback)
 
     async def _handle_gdrive_callback():
-        from utils.gdrive_auth import complete_link_flow
-
         if gdrive_callback_state["processing"]:
             return
         gdrive_callback_state["processing"] = True
@@ -516,8 +515,10 @@ def _main(page: ft.Page):
             query_params = dict(page.query.to_dict)
             if callback_route:
                 query_params = dict(parse_qsl(urlparse(callback_route).query))
-            result = await complete_link_flow(
-                page, query_params, dependencies.google_drive_link
+            result = dependencies.google_drive_oauth.complete(
+                page.session.store,
+                query_params,
+                page.web or (page.url or "").startswith(("ws://", "wss://")),
             )
             page.session.store.set("gdrive_link_message", result["message"])
             page.navigate(routes.GOOGLE_DRIVE)

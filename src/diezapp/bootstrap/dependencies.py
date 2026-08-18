@@ -18,6 +18,7 @@ from diezapp.features.google_drive.application.backup_schedule_settings import (
 )
 from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
 from diezapp.features.google_drive.application.link_account import LinkAccountService
+from diezapp.features.google_drive.application.oauth_flow import GoogleDriveOAuthFlow
 from diezapp.features.google_drive.application.refresh_access_token import (
     RefreshAccessToken,
 )
@@ -77,6 +78,7 @@ class AppDependencies:
     google_drive_history: BackupHistoryRepository
     google_drive_backup: GoogleDriveBackupService
     google_drive_link: LinkAccountService
+    google_drive_oauth: GoogleDriveOAuthFlow
     google_drive_refresh_token: RefreshAccessToken
     google_drive_scheduler: BackupScheduler
     google_drive_schedule_settings: BackupScheduleSettings
@@ -100,6 +102,8 @@ def create_dependencies() -> AppDependencies:
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
     pdf_generator = PdfGenerator()
+    link_account_service = LinkAccountService(drive_account_repository)
+    url_opener = FletUrlOpener()
     refresh_access_token = RefreshAccessToken(
         BackendOAuthClient(), drive_token_repository
     )
@@ -119,7 +123,8 @@ def create_dependencies() -> AppDependencies:
             save_success_at=backup_schedule_repository.set_last_backup_at,
         ),
         google_drive_history=backup_history_repository,
-        google_drive_link=LinkAccountService(drive_account_repository),
+        google_drive_link=link_account_service,
+        google_drive_oauth=GoogleDriveOAuthFlow(link_account_service, url_opener),
         google_drive_refresh_token=refresh_access_token,
         google_drive_scheduler=BackupScheduler(
             backup_schedule_repository.get_interval_seconds,
@@ -128,7 +133,7 @@ def create_dependencies() -> AppDependencies:
         google_drive_schedule_settings=BackupScheduleSettings(
             backup_schedule_repository,
         ),
-        google_drive_url_opener=FletUrlOpener(),
+        google_drive_url_opener=url_opener,
         local_backup=LocalBackupService(backup_adapter),
         monthly_summary=monthly_summary,
         notes=NoteService(note_repository),
