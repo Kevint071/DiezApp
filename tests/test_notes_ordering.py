@@ -1,7 +1,20 @@
 import time
 
-from utils.notes import add_note, load_notes, update_note
-from views.notes_view import _sort_notes_for_display
+import pytest
+
+from diezapp.features.notes.application.note_service import NoteService
+from diezapp.infrastructure.persistence.sqlite_note_repository import (
+    SqliteNoteRepository,
+)
+
+
+def _sort_notes_for_display(notes):
+    return NoteService.sort_for_display(notes)
+
+
+@pytest.fixture
+def notes_service():
+    return NoteService(SqliteNoteRepository())
 
 
 class TestSortNotesForDisplayPure:
@@ -95,66 +108,66 @@ class TestSortNotesForDisplayPure:
 
 
 class TestSortNotesForDisplayWithRealNotes:
-    """Integration tests through utils.notes (add_note/update_note/load_notes)."""
+    """Integration tests through NoteService and its SQLite repository."""
 
-    def test_new_note_has_no_updated_at(self):
-        note = add_note("contenido", "Titulo")
+    def test_new_note_has_no_updated_at(self, notes_service):
+        note = notes_service.add("contenido", "Titulo")
         assert note["updated_at"] is None
-        assert load_notes()[0]["updated_at"] is None
+        assert notes_service.list()[0]["updated_at"] is None
 
-    def test_editing_a_note_sets_updated_at(self):
-        note = add_note("contenido original", "Titulo")
+    def test_editing_a_note_sets_updated_at(self, notes_service):
+        note = notes_service.add("contenido original", "Titulo")
         assert note["updated_at"] is None
 
-        updated = update_note(note["id"], "contenido editado", "Titulo")
+        updated = notes_service.update(note["id"], "contenido editado", "Titulo")
 
         assert updated["updated_at"] is not None
-        stored = next(n for n in load_notes() if n["id"] == note["id"])
+        stored = next(n for n in notes_service.list() if n["id"] == note["id"])
         assert stored["updated_at"] is not None
         assert stored["content"] == "contenido editado"
 
-    def test_editing_a_note_moves_it_to_the_top(self):
-        first = add_note("contenido 1", "Nota 1")
+    def test_editing_a_note_moves_it_to_the_top(self, notes_service):
+        first = notes_service.add("contenido 1", "Nota 1")
         time.sleep(0.01)
-        second = add_note("contenido 2", "Nota 2")
+        second = notes_service.add("contenido 2", "Nota 2")
         time.sleep(0.01)
-        third = add_note("contenido 3", "Nota 3")
+        third = notes_service.add("contenido 3", "Nota 3")
 
         # Edit the oldest note; it should now be displayed first, ahead of
         # both never-edited notes (which keep newest-created-first order).
-        update_note(first["id"], "contenido 1 editado", "Nota 1")
+        notes_service.update(first["id"], "contenido 1 editado", "Nota 1")
 
-        ordered = _sort_notes_for_display(load_notes())
+        ordered = _sort_notes_for_display(notes_service.list())
         assert [n["id"] for n in ordered] == [first["id"], third["id"], second["id"]]
 
-    def test_editing_the_second_time_re_sorts_by_latest_edit(self):
-        first = add_note("contenido 1", "Nota 1")
+    def test_editing_the_second_time_re_sorts_by_latest_edit(self, notes_service):
+        first = notes_service.add("contenido 1", "Nota 1")
         time.sleep(0.01)
-        second = add_note("contenido 2", "Nota 2")
+        second = notes_service.add("contenido 2", "Nota 2")
         time.sleep(0.01)
-        third = add_note("contenido 3", "Nota 3")
+        third = notes_service.add("contenido 3", "Nota 3")
 
-        update_note(first["id"], "contenido 1 editado", "Nota 1")
+        notes_service.update(first["id"], "contenido 1 editado", "Nota 1")
         time.sleep(0.01)
-        update_note(second["id"], "contenido 2 editado", "Nota 2")
+        notes_service.update(second["id"], "contenido 2 editado", "Nota 2")
 
-        ordered = _sort_notes_for_display(load_notes())
+        ordered = _sort_notes_for_display(notes_service.list())
         # second was edited most recently, so it now leads; first follows;
         # third was never touched so it stays last.
         assert [n["id"] for n in ordered] == [second["id"], first["id"], third["id"]]
 
-    def test_never_edited_notes_keep_creation_order_after_edits(self):
-        first = add_note("contenido 1", "Nota 1")
+    def test_never_edited_notes_keep_creation_order_after_edits(self, notes_service):
+        first = notes_service.add("contenido 1", "Nota 1")
         time.sleep(0.01)
-        second = add_note("contenido 2", "Nota 2")
+        second = notes_service.add("contenido 2", "Nota 2")
         time.sleep(0.01)
-        third = add_note("contenido 3", "Nota 3")
+        third = notes_service.add("contenido 3", "Nota 3")
         time.sleep(0.01)
-        fourth = add_note("contenido 4", "Nota 4")
+        fourth = notes_service.add("contenido 4", "Nota 4")
 
-        update_note(second["id"], "contenido 2 editado", "Nota 2")
+        notes_service.update(second["id"], "contenido 2 editado", "Nota 2")
 
-        ordered = _sort_notes_for_display(load_notes())
+        ordered = _sort_notes_for_display(notes_service.list())
         assert [n["id"] for n in ordered] == [
             second["id"],
             fourth["id"],
@@ -162,11 +175,11 @@ class TestSortNotesForDisplayWithRealNotes:
             first["id"],
         ]
 
-    def test_newly_created_note_ranks_above_an_earlier_edit(self):
-        note = add_note("contenido", "Nota vieja")
-        update_note(note["id"], "contenido editado", "Nota vieja")
+    def test_newly_created_note_ranks_above_an_earlier_edit(self, notes_service):
+        note = notes_service.add("contenido", "Nota vieja")
+        notes_service.update(note["id"], "contenido editado", "Nota vieja")
         time.sleep(0.01)
-        brand_new = add_note("contenido nuevo", "Nota nueva")
+        brand_new = notes_service.add("contenido nuevo", "Nota nueva")
 
-        ordered = _sort_notes_for_display(load_notes())
+        ordered = _sort_notes_for_display(notes_service.list())
         assert [n["id"] for n in ordered] == [brand_new["id"], note["id"]]

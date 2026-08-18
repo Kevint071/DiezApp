@@ -31,15 +31,6 @@ def _truncate(text: str) -> str:
     return truncated.rstrip() + "…"
 
 
-def _sort_notes_for_display(notes: list) -> list:
-    """Most recent notes first, using whichever of updated_at/created_at is latest."""
-    return sorted(
-        notes,
-        key=lambda n: n.get("updated_at") or n.get("created_at") or "",
-        reverse=True,
-    )
-
-
 def build_notes_view(
     page: ft.Page,
     colors_fn,
@@ -51,7 +42,7 @@ def build_notes_view(
     set_header_actions=None,
 ):
     c = colors_fn(page)
-    notes = _sort_notes_for_display(notes_service.list())
+    notes = notes_service.sort_for_display(notes_service.list())
 
     add_btn = ft.FilledButton(
         "Nueva nota",

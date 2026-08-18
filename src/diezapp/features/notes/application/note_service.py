@@ -12,6 +12,14 @@ class NoteService:
     def list(self) -> list[Note]:
         return self.repository.list()
 
+    @staticmethod
+    def sort_for_display(notes: list[Note]) -> list[Note]:
+        return sorted(
+            notes,
+            key=lambda note: note.get("updated_at") or note.get("created_at") or "",
+            reverse=True,
+        )
+
     def replace_all(self, notes: list[Note]) -> None:
         self.repository.replace_all(notes)
 
