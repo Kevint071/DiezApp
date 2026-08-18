@@ -53,7 +53,11 @@ def _main(page: ft.Page):
         _guard_navigation(lambda: page.navigate(route))
 
     calculator = CalculatorView(
-        page, state, get_colors, dependencies.calculations, dependencies.conflicts
+        page,
+        state,
+        get_colors,
+        dependencies.create_calculation,
+        dependencies.conflicts,
     )
 
     def _build_appbar(title="Inicio", show_back=False, back_route=None, actions=None):
@@ -179,6 +183,8 @@ def _main(page: ft.Page):
             get_colors,
             lambda: route_change(),
             dependencies.calculations,
+            dependencies.update_calculation,
+            dependencies.delete_calculation,
             dependencies.conflicts,
             dependencies.pdf_export,
         )
@@ -286,6 +292,8 @@ def _main(page: ft.Page):
             get_colors,
             lambda: route_change(),
             dependencies.calculations,
+            dependencies.update_calculation,
+            dependencies.delete_calculation,
             dependencies.conflicts,
             dependencies.pdf_export,
             date_range=(start, end),

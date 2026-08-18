@@ -7,8 +7,8 @@ session and resets it whenever the view is opened.
 
 import flet as ft
 
-from diezapp.features.calculations.application.calculation_service import (
-    CalculationService,
+from diezapp.features.calculations.application.create_calculation import (
+    CreateCalculation,
 )
 from diezapp.features.calculator.domain.calculator_service import (
     calculate_distribution,
@@ -23,13 +23,13 @@ class CalculatorView:
         page: ft.Page,
         state: dict,
         colors_fn,
-        calculations: CalculationService,
+        create_calculation: CreateCalculation,
         conflicts: ConflictService,
     ):
         self.page = page
         self.state = state
         self.colors_fn = colors_fn
-        self.calculations = calculations
+        self.create_calculation = create_calculation
         self.conflicts = conflicts
 
         self.txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
@@ -177,7 +177,7 @@ class CalculatorView:
             amount = float(self.input_amount.value.replace(".", "").replace(",", "."))
         except ValueError, AttributeError:
             return
-        self.calculations.add(amount, self.state["fund_percentage"])
+        self.create_calculation.execute(amount, self.state["fund_percentage"])
         self.save_btn.visible = False
         self.page.update()
 
