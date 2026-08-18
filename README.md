@@ -26,7 +26,7 @@ La app usa dos capturas verticales. La primera muestra la pantalla de inicio y l
 - Python 3.14+
 - Flet 0.86.5+
 - fpdf2 para generar PDF
-- Almacenamiento local en JSON
+- Almacenamiento local en SQLite
 
 ## Inicio rápido
 
