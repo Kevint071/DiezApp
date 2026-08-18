@@ -1,6 +1,6 @@
 import calendar
 import os
-from datetime import date, datetime
+from datetime import date
 
 import flet as ft
 
@@ -20,6 +20,7 @@ from diezapp.features.calculations.presentation.calculation_components import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
+from diezapp.shared.datetime_utils import local_now, to_local_datetime, to_local_iso
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -41,7 +42,7 @@ def build_date_range_picker_view(
 ):
     c = colors_fn(page)
     light = page.theme_mode == ft.ThemeMode.LIGHT
-    today = datetime.now().astimezone().date()
+    today = local_now().date()
 
     MONTH_NAMES = [
         "Enero",
@@ -341,7 +342,7 @@ def build_date_range_picker_view(
         has_calcs = False
         for calc in calculations:
             try:
-                cd = datetime.fromisoformat(calc.get("created_at", "")).date()
+                cd = to_local_datetime(calc.get("created_at", "")).date()
                 if s <= cd <= en:
                     has_calcs = True
                     break
@@ -541,7 +542,7 @@ def build_saved_calculations_view(
         calculations = []
         for calc in all_calculations:
             try:
-                cd = datetime.fromisoformat(calc.get("created_at", "")).date()
+                cd = to_local_datetime(calc.get("created_at", "")).date()
                 if start_date <= cd <= end_date:
                     calculations.append(calc)
             except ValueError, TypeError:
@@ -765,7 +766,7 @@ def build_saved_calculations_view(
             calc.update(updated_calculation)
             txt_amount.value = format_currency(new_amount)
             _recalculate(new_amount)
-            calc["updated_at"] = datetime.now().astimezone().isoformat()
+            calc["updated_at"] = to_local_iso(local_now())
             date_txt.value = format_date(calc["updated_at"])
             state["editing"] = False
             txt_amount.visible = True

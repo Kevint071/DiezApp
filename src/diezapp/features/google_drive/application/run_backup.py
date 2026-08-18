@@ -1,12 +1,13 @@
 import asyncio
 import os
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import datetime
 
 from diezapp.features.google_drive.domain.backup_results import (
     BackupResult,
     BackupSummary,
 )
+from diezapp.shared.datetime_utils import local_now
 
 Account = dict
 TokenProvider = Callable[[Account], Awaitable[str | None]]
@@ -68,7 +69,7 @@ class GoogleDriveBackupService:
                 "message": "No hay cuentas configuradas",
             }
 
-        started_at = datetime.now(UTC)
+        started_at = local_now()
         file_path = self._snapshot_db()
         file_name = os.path.basename(file_path)
         try:
@@ -92,7 +93,7 @@ class GoogleDriveBackupService:
         else:
             status = "failed"
 
-        finished_at = datetime.now(UTC)
+        finished_at = local_now()
         if status in ("success", "partial"):
             self._save_success_at(finished_at)
         self._write_history(started_at, finished_at, status, results)

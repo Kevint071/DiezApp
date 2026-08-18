@@ -1,9 +1,9 @@
 import os
 import tempfile
 from collections.abc import Sequence
-from datetime import datetime
 
 from diezapp.features.calculations.domain.models import Calculation
+from diezapp.shared.datetime_utils import local_now, to_local_datetime
 
 
 def _format_currency(value: float) -> str:
@@ -12,7 +12,7 @@ def _format_currency(value: float) -> str:
 
 def _format_date(date_str: str) -> str:
     try:
-        parsed = datetime.fromisoformat(date_str)
+        parsed = to_local_datetime(date_str)
         return parsed.strftime("%d/%m/%Y %I:%M %p")
     except ValueError, TypeError:
         try:
@@ -78,7 +78,7 @@ class PdfGenerator:
 
         output_path = os.path.join(
             tempfile.gettempdir(),
-            f"diezmos_{datetime.now().astimezone().date().isoformat()}.pdf",
+            f"diezmos_{local_now().date().isoformat()}.pdf",
         )
         pdf.output(output_path)
         return output_path

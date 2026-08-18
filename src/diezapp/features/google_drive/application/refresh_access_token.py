@@ -1,7 +1,8 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from diezapp.features.google_drive.domain.models import DriveAccount
 from diezapp.features.google_drive.domain.repositories import DriveTokenRepository
+from diezapp.shared.datetime_utils import local_now, parse_datetime, to_local_iso
 
 
 class RefreshAccessToken:
@@ -13,10 +14,10 @@ class RefreshAccessToken:
         expiry = account.get("token_expiry_at")
         if expiry:
             try:
-                expires_at = datetime.fromisoformat(expiry)
+                expires_at = parse_datetime(expiry)
             except ValueError:
                 expires_at = None
-            if expires_at and datetime.now(UTC) < expires_at:
+            if expires_at and local_now() < expires_at:
                 return account["access_token"]
 
         refresh_token = account.get("refresh_token")
@@ -28,10 +29,8 @@ class RefreshAccessToken:
             return None
 
         access_token = tokens["access_token"]
-        expires_at = datetime.now(UTC) + timedelta(
-            seconds=tokens.get("expires_in", 3600)
-        )
+        expires_at = local_now() + timedelta(seconds=tokens.get("expires_in", 3600))
         self._token_repository.update(
-            account["id"], access_token, expires_at.isoformat()
+            account["id"], access_token, to_local_iso(expires_at)
         )
         return access_token

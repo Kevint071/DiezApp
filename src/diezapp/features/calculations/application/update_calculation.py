@@ -1,10 +1,9 @@
-from datetime import UTC, datetime
-
 from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.domain.repositories import CalculationRepository
 from diezapp.features.calculator.application.calculate_distribution import (
     CalculateDistribution,
 )
+from diezapp.shared.datetime_utils import local_now, to_local_iso
 
 
 class UpdateCalculation:
@@ -31,7 +30,7 @@ class UpdateCalculation:
                     "restante": distribution.restante,
                     "fondo_local": distribution.fondo_local,
                     "sostenimiento": distribution.sostenimiento,
-                    "updated_at": datetime.now(UTC).astimezone().isoformat(),
+                    "updated_at": to_local_iso(local_now()),
                 }
             )
             self.repository.replace_all(calculations)

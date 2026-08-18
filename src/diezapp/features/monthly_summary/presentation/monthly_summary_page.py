@@ -1,10 +1,9 @@
-from datetime import UTC, datetime
-
 import flet as ft
 
 from diezapp.features.monthly_summary.domain.monthly_summary_service import (
     MonthlySummaryService,
 )
+from diezapp.shared.datetime_utils import local_now, parse_datetime
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -178,7 +177,7 @@ def build_breakdown_view(
             value = calc.get(indicator_key, 0.0)
             running_total += value
             try:
-                d = datetime.fromisoformat(calc.get("created_at", ""))
+                d = parse_datetime(calc.get("created_at", ""))
                 date_str = d.strftime("%d/%m")
             except ValueError, TypeError:
                 date_str = "—"
@@ -473,7 +472,7 @@ def build_monthly_summary_view(
     page: ft.Page, colors_fn, monthly_summary: MonthlySummaryService
 ):
     c = colors_fn(page)
-    now = datetime.now(UTC).astimezone()
+    now = local_now()
     state = _load_monthly_state(page, now.year)
 
     def _save_monthly_state():

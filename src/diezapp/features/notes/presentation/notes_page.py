@@ -1,9 +1,8 @@
-from datetime import datetime
-
 import flet as ft
 
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
+from diezapp.shared.datetime_utils import to_local_datetime
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -14,7 +13,7 @@ PREVIEW_LIMIT = 100
 
 def _format_date(date_str: str) -> str:
     try:
-        d = datetime.fromisoformat(date_str)
+        d = to_local_datetime(date_str)
         return d.strftime("%d/%m/%Y %I:%M %p")
     except ValueError, TypeError:
         return date_str

@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import flet as ft
 
 from diezapp.features.google_drive.application.backup_schedule_settings import (
@@ -19,6 +17,7 @@ from diezapp.features.google_drive.domain.repositories import BackupHistoryRepos
 from diezapp.features.google_drive.presentation.settings_google_drive_section import (
     _build_gdrive_backups_section,
 )
+from diezapp.shared.datetime_utils import to_local_datetime
 
 
 def build_google_drive_view(
@@ -76,10 +75,8 @@ def build_google_drive_history_view(
     rows = []
     for entry in history_repository.list(limit=50):
         try:
-            timestamp = (
-                datetime.fromisoformat(entry["started_at"])
-                .astimezone()
-                .strftime("%d/%m/%Y %H:%M")
+            timestamp = to_local_datetime(entry["started_at"]).strftime(
+                "%d/%m/%Y %H:%M"
             )
         except ValueError:
             timestamp = entry["started_at"]

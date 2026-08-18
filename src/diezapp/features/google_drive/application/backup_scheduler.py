@@ -1,5 +1,7 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
+
+from diezapp.shared.datetime_utils import local_now
 
 
 class BackupScheduler:
@@ -16,7 +18,7 @@ class BackupScheduler:
         interval = self._get_interval_seconds()
         if interval is None:
             return None
-        current_time = now or datetime.now(UTC)
+        current_time = now or local_now()
         last_backup_at = self._get_last_backup_at()
         if last_backup_at is None:
             return 0.0

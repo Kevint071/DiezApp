@@ -1,7 +1,6 @@
 import asyncio
 import os
 import tempfile
-from datetime import UTC, datetime
 from pathlib import Path
 
 import flet as ft
@@ -14,6 +13,7 @@ from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
 from diezapp.features.notes.application.note_service import NoteService
+from diezapp.shared.datetime_utils import local_now
 
 
 def build_local_backup_section(
@@ -81,9 +81,7 @@ def build_local_backup_section(
             show_snack("No hay datos guardados para exportar")
             return
 
-        file_name = (
-            datetime.now(UTC).astimezone().strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
-        )
+        file_name = local_now().strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
         method = export_method["value"]
         if method == "save" and is_desktop(page):
             from diezapp.infrastructure.files.desktop_file_picker import pick_save_path

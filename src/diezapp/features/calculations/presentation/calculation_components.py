@@ -1,15 +1,15 @@
 import flet as ft
 
+from diezapp.shared.datetime_utils import to_local_datetime
+
 
 def format_currency(value: float) -> str:
     return f"${value:,.0f}".replace(",", ".")
 
 
 def format_date(value: str) -> str:
-    from datetime import datetime
-
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = to_local_datetime(value)
         return parsed.strftime("%d/%m/%Y %I:%M %p")
     except ValueError, TypeError:
         return value

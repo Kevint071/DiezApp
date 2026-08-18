@@ -1,11 +1,11 @@
 import uuid
-from datetime import UTC, datetime
 
 from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.domain.repositories import CalculationRepository
 from diezapp.features.calculator.application.calculate_distribution import (
     CalculateDistribution,
 )
+from diezapp.shared.datetime_utils import local_now, to_local_iso
 
 
 class CreateCalculation:
@@ -21,7 +21,7 @@ class CreateCalculation:
         distribution = self.calculate_distribution.execute(amount, fund_percentage)
         calculation: Calculation = {
             "id": str(uuid.uuid4()),
-            "created_at": datetime.now(UTC).astimezone().isoformat(),
+            "created_at": to_local_iso(local_now()),
             "amount": distribution.amount,
             "envio_21": distribution.envio_21,
             "restante": distribution.restante,

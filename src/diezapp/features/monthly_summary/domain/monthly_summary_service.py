@@ -1,7 +1,6 @@
-from datetime import datetime
-
 from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.domain.repositories import CalculationRepository
+from diezapp.shared.datetime_utils import parse_datetime
 
 INDICATOR_KEYS = ("amount", "sostenimiento", "envio_21", "fondo_local")
 
@@ -14,9 +13,7 @@ class MonthlySummaryService:
         filtered = []
         for calculation in self.calculations.list():
             try:
-                calculation_date = datetime.fromisoformat(
-                    calculation.get("created_at", "")
-                )
+                calculation_date = parse_datetime(calculation.get("created_at", ""))
                 if calculation_date.year == year and calculation_date.month == month:
                     filtered.append(calculation)
             except ValueError, TypeError:

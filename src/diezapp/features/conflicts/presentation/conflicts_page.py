@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import flet as ft
 
 from diezapp.features.calculations.application.calculation_service import (
@@ -7,6 +5,7 @@ from diezapp.features.calculations.application.calculation_service import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
+from diezapp.shared.datetime_utils import to_local_datetime
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -66,7 +65,7 @@ def _format_field(value, field_type: str) -> str:
 
 def _format_date(date_str: str) -> str:
     try:
-        d = datetime.fromisoformat(date_str)
+        d = to_local_datetime(date_str)
         return d.strftime("%d/%m/%Y %H:%M")
     except ValueError, TypeError:
         return "Sin fecha"

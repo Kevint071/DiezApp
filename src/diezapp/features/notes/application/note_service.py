@@ -1,8 +1,8 @@
 import uuid
-from datetime import UTC, datetime
 
 from diezapp.features.notes.domain.models import Note
 from diezapp.features.notes.domain.repositories import NoteRepository
+from diezapp.shared.datetime_utils import local_now, to_local_iso
 
 
 class NoteService:
@@ -28,7 +28,7 @@ class NoteService:
             "id": str(uuid.uuid4()),
             "title": title,
             "content": content,
-            "created_at": datetime.now(UTC).astimezone().isoformat(),
+            "created_at": to_local_iso(local_now()),
             "updated_at": None,
         }
         notes = self.repository.list()
@@ -46,7 +46,7 @@ class NoteService:
             note["content"] = content
             if title is not None:
                 note["title"] = title
-            note["updated_at"] = datetime.now(UTC).astimezone().isoformat()
+            note["updated_at"] = to_local_iso(local_now())
             self.repository.replace_all(notes)
             return note
         return None

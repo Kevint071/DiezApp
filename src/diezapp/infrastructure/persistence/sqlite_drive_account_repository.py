@@ -1,8 +1,9 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from diezapp.features.google_drive.domain.models import DriveAccount
 from diezapp.infrastructure.database.connection import get_connection
+from diezapp.shared.datetime_utils import local_now, to_local_iso
 
 
 class SqliteDriveAccountRepository:
@@ -38,7 +39,7 @@ class SqliteDriveAccountRepository:
         expires_in: int,
     ) -> str:
         account_id = uuid.uuid4().hex
-        now = datetime.now(UTC)
+        now = local_now()
         expiry = now + timedelta(seconds=expires_in)
         conn = get_connection()
         conn.execute(
@@ -52,8 +53,8 @@ class SqliteDriveAccountRepository:
                 email,
                 access_token,
                 refresh_token,
-                expiry.isoformat(),
-                now.isoformat(),
+                to_local_iso(expiry),
+                to_local_iso(now),
             ),
         )
         conn.commit()
