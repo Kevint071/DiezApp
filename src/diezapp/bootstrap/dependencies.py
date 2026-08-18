@@ -3,6 +3,15 @@ from dataclasses import dataclass
 from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
+from diezapp.features.calculations.application.create_calculation import (
+    CreateCalculation,
+)
+from diezapp.features.calculations.application.delete_calculation import (
+    DeleteCalculation,
+)
+from diezapp.features.calculations.application.update_calculation import (
+    UpdateCalculation,
+)
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
 from diezapp.features.google_drive.application.link_account import LinkAccountService
@@ -44,6 +53,9 @@ from utils.gdrive_backup import get_interval_seconds, get_last_backup_at
 @dataclass(frozen=True)
 class AppDependencies:
     calculations: CalculationService
+    create_calculation: CreateCalculation
+    delete_calculation: DeleteCalculation
+    update_calculation: UpdateCalculation
     conflicts: ConflictService
     google_drive_history: BackupHistoryRepository
     google_drive_link: LinkAccountService
@@ -66,8 +78,12 @@ def create_dependencies() -> AppDependencies:
     settings_repository = SqliteSettingsRepository()
     pdf_generator = PdfGenerator()
     monthly_summary = MonthlySummaryService(calculation_repository)
+    calculations = CalculationService(calculation_repository)
     return AppDependencies(
-        calculations=CalculationService(calculation_repository),
+        calculations=calculations,
+        create_calculation=calculations.create,
+        delete_calculation=calculations.delete_calculation,
+        update_calculation=calculations.update_calculation,
         conflicts=ConflictService(conflict_repository),
         google_drive_history=backup_history_repository,
         google_drive_link=LinkAccountService(drive_account_repository),

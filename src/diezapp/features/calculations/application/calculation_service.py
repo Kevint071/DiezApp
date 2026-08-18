@@ -1,68 +1,31 @@
-import uuid
-from datetime import UTC, datetime
-
+from diezapp.features.calculations.application.create_calculation import (
+    CreateCalculation,
+)
+from diezapp.features.calculations.application.delete_calculation import (
+    DeleteCalculation,
+)
+from diezapp.features.calculations.application.update_calculation import (
+    UpdateCalculation,
+)
 from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.domain.repositories import CalculationRepository
-from diezapp.features.calculator.domain.calculator_service import (
-    calculate_distribution,
-)
 
 
 class CalculationService:
     def __init__(self, repository: CalculationRepository):
         self.repository = repository
+        self.create = CreateCalculation(repository)
+        self.update_calculation = UpdateCalculation(repository)
+        self.delete_calculation = DeleteCalculation(repository)
 
     def add(self, amount: float, fund_percentage: int) -> Calculation:
-        distribution = calculate_distribution(amount, fund_percentage)
-        calculation: Calculation = {
-            "id": str(uuid.uuid4()),
-            "created_at": datetime.now(UTC).astimezone().isoformat(),
-            "amount": distribution.amount,
-            "envio_21": distribution.envio_21,
-            "restante": distribution.restante,
-            "fondo_local": distribution.fondo_local,
-            "sostenimiento": distribution.sostenimiento,
-            "fund_percentage": fund_percentage,
-            "updated_at": None,
-        }
-        calculations = self.repository.list()
-        calculations.insert(0, calculation)
-        self.repository.replace_all(calculations)
-        return calculation
+        return self.create.execute(amount, fund_percentage)
 
     def list(self) -> list[Calculation]:
         return self.repository.list()
 
     def update(self, calculation_id: str, new_amount: float) -> Calculation | None:
-        calculations = self.repository.list()
-        for calculation in calculations:
-            if calculation["id"] != calculation_id:
-                continue
-            distribution = calculate_distribution(
-                new_amount, calculation["fund_percentage"]
-            )
-            calculation.update(
-                {
-                    "amount": distribution.amount,
-                    "envio_21": distribution.envio_21,
-                    "restante": distribution.restante,
-                    "fondo_local": distribution.fondo_local,
-                    "sostenimiento": distribution.sostenimiento,
-                    "updated_at": datetime.now(UTC).astimezone().isoformat(),
-                }
-            )
-            self.repository.replace_all(calculations)
-            return calculation
-        return None
+        return self.update_calculation.execute(calculation_id, new_amount)
 
     def delete(self, calculation_id: str) -> bool:
-        calculations = self.repository.list()
-        remaining = [
-            calculation
-            for calculation in calculations
-            if calculation["id"] != calculation_id
-        ]
-        if len(remaining) == len(calculations):
-            return False
-        self.repository.replace_all(remaining)
-        return True
+        return self.delete_calculation.execute(calculation_id)
