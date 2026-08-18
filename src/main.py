@@ -6,6 +6,7 @@ import flet as ft
 from diezapp.bootstrap.app import configure_page
 from diezapp.bootstrap.dependencies import create_dependencies
 from diezapp.bootstrap.error_handler import show_fatal_error
+from diezapp.features.calculator.presentation.calculator_page import CalculatorView
 from diezapp.navigation import routes
 from diezapp.navigation.navigation_state import NavigationState
 from diezapp.navigation.router import AppRouter
@@ -13,7 +14,6 @@ from diezapp.shared.presentation.theme import (
     get_colors,
     get_navigation_bar_style,
 )
-from views.calculator_view import CalculatorView
 from views.home_view import build_home_view
 
 # settings_view and other secondary views are lazy-imported on first use to
@@ -174,7 +174,9 @@ def _main(page: ft.Page):
         return _apply_root(routes.HOME, _build_appbar("Inicio"), content)
 
     def _build_saved_view() -> ft.View:
-        from views.saved_calculations_view import build_saved_calculations_view
+        from diezapp.features.calculations.presentation.calculations_page import (
+            build_saved_calculations_view,
+        )
 
         # `page.navigate` no-ops when the target route equals the current
         # one, so refreshing in place must call the route handler directly.
@@ -191,7 +193,9 @@ def _main(page: ft.Page):
         return _apply_root(routes.SAVED, _build_appbar("Cálculos guardados"), content)
 
     def _build_pdf_export_view() -> ft.View:
-        from views.saved_calculations_view import build_date_range_picker_view
+        from diezapp.features.calculations.presentation.calculations_page import (
+            build_date_range_picker_view,
+        )
 
         def _on_show_filtered(start, end):
             page.session.store.set("pdf_export_range", (start, end))
@@ -290,7 +294,9 @@ def _main(page: ft.Page):
 
     # ── Nested (drill-down) views ─────────────────────────
     def _build_pdf_preview_view() -> ft.View:
-        from views.saved_calculations_view import build_saved_calculations_view
+        from diezapp.features.calculations.presentation.calculations_page import (
+            build_saved_calculations_view,
+        )
 
         start, end = page.session.store.get("pdf_export_range")
         content = build_saved_calculations_view(
