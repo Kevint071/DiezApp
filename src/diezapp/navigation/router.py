@@ -3,6 +3,7 @@ from collections.abc import Callable
 import flet as ft
 
 from diezapp.navigation import routes
+from diezapp.navigation.navigation_state import NavigationState
 
 RootBuilder = Callable[[str], tuple[int, ft.View]]
 NestedBuilder = Callable[[str], list[ft.View]]
@@ -19,13 +20,14 @@ class AppRouter:
         build_root: RootBuilder,
         build_nested: NestedBuilder,
         on_callback: CallbackHandler,
+        navigation_state: NavigationState | None = None,
     ):
         self.page = page
         self.navigation_bar = navigation_bar
         self.build_root = build_root
         self.build_nested = build_nested
         self.on_callback = on_callback
-        self.selected_index = 0
+        self.navigation_state = navigation_state or NavigationState()
 
     def handle_route_change(self, event: ft.RouteChangeEvent | None = None):
         route = self.page.route
@@ -35,7 +37,7 @@ class AppRouter:
 
         root_index, root_view = self.build_root(route)
         self.navigation_bar.selected_index = root_index
-        self.selected_index = root_index
+        self.navigation_state.select(root_index)
         self.page.views = [root_view, *self.build_nested(route)]
         self.page.update()
 

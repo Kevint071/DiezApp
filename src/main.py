@@ -7,6 +7,7 @@ from diezapp.bootstrap.app import configure_page
 from diezapp.bootstrap.dependencies import create_dependencies
 from diezapp.bootstrap.error_handler import show_fatal_error
 from diezapp.navigation import routes
+from diezapp.navigation.navigation_state import NavigationState
 from diezapp.navigation.router import AppRouter
 from utils.theme import (
     get_colors,
@@ -86,7 +87,7 @@ def _main(page: ft.Page):
         )
 
     # ── Bottom Navigation Bar ────────────────────────────
-    nav_state = {"selected_index": 0}
+    nav_state = NavigationState()
     _NAV_ROUTES = routes.ROOT_ROUTES
     navigation_colors = get_colors(page)
     navigation_style = get_navigation_bar_style(navigation_colors)
@@ -96,10 +97,10 @@ def _main(page: ft.Page):
 
     def _on_nav_change(e):
         idx = e.control.selected_index
-        prev_idx = nav_state["selected_index"]
+        prev_idx = nav_state.selected_index
 
         def _perform():
-            nav_state["selected_index"] = idx
+            nav_state.select(idx)
             page.navigate(_NAV_ROUTES[idx])
 
         def _cancel():
@@ -521,7 +522,14 @@ def _main(page: ft.Page):
             if seconds_until_due() is not None and seconds_until_due() <= 0:
                 await run_backup_now(page)
 
-    router = AppRouter(page, nav_bar, _build_root, _build_nested, _on_callback)
+    router = AppRouter(
+        page,
+        nav_bar,
+        _build_root,
+        _build_nested,
+        _on_callback,
+        nav_state,
+    )
 
     def route_change(event=None):
         leave_guard["check"] = None
