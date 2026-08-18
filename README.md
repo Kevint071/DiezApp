@@ -10,7 +10,7 @@ Una calculadora local de diezmos hecha con Flet para cálculos porcentuales, res
 - Muestra totales mensuales y desgloses detallados.
 - Exporta cálculos filtrados a PDF.
 - Permite cambiar entre tema claro y oscuro.
-- Guarda todo en archivos JSON locales, sin necesidad de backend.
+- Guarda los datos localmente en SQLite, sin necesidad de backend.
 
 ## Vista previa
 
@@ -23,8 +23,8 @@ La app usa dos capturas verticales. La primera muestra la pantalla de inicio y l
 
 ## Tecnologías
 
-- Python 3.12+
-- Flet 0.85.3
+- Python 3.14+
+- Flet 0.86.5+
 - fpdf2 para generar PDF
 - Almacenamiento local en JSON
 
@@ -49,26 +49,35 @@ flet run src/main.py
 ```text
 src/
   main.py
-  settings.json
-  saved_calculations.json
   assets/
-  utils/
-    pdf_export.py
-    storage.py
-    theme.py
-  views/
-    monthly_summary_view.py
-    saved_calculations_view.py
-    settings_view.py
+  diezapp/
+    bootstrap/
+    navigation/
+    features/
+      calculator/
+      calculations/
+      conflicts/
+      google_drive/
+      local_backup/
+      monthly_summary/
+      notes/
+      pdf_export/
+      settings/
+    infrastructure/
+      database/
+      files/
+      google/
+      pdf/
+    shared/
 ```
 
 ## Datos locales
 
-- [src/settings.json](src/settings.json) guarda el tema seleccionado y el porcentaje del fondo local.
+- La base de datos local `app.db` conserva cálculos, notas, ajustes, conflictos y el historial de backups.
 
 ## Notas
 
-- La app está pensada para uso local y no requiere base de datos.
+- La app está pensada para uso local y no requiere backend.
 - Los PDF se generan en una ubicación temporal antes de compartirse.
 - La compilación para Android está configurada para `arm64-v8a` y mantener el APK más ligero.
 

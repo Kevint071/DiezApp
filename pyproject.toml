@@ -22,7 +22,7 @@ message = "Cargando..."
 # Build only the ARM64 Android variant to keep the APK smaller on modern phones.
 target_arch = ["arm64-v8a"]
 
-# Google Drive OAuth redirect (see src/utils/gdrive_auth.py). Google no
+# Google Drive OAuth redirect (see src/diezapp/infrastructure/google). Google no
 # longer accepts a custom-scheme redirect_uri directly, so the diezmapp-api
 # backend proxies the flow and redirects back here via this app-owned
 # scheme/host. `host` must stay "oauth2redirect" to match BACKEND's
@@ -46,7 +46,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["diezapp", "utils", "views"]
+known-first-party = ["diezapp"]
 
 [tool.flet]
 org = "com.diezapp"      # usa tu dominio real o algo único, ej: "com.kevindev"
