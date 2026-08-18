@@ -35,6 +35,9 @@ from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
 )
+from diezapp.infrastructure.persistence.sqlite_backup_schedule_repository import (
+    SqliteBackupScheduleRepository,
+)
 from diezapp.infrastructure.persistence.sqlite_calculation_repository import (
     SqliteCalculationRepository,
 )
@@ -49,11 +52,6 @@ from diezapp.infrastructure.persistence.sqlite_note_repository import (
 )
 from diezapp.infrastructure.persistence.sqlite_settings_repository import (
     SqliteSettingsRepository,
-)
-from utils.gdrive_backup import (
-    get_interval_seconds,
-    get_last_backup_at,
-    set_interval_seconds,
 )
 
 
@@ -81,6 +79,7 @@ def create_dependencies() -> AppDependencies:
     conflict_repository = SqliteConflictRepository()
     drive_account_repository = SqliteDriveAccountRepository()
     backup_history_repository = SqliteBackupHistoryRepository()
+    backup_schedule_repository = SqliteBackupScheduleRepository()
     backup_adapter = SqliteBackupAdapter()
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
@@ -96,13 +95,11 @@ def create_dependencies() -> AppDependencies:
         google_drive_history=backup_history_repository,
         google_drive_link=LinkAccountService(drive_account_repository),
         google_drive_scheduler=BackupScheduler(
-            get_interval_seconds,
-            get_last_backup_at,
+            backup_schedule_repository.get_interval_seconds,
+            backup_schedule_repository.get_last_backup_at,
         ),
         google_drive_schedule_settings=BackupScheduleSettings(
-            get_interval_seconds,
-            set_interval_seconds,
-            get_last_backup_at,
+            backup_schedule_repository,
         ),
         google_drive_url_opener=FletUrlOpener(),
         local_backup=LocalBackupService(backup_adapter),
