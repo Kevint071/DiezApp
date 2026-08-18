@@ -18,6 +18,9 @@ from diezapp.features.google_drive.application.backup_schedule_settings import (
 )
 from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
 from diezapp.features.google_drive.application.link_account import LinkAccountService
+from diezapp.features.google_drive.application.refresh_access_token import (
+    RefreshAccessToken,
+)
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
@@ -36,6 +39,7 @@ from diezapp.infrastructure.files.sqlite_backup_adapter import SqliteBackupAdapt
 from diezapp.infrastructure.files.sqlite_snapshot_adapter import SqliteSnapshotAdapter
 from diezapp.infrastructure.google.drive_client import upload_backup_file
 from diezapp.infrastructure.google.flet_url_opener import FletUrlOpener
+from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
@@ -51,6 +55,9 @@ from diezapp.infrastructure.persistence.sqlite_conflict_repository import (
 )
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
+)
+from diezapp.infrastructure.persistence.sqlite_drive_token_repository import (
+    SqliteDriveTokenRepository,
 )
 from diezapp.infrastructure.persistence.sqlite_note_repository import (
     SqliteNoteRepository,
@@ -70,6 +77,7 @@ class AppDependencies:
     google_drive_history: BackupHistoryRepository
     google_drive_backup: GoogleDriveBackupService
     google_drive_link: LinkAccountService
+    google_drive_refresh_token: RefreshAccessToken
     google_drive_scheduler: BackupScheduler
     google_drive_schedule_settings: BackupScheduleSettings
     google_drive_url_opener: UrlOpener
@@ -84,6 +92,7 @@ def create_dependencies() -> AppDependencies:
     calculation_repository = SqliteCalculationRepository()
     conflict_repository = SqliteConflictRepository()
     drive_account_repository = SqliteDriveAccountRepository()
+    drive_token_repository = SqliteDriveTokenRepository()
     backup_history_repository = SqliteBackupHistoryRepository()
     backup_schedule_repository = SqliteBackupScheduleRepository()
     backup_adapter = SqliteBackupAdapter()
@@ -91,6 +100,9 @@ def create_dependencies() -> AppDependencies:
     note_repository = SqliteNoteRepository()
     settings_repository = SqliteSettingsRepository()
     pdf_generator = PdfGenerator()
+    refresh_access_token = RefreshAccessToken(
+        BackendOAuthClient(), drive_token_repository
+    )
     monthly_summary = MonthlySummaryService(calculation_repository)
     calculations = CalculationService(calculation_repository)
     return AppDependencies(
@@ -108,6 +120,7 @@ def create_dependencies() -> AppDependencies:
         ),
         google_drive_history=backup_history_repository,
         google_drive_link=LinkAccountService(drive_account_repository),
+        google_drive_refresh_token=refresh_access_token,
         google_drive_scheduler=BackupScheduler(
             backup_schedule_repository.get_interval_seconds,
             backup_schedule_repository.get_last_backup_at,

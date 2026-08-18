@@ -260,6 +260,7 @@ def _main(page: ft.Page):
             dependencies.google_drive_url_opener,
             dependencies.google_drive_schedule_settings,
             dependencies.google_drive_backup,
+            dependencies.google_drive_refresh_token,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,
@@ -526,18 +527,16 @@ def _main(page: ft.Page):
     async def _gdrive_scheduler():
         """Startup catch-up + in-app interval loop, both calling run_backup_now()
         (design.md Decision 4: exactly one code path for "a backup happens")."""
-        from utils.gdrive_auth import ensure_fresh_access_token
-
         if dependencies.google_drive_scheduler.is_due():
             await dependencies.google_drive_backup.run(
-                lambda account: ensure_fresh_access_token(page, account)
+                dependencies.google_drive_refresh_token.execute
             )
         while True:
             remaining = dependencies.google_drive_scheduler.seconds_until_due()
             await asyncio.sleep(60 if remaining is None else max(1, min(remaining, 60)))
             if dependencies.google_drive_scheduler.is_due():
                 await dependencies.google_drive_backup.run(
-                    lambda account: ensure_fresh_access_token(page, account)
+                    dependencies.google_drive_refresh_token.execute
                 )
 
     router = AppRouter(

@@ -6,6 +6,9 @@ import httpx
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
 )
+from diezapp.features.google_drive.application.refresh_access_token import (
+    RefreshAccessToken,
+)
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
@@ -28,6 +31,7 @@ def _build_gdrive_backups_section(
     url_opener,
     schedule_settings: BackupScheduleSettings,
     backup_service: GoogleDriveBackupService,
+    refresh_access_token: RefreshAccessToken,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -36,7 +40,6 @@ def _build_gdrive_backups_section(
     than patching individual controls in place.
     """
     from utils.gdrive_auth import (
-        ensure_fresh_access_token,
         is_configured,
         start_link_flow,
     )
@@ -89,7 +92,7 @@ def _build_gdrive_backups_section(
         )
         if account is None:
             return
-        access_token = await ensure_fresh_access_token(page, account)
+        access_token = await refresh_access_token.execute(account)
         if not access_token:
             show_snack("No se pudo autenticar la cuenta")
             return
@@ -179,7 +182,7 @@ def _build_gdrive_backups_section(
         )
         if account is None:
             return
-        access_token = await ensure_fresh_access_token(page, account)
+        access_token = await refresh_access_token.execute(account)
         if not access_token:
             show_snack("No se pudo autenticar la cuenta")
             return
@@ -307,7 +310,7 @@ def _build_gdrive_backups_section(
         if not account or not folder_name:
             show_snack("Escribe un nombre para la carpeta")
             return
-        access_token = await ensure_fresh_access_token(page, account)
+        access_token = await refresh_access_token.execute(account)
         if not access_token:
             show_snack("No se pudo autenticar la cuenta")
             return
@@ -699,9 +702,7 @@ def _build_gdrive_backups_section(
         backup_now_button.icon = ft.ProgressRing(width=16, height=16)
         backup_now_button.disabled = True
         page.update()
-        result = await backup_service.run(
-            lambda account: ensure_fresh_access_token(page, account), selected_ids
-        )
+        result = await backup_service.run(refresh_access_token.execute, selected_ids)
         status = result["status"]
         if status == "skipped":
             show_snack(result.get("message", "No hay cuentas configuradas"))
