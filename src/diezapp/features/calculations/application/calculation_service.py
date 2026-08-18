@@ -24,6 +24,9 @@ class CalculationService:
     def list(self) -> list[Calculation]:
         return self.repository.list()
 
+    def replace_all(self, calculations: list[Calculation]) -> None:
+        self.repository.replace_all(calculations)
+
     def update(self, calculation_id: str, new_amount: float) -> Calculation | None:
         return self.update_calculation.execute(calculation_id, new_amount)
 

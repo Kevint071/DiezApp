@@ -2,10 +2,12 @@ from datetime import datetime
 
 import flet as ft
 
+from diezapp.features.calculations.application.calculation_service import (
+    CalculationService,
+)
 from diezapp.features.conflicts.application.conflict_service import ConflictService
-from utils.notes import load_notes, save_notes
+from diezapp.features.notes.application.note_service import NoteService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler
-from utils.storage import load_calculations, save_calculations
 from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 
 # Per-kind configuration: how to load/save items, their unique id field, and
@@ -14,8 +16,6 @@ from utils.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 _KIND_CONFIG = {
     "calculations": {
         "title": "Resolver conflictos",
-        "load": load_calculations,
-        "save": save_calculations,
         "id_field": "id",
         "fields": [
             ("Monto", "amount", "currency"),
@@ -27,8 +27,6 @@ _KIND_CONFIG = {
     },
     "notes": {
         "title": "Resolver conflictos de notas",
-        "load": load_notes,
-        "save": save_notes,
         "id_field": "id",
         "fields": [
             ("Título", "title", "text"),
@@ -334,6 +332,8 @@ def build_conflicts_grid_view(
     kind: str,
     back_route: str,
     conflicts_service: ConflictService,
+    calculations_service: CalculationService,
+    notes_service: NoteService,
 ) -> ft.View:
     c = colors_fn(page)
     cfg = _KIND_CONFIG[kind]
@@ -559,7 +559,8 @@ def build_conflicts_grid_view(
 
     def _resolve_all(e):
         id_field = cfg["id_field"]
-        existing_items = cfg["load"]()
+        data_service = calculations_service if kind == "calculations" else notes_service
+        existing_items = data_service.list()
         existing_map = {
             item[id_field]: item for item in existing_items if id_field in item
         }
@@ -582,13 +583,13 @@ def build_conflicts_grid_view(
 
         if not unresolved:
             resolved = resolved + pending_add
-            cfg["save"](resolved)
+            data_service.replace_all(resolved)
             conflicts_service.clear(kind)
             msg = (
                 f"{n_applied} conflictos resueltos, {len(pending_add)} nuevos agregados"
             )
         else:
-            cfg["save"](resolved)
+            data_service.replace_all(resolved)
             conflicts_service.save(unresolved, pending_add, kind)
             msg = f"{n_applied} resueltos, {len(unresolved)} pendientes"
 

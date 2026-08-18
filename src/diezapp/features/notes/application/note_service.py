@@ -12,6 +12,9 @@ class NoteService:
     def list(self) -> list[Note]:
         return self.repository.list()
 
+    def replace_all(self, notes: list[Note]) -> None:
+        self.repository.replace_all(notes)
+
     def add(self, content: str, title: str = "") -> Note:
         note: Note = {
             "id": str(uuid.uuid4()),

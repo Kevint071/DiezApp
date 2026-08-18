@@ -471,6 +471,8 @@ def _main(page: ft.Page):
                     kind,
                     routes.SETTINGS,
                     dependencies.conflicts,
+                    dependencies.calculations,
+                    dependencies.notes,
                 )
             ]
             if route == routes.SETTINGS_CONFLICT_DETAIL:
