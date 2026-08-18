@@ -22,6 +22,6 @@ class DriveAccountRepository(Protocol):
         self, account_id: str, folder_id: str | None, folder_name: str | None
     ) -> None: ...
 
-    def update_token(
-        self, account_id: str, access_token: str, expiry_iso: str
-    ) -> None: ...
+
+class DriveTokenRepository(Protocol):
+    def update(self, account_id: str, access_token: str, expiry_iso: str) -> None: ...

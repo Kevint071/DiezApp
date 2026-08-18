@@ -73,11 +73,3 @@ class SqliteDriveAccountRepository:
             (folder_id, folder_name, account_id),
         )
         conn.commit()
-
-    def update_token(self, account_id: str, access_token: str, expiry_iso: str) -> None:
-        conn = get_connection()
-        conn.execute(
-            "UPDATE gdrive_accounts SET access_token = ?, token_expiry_at = ? WHERE id = ?",
-            (access_token, expiry_iso, account_id),
-        )
-        conn.commit()

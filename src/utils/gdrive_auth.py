@@ -32,6 +32,9 @@ from diezapp.infrastructure.google.oauth_client import BackendOAuthClient
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
 )
+from diezapp.infrastructure.persistence.sqlite_drive_token_repository import (
+    SqliteDriveTokenRepository,
+)
 
 # Base URL of the deployed diezmapp-api backend. Not a secret: it only ever
 # forwards data the user's own browser already has (see design.md).
@@ -40,6 +43,7 @@ LOGIN_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/login"
 
 MAX_ACCOUNTS = 2
 _account_repository = SqliteDriveAccountRepository()
+_token_repository = SqliteDriveTokenRepository()
 _oauth_client = BackendOAuthClient()
 _link_account_service = LinkAccountService(_account_repository, MAX_ACCOUNTS)
 
@@ -122,9 +126,7 @@ async def ensure_fresh_access_token(page: ft.Page, account: dict) -> str | None:
 
     new_access_token = tokens["access_token"]
     new_expiry = datetime.now(UTC) + timedelta(seconds=tokens.get("expires_in", 3600))
-    _account_repository.update_token(
-        account["id"], new_access_token, new_expiry.isoformat()
-    )
+    _token_repository.update(account["id"], new_access_token, new_expiry.isoformat())
     return new_access_token
 
 
