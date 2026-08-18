@@ -1,8 +1,12 @@
-from diezapp.infrastructure.pdf.pdf_generator import PdfGenerator
+from typing import Protocol
+
+
+class PdfGeneratorPort(Protocol):
+    def generate_calculations_pdf(self, calculations: list) -> str: ...
 
 
 class PdfExportService:
-    def __init__(self, generator: PdfGenerator):
+    def __init__(self, generator: PdfGeneratorPort):
         self.generator = generator
 
     def export_calculations(self, calculations: list) -> str:
