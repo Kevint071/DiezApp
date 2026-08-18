@@ -1,4 +1,5 @@
 import flet as ft
+
 from utils.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,

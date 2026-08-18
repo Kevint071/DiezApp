@@ -1,6 +1,7 @@
 import sqlite3
 
 import pytest
+
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )

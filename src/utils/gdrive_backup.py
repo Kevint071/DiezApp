@@ -18,7 +18,6 @@ from diezapp.infrastructure.google.drive_client import upload_backup_file
 from diezapp.infrastructure.persistence.sqlite_backup_history_repository import (
     SqliteBackupHistoryRepository,
 )
-
 from utils.db import get_setting, set_setting
 from utils.gdrive_auth import ensure_fresh_access_token, list_accounts
 

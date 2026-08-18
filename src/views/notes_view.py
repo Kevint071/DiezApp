@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import flet as ft
+
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
 from utils.scroll_divider import build_scroll_divider, make_scroll_divider_handler

@@ -3,6 +3,7 @@ import os
 from datetime import date, datetime
 
 import flet as ft
+
 from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )

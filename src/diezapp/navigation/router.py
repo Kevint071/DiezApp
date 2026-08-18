@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 import flet as ft
+
 from diezapp.navigation import routes
 
 RootBuilder = Callable[[str], tuple[int, ft.View]]

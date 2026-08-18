@@ -1,4 +1,5 @@
 import flet as ft
+
 from diezapp.features.settings.application.settings_service import SettingsService
 from utils.theme import DARK_THEME, LIGHT_THEME
 

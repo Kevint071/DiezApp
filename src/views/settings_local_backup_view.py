@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import flet as ft
+
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
