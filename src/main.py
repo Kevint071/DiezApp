@@ -512,14 +512,14 @@ def _main(page: ft.Page):
     async def _gdrive_scheduler():
         """Startup catch-up + in-app interval loop, both calling run_backup_now()
         (design.md Decision 4: exactly one code path for "a backup happens")."""
-        from utils.gdrive_backup import run_backup_now, seconds_until_due
+        from utils.gdrive_backup import run_backup_now
 
-        if seconds_until_due() is not None and seconds_until_due() <= 0:
+        if dependencies.google_drive_scheduler.is_due():
             await run_backup_now(page)
         while True:
-            remaining = seconds_until_due()
+            remaining = dependencies.google_drive_scheduler.seconds_until_due()
             await asyncio.sleep(60 if remaining is None else max(1, min(remaining, 60)))
-            if seconds_until_due() is not None and seconds_until_due() <= 0:
+            if dependencies.google_drive_scheduler.is_due():
                 await run_backup_now(page)
 
     router = AppRouter(
