@@ -6,8 +6,9 @@ per design.md Decision 4 (one code path for "a backup happens").
 """
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime
 
+from diezapp.features.google_drive.application.backup_scheduler import BackupScheduler
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
@@ -94,23 +95,12 @@ def get_last_backup_at() -> datetime | None:
         return None
 
 
-def seconds_until_due(now: datetime | None = None) -> float | None:
-    """Seconds remaining until the next backup is due.
+_scheduler = BackupScheduler(get_interval_seconds, get_last_backup_at)
 
-    Returns None if no interval is configured. A value <= 0 means a backup
-    is due right now. `now` is injectable for tests.
-    """
-    interval = get_interval_seconds()
-    if interval is None:
-        return None
-    now = now or datetime.now(UTC)
-    last = get_last_backup_at()
-    if last is None:
-        return 0.0
-    elapsed = (now - last).total_seconds()
-    return interval - elapsed
+
+def seconds_until_due(now: datetime | None = None) -> float | None:
+    return _scheduler.seconds_until_due(now)
 
 
 def is_due(now: datetime | None = None) -> bool:
-    remaining = seconds_until_due(now)
-    return remaining is not None and remaining <= 0
+    return _scheduler.is_due(now)
