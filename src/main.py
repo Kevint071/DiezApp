@@ -7,6 +7,7 @@ from diezapp.bootstrap.app import configure_page
 from diezapp.bootstrap.dependencies import create_dependencies
 from diezapp.bootstrap.error_handler import show_fatal_error
 from diezapp.features.calculator.presentation.calculator_page import CalculatorView
+from diezapp.features.home.presentation.home_page import build_home_view
 from diezapp.navigation import routes
 from diezapp.navigation.navigation_state import NavigationState
 from diezapp.navigation.router import AppRouter
@@ -14,7 +15,6 @@ from diezapp.shared.presentation.theme import (
     get_colors,
     get_navigation_bar_style,
 )
-from views.home_view import build_home_view
 
 # settings_view and other secondary views are lazy-imported on first use to
 # speed up startup.
@@ -481,7 +481,7 @@ def _main(page: ft.Page):
         elif route == routes.GOOGLE_DRIVE_HISTORY:
             return [_build_google_drive_history_view()]
         elif route in (routes.SETTINGS_CONFLICTS, routes.SETTINGS_CONFLICT_DETAIL):
-            from views.conflicts_view import (
+            from diezapp.features.conflicts.presentation.conflicts_page import (
                 build_conflict_detail_view_route,
                 build_conflicts_grid_view,
             )
