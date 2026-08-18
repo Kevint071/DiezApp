@@ -43,6 +43,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         state,
         get_colors,
         dependencies.create_calculation,
+        dependencies.calculate_distribution,
         dependencies.conflicts,
     )
 

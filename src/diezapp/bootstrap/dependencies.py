@@ -12,6 +12,9 @@ from diezapp.features.calculations.application.delete_calculation import (
 from diezapp.features.calculations.application.update_calculation import (
     UpdateCalculation,
 )
+from diezapp.features.calculator.application.calculate_distribution import (
+    CalculateDistribution,
+)
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.google_drive.application.backup_schedule_settings import (
     BackupScheduleSettings,
@@ -74,6 +77,7 @@ from diezapp.infrastructure.persistence.sqlite_settings_repository import (
 
 @dataclass(frozen=True)
 class AppDependencies:
+    calculate_distribution: CalculateDistribution
     calculations: CalculationService
     create_calculation: CreateCalculation
     delete_calculation: DeleteCalculation
@@ -113,8 +117,10 @@ def create_dependencies() -> AppDependencies:
         BackendOAuthClient(), drive_token_repository
     )
     monthly_summary = MonthlySummaryService(calculation_repository)
-    calculations = CalculationService(calculation_repository)
+    calculate_distribution = CalculateDistribution()
+    calculations = CalculationService(calculation_repository, calculate_distribution)
     return AppDependencies(
+        calculate_distribution=calculate_distribution,
         calculations=calculations,
         create_calculation=calculations.create,
         delete_calculation=calculations.delete_calculation,

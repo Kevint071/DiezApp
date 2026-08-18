@@ -10,8 +10,8 @@ import flet as ft
 from diezapp.features.calculations.application.create_calculation import (
     CreateCalculation,
 )
-from diezapp.features.calculator.domain.calculator_service import (
-    calculate_distribution,
+from diezapp.features.calculator.application.calculate_distribution import (
+    CalculateDistribution,
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.shared.presentation.scroll_divider import (
@@ -27,12 +27,14 @@ class CalculatorView:
         state: dict,
         colors_fn,
         create_calculation: CreateCalculation,
+        calculate_distribution: CalculateDistribution,
         conflicts: ConflictService,
     ):
         self.page = page
         self.state = state
         self.colors_fn = colors_fn
         self.create_calculation = create_calculation
+        self.calculate_distribution = calculate_distribution
         self.conflicts = conflicts
 
         self.txt_21 = ft.Text(value="", size=15, weight=ft.FontWeight.W_600)
@@ -156,7 +158,14 @@ class CalculatorView:
             return
 
         self.input_amount.error = None
-        distribution = calculate_distribution(amount, self.state["fund_percentage"])
+        try:
+            distribution = self.calculate_distribution.execute(
+                amount, self.state["fund_percentage"]
+            )
+        except ValueError:
+            self.input_amount.error = "Ingresa un importe válido"
+            self.page.update()
+            return
 
         self.txt_21.value = self.format_currency(distribution.envio_21)
         self.txt_79.value = self.format_currency(distribution.restante)

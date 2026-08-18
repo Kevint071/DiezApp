@@ -9,12 +9,20 @@ from diezapp.features.calculations.application.update_calculation import (
 )
 from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.domain.repositories import CalculationRepository
+from diezapp.features.calculator.application.calculate_distribution import (
+    CalculateDistribution,
+)
 
 
 class CalculationService:
-    def __init__(self, repository: CalculationRepository):
+    def __init__(
+        self,
+        repository: CalculationRepository,
+        calculate_distribution: CalculateDistribution | None = None,
+    ):
         self.repository = repository
-        self.create = CreateCalculation(repository)
+        calculate_distribution = calculate_distribution or CalculateDistribution()
+        self.create = CreateCalculation(repository, calculate_distribution)
         self.update_calculation = UpdateCalculation(repository)
         self.delete_calculation = DeleteCalculation(repository)
 
