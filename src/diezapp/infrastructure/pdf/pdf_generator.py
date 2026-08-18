@@ -1,6 +1,9 @@
 import os
 import tempfile
+from collections.abc import Sequence
 from datetime import datetime
+
+from diezapp.features.calculations.domain.models import Calculation
 
 
 def _format_currency(value: float) -> str:
@@ -20,7 +23,7 @@ def _format_date(date_str: str) -> str:
 
 
 class PdfGenerator:
-    def generate_calculations_pdf(self, calculations: list) -> str:
+    def generate_calculations_pdf(self, calculations: Sequence[Calculation]) -> str:
         from fpdf import FPDF
 
         ordered_calculations = list(reversed(calculations))
@@ -80,7 +83,15 @@ class PdfGenerator:
         pdf.output(output_path)
         return output_path
 
-    def _draw_card(self, pdf, x: float, y: float, width: float, height: float, calc):
+    def _draw_card(
+        self,
+        pdf,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        calc: Calculation,
+    ):
         fund_percentage = calc.get("fund_percentage", 1)
         pdf.set_fill_color(245, 245, 245)
         pdf.rect(x, y, width, height, "F")
