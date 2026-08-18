@@ -6,10 +6,14 @@ from pathlib import Path
 
 import flet as ft
 
+from diezapp.features.calculations.application.calculation_service import (
+    CalculationService,
+)
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
+from diezapp.features.notes.application.note_service import NoteService
 
 
 def build_local_backup_section(
@@ -20,6 +24,8 @@ def build_local_backup_section(
     is_desktop,
     conflicts_service: ConflictService,
     backup_service: LocalBackupService,
+    calculations_service: CalculationService,
+    notes_service: NoteService,
 ):
     """Build export, import and conflict controls for the local SQLite backup."""
 
@@ -65,12 +71,12 @@ def build_local_backup_section(
 
     async def confirm_export(e):
         page.pop_dialog()
-        from utils.notes import load_notes
-        from utils.storage import load_calculations
 
         target = export_target["value"]
-        calculations = load_calculations() if target in ("calcs", "both") else []
-        notes = load_notes() if target in ("notes", "both") else []
+        calculations = (
+            calculations_service.list() if target in ("calcs", "both") else []
+        )
+        notes = notes_service.list() if target in ("notes", "both") else []
         if not calculations and not notes:
             show_snack("No hay datos guardados para exportar")
             return
@@ -198,12 +204,10 @@ def build_local_backup_section(
     page.update()
 
     def process_calculations(imported: list, mode: str) -> dict:
-        from utils.storage import load_calculations, save_calculations
-
         if mode == "replace":
-            save_calculations(imported)
+            calculations_service.replace_all(imported)
             return {"added": len(imported), "conflicts": 0}
-        existing = load_calculations()
+        existing = calculations_service.list()
         existing_map = {item["id"]: item for item in existing if "id" in item}
         conflicts, to_add = [], []
         for item in imported:
@@ -218,16 +222,14 @@ def build_local_backup_section(
         if conflicts:
             conflicts_service.save(conflicts, to_add, kind="calculations")
         else:
-            save_calculations(existing + to_add)
+            calculations_service.replace_all(existing + to_add)
         return {"added": len(to_add), "conflicts": len(conflicts)}
 
     def process_notes(imported: list, mode: str) -> dict:
-        from utils.notes import load_notes, save_notes
-
         if mode == "replace":
-            save_notes(imported)
+            notes_service.replace_all(imported)
             return {"added": len(imported), "conflicts": 0}
-        existing = load_notes()
+        existing = notes_service.list()
         existing_map = {item["id"]: item for item in existing if "id" in item}
         conflicts, to_add = [], []
         for item in imported:
@@ -242,7 +244,7 @@ def build_local_backup_section(
         if conflicts:
             conflicts_service.save(conflicts, to_add, kind="notes")
         else:
-            save_notes(existing + to_add)
+            notes_service.replace_all(existing + to_add)
         return {"added": len(to_add), "conflicts": len(conflicts)}
 
     async def confirm_import(e):

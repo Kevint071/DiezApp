@@ -243,6 +243,8 @@ def _main(page: ft.Page):
             lambda: page.navigate(routes.GOOGLE_DRIVE),
             dependencies.conflicts,
             dependencies.local_backup,
+            dependencies.calculations,
+            dependencies.notes,
         )
         return _apply_root(routes.SETTINGS, _build_appbar("Configuración"), content)
 
