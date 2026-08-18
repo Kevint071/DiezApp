@@ -268,7 +268,15 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             ),
             controls=[
                 build_google_drive_history_view(
-                    page, get_colors, dependencies.google_drive_history
+                    page,
+                    get_colors,
+                    dependencies.google_drive_history,
+                    dependencies.google_drive_link,
+                    dependencies.google_drive_refresh_token,
+                    dependencies.local_backup,
+                    dependencies.calculations,
+                    dependencies.notes,
+                    dependencies.conflicts,
                 )
             ],
         )

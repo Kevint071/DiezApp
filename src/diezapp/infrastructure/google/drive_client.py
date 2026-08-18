@@ -101,6 +101,62 @@ async def list_folders(
                 return folders
 
 
+async def list_backup_files(access_token: str, parent_id: str) -> list[dict[str, str]]:
+    """List SQLite backups directly inside a Drive folder."""
+    files = []
+    page_token = None
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
+        while True:
+            params = {
+                "q": (
+                    f"'{parent_id}' in parents and trashed = false and "
+                    "mimeType != 'application/vnd.google-apps.folder'"
+                ),
+                "fields": "nextPageToken,files(id,name,size,modifiedTime,mimeType)",
+                "orderBy": "modifiedTime desc",
+                "pageSize": "100",
+            }
+            if page_token:
+                params["pageToken"] = page_token
+            resp = await client.get(
+                DRIVE_FILES_ENDPOINT,
+                headers={"Authorization": f"Bearer {access_token}"},
+                params=params,
+            )
+            _raise_for_drive_error(resp)
+            data = resp.json()
+            files.extend(data.get("files", []))
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                return files
+
+
+async def delete_file(access_token: str, file_id: str) -> None:
+    """Move a Drive backup to trash."""
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
+        resp = await client.delete(
+            f"{DRIVE_FILES_ENDPOINT}/{file_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        _raise_for_drive_error(resp)
+
+
+async def download_file(access_token: str, file_id: str, destination: str) -> None:
+    """Download a Drive file to a local path."""
+    async with (
+        httpx.AsyncClient(timeout=60, verify=DRIVE_SSL_CONTEXT) as client,
+        client.stream(
+            "GET",
+            f"{DRIVE_FILES_ENDPOINT}/{file_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"alt": "media"},
+        ) as resp,
+    ):
+        _raise_for_drive_error(resp)
+        content = await resp.aread()
+    await asyncio.to_thread(_write_file_bytes, destination, content)
+
+
 async def upload_backup_file(
     access_token: str, folder_id: str, file_path: str, file_name: str
 ) -> str:
@@ -137,3 +193,8 @@ async def upload_backup_file(
 def _read_file_bytes(file_path: str) -> bytes:
     with open(file_path, "rb") as file:
         return file.read()
+
+
+def _write_file_bytes(file_path: str, content: bytes) -> None:
+    with open(file_path, "wb") as file:
+        file.write(content)

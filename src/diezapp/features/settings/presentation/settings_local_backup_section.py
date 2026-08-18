@@ -9,6 +9,7 @@ from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
+from diezapp.features.local_backup.application.import_backup import BackupImportService
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
 )
@@ -34,6 +35,10 @@ def build_local_backup_section(
         page.overlay.append(snack)
         if keep_open:
             page.update()
+
+    import_service = BackupImportService(
+        calculations_service, notes_service, conflicts_service
+    )
 
     export_target = {"value": "both"}
     export_method = {"value": "share"}
@@ -201,50 +206,6 @@ def build_local_backup_section(
     page.services.append(file_picker)
     page.update()
 
-    def process_calculations(imported: list, mode: str) -> dict:
-        if mode == "replace":
-            calculations_service.replace_all(imported)
-            return {"added": len(imported), "conflicts": 0}
-        existing = calculations_service.list()
-        existing_map = {item["id"]: item for item in existing if "id" in item}
-        conflicts, to_add = [], []
-        for item in imported:
-            item_id = item.get("id")
-            if item_id and item_id in existing_map:
-                if conflicts_service.calculations_differ(existing_map[item_id], item):
-                    conflicts.append(
-                        {"existing": existing_map[item_id], "imported": item}
-                    )
-            else:
-                to_add.append(item)
-        if conflicts:
-            conflicts_service.save(conflicts, to_add, kind="calculations")
-        else:
-            calculations_service.replace_all(existing + to_add)
-        return {"added": len(to_add), "conflicts": len(conflicts)}
-
-    def process_notes(imported: list, mode: str) -> dict:
-        if mode == "replace":
-            notes_service.replace_all(imported)
-            return {"added": len(imported), "conflicts": 0}
-        existing = notes_service.list()
-        existing_map = {item["id"]: item for item in existing if "id" in item}
-        conflicts, to_add = [], []
-        for item in imported:
-            item_id = item.get("id")
-            if item_id and item_id in existing_map:
-                if conflicts_service.notes_differ(existing_map[item_id], item):
-                    conflicts.append(
-                        {"existing": existing_map[item_id], "imported": item}
-                    )
-            else:
-                to_add.append(item)
-        if conflicts:
-            conflicts_service.save(conflicts, to_add, kind="notes")
-        else:
-            notes_service.replace_all(existing + to_add)
-        return {"added": len(to_add), "conflicts": len(conflicts)}
-
     async def confirm_import(e):
         page.pop_dialog()
 
@@ -309,24 +270,19 @@ def build_local_backup_section(
             return
 
         messages, has_conflicts = [], False
-        if imported_calculations:
-            result = process_calculations(imported_calculations, mode)
-            if result["conflicts"]:
-                has_conflicts = True
-                messages.append(f"{result['conflicts']} conflictos de cálculos")
-            elif mode == "replace":
-                messages.append(f"{len(imported_calculations)} cálculos importados")
-            else:
-                messages.append(f"{result['added']} cálculos nuevos agregados")
-        if imported_notes:
-            result = process_notes(imported_notes, mode)
-            if result["conflicts"]:
-                has_conflicts = True
-                messages.append(f"{result['conflicts']} conflictos de notas")
-            elif mode == "replace":
-                messages.append(f"{len(imported_notes)} notas importadas")
-            else:
-                messages.append(f"{result['added']} notas nuevas agregadas")
+        result = import_service.import_data(imported_calculations, imported_notes, mode)
+        if result["calculation_conflicts"]:
+            has_conflicts = True
+            messages.append(f"{result['calculation_conflicts']} conflictos de cálculos")
+        elif imported_calculations:
+            label = "importados" if mode == "replace" else "nuevos agregados"
+            messages.append(f"{result['calculations']} cálculos {label}")
+        if result["note_conflicts"]:
+            has_conflicts = True
+            messages.append(f"{result['note_conflicts']} conflictos de notas")
+        elif imported_notes:
+            label = "importadas" if mode == "replace" else "nuevas agregadas"
+            messages.append(f"{result['notes']} notas {label}")
         if has_conflicts:
             messages.append("Resuélvelos abajo")
         show_snack(". ".join(messages), keep_open=False)
