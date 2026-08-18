@@ -12,6 +12,7 @@ def _build_gdrive_backups_section(
     navigate_to_settings,
     show_snack,
     navigate_to_history,
+    account_service,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -20,12 +21,8 @@ def _build_gdrive_backups_section(
     than patching individual controls in place.
     """
     from utils.gdrive_auth import (
-        can_add_account,
         ensure_fresh_access_token,
         is_configured,
-        list_accounts,
-        remove_account,
-        set_account_folder,
         start_link_flow,
     )
     from utils.gdrive_backup import (
@@ -46,7 +43,7 @@ def _build_gdrive_backups_section(
         page.session.store.remove("gdrive_link_message")
         show_snack(pending_message, keep_open=False)
 
-    accounts = list_accounts()
+    accounts = account_service.list_accounts()
 
     async def _link_account(e):
         if not is_configured(page):
@@ -58,7 +55,7 @@ def _build_gdrive_backups_section(
 
     def _unlink_account(account_id):
         def _handler(e):
-            remove_account(account_id)
+            account_service.remove_account(account_id)
             navigate_to_settings()
 
         return _handler
@@ -83,7 +80,10 @@ def _build_gdrive_backups_section(
 
     async def _load_folder_list():
         account_id = folder_dialog_state["account_id"]
-        account = next((a for a in list_accounts() if a["id"] == account_id), None)
+        account = next(
+            (a for a in account_service.list_accounts() if a["id"] == account_id),
+            None,
+        )
         if account is None:
             return
         access_token = await ensure_fresh_access_token(page, account)
@@ -169,7 +169,7 @@ def _build_gdrive_backups_section(
         account = next(
             (
                 a
-                for a in list_accounts()
+                for a in account_service.list_accounts()
                 if a["id"] == folder_dialog_state["account_id"]
             ),
             None,
@@ -190,7 +190,7 @@ def _build_gdrive_backups_section(
             show_snack("No se pudo conectar con Google Drive")
             return
         if account.get("folder_id") in selected_ids:
-            set_account_folder(account["id"], None, None)
+            account_service.set_account_folder(account["id"], None, None)
         current_folders[:] = [
             folder for folder in current_folders if folder["id"] not in selected_ids
         ]
@@ -280,7 +280,7 @@ def _build_gdrive_backups_section(
     def _select_current_folder(e):
         if folder_selection["id"] is None:
             return
-        set_account_folder(
+        account_service.set_account_folder(
             folder_dialog_state["account_id"],
             folder_selection["id"],
             folder_selection["name"],
@@ -296,7 +296,10 @@ def _build_gdrive_backups_section(
 
     async def _create_folder(e):
         account_id = folder_dialog_state["account_id"]
-        account = next((a for a in list_accounts() if a["id"] == account_id), None)
+        account = next(
+            (a for a in account_service.list_accounts() if a["id"] == account_id),
+            None,
+        )
         folder_name = folder_name_field.value.strip()
         if not account or not folder_name:
             show_snack("Escribe un nombre para la carpeta")
@@ -415,7 +418,7 @@ def _build_gdrive_backups_section(
         def _after_dismiss(e):
             # Flet termina de desmontar el diálogo antes de reconstruir la vista.
             if confirmed:
-                remove_account(account_id)
+                account_service.remove_account(account_id)
                 navigate_to_settings()
 
         def _close(e):
@@ -601,7 +604,9 @@ def _build_gdrive_backups_section(
 
     def _refresh_backup_accounts():
         backup_accounts[:] = [
-            account for account in list_accounts() if account.get("folder_id")
+            account
+            for account in account_service.list_accounts()
+            if account.get("folder_id")
         ]
         backup_account_checks[:] = [
             ft.Checkbox(
@@ -745,7 +750,7 @@ def _build_gdrive_backups_section(
         ),
     )
 
-    can_link_more = can_add_account()
+    can_link_more = account_service.can_add_account()
     controls = [account_header]
 
     if can_link_more:

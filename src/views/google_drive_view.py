@@ -7,7 +7,11 @@ from views.settings_google_drive_section import _build_gdrive_backups_section
 
 
 def build_google_drive_view(
-    page: ft.Page, colors_fn, refresh_view, navigate_to_history
+    page: ft.Page,
+    colors_fn,
+    refresh_view,
+    navigate_to_history,
+    account_service,
 ):
     """Build the dedicated Google Drive account and backup management view."""
     colors = colors_fn(page)
@@ -24,7 +28,12 @@ def build_google_drive_view(
             expand=True,
             padding=ft.Padding.only(top=4, left=24, right=24),
             content=_build_gdrive_backups_section(
-                page, colors, refresh_view, show_snack, navigate_to_history
+                page,
+                colors,
+                refresh_view,
+                show_snack,
+                navigate_to_history,
+                account_service,
             ),
         ),
     )

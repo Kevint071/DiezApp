@@ -11,6 +11,17 @@ class LinkAccountService:
     def can_add_account(self) -> bool:
         return self._account_repository.count() < self._max_accounts
 
+    def list_accounts(self):
+        return self._account_repository.list()
+
+    def remove_account(self, account_id: str) -> None:
+        self._account_repository.remove(account_id)
+
+    def set_account_folder(
+        self, account_id: str, folder_id: str | None, folder_name: str | None
+    ) -> None:
+        self._account_repository.set_folder(account_id, folder_id, folder_name)
+
     def add_account(
         self,
         email: str,

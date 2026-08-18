@@ -246,6 +246,7 @@ def _main(page: ft.Page):
             get_colors,
             lambda: route_change(),
             lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
+            dependencies.google_drive_link,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,
