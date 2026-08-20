@@ -60,6 +60,22 @@ class SqliteDriveAccountRepository:
         conn.commit()
         return account_id
 
+    def update_tokens(
+        self,
+        account_id: str,
+        access_token: str,
+        refresh_token: str,
+        expires_in: int,
+    ) -> None:
+        expiry = local_now() + timedelta(seconds=expires_in)
+        conn = get_connection()
+        conn.execute(
+            "UPDATE gdrive_accounts SET access_token = ?, refresh_token = ?, "
+            "token_expiry_at = ? WHERE id = ?",
+            (access_token, refresh_token, to_local_iso(expiry), account_id),
+        )
+        conn.commit()
+
     def remove(self, account_id: str) -> None:
         conn = get_connection()
         conn.execute("DELETE FROM gdrive_accounts WHERE id = ?", (account_id,))

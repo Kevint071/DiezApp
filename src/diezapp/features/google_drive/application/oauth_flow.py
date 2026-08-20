@@ -31,16 +31,25 @@ class GoogleDriveOAuthFlow:
     def is_configured(self) -> bool:
         return bool(self._login_endpoint)
 
-    async def start(self, store: SessionStore, page_url: str | None = None) -> bool:
-        if not self.is_configured() or not self._link_account_service.can_add_account():
+    async def start(
+        self,
+        store: SessionStore,
+        page_url: str | None = None,
+        account_id: str | None = None,
+    ) -> bool:
+        if not self.is_configured() or (
+            not account_id and not self._link_account_service.can_add_account()
+        ):
             return False
 
         app_state = uuid.uuid4().hex
-        store.set("gdrive_oauth_pending", {"state": app_state})
+        store.set(
+            "gdrive_oauth_pending", {"state": app_state, "account_id": account_id}
+        )
         if store.get("gdrive_callback_done"):
             store.remove("gdrive_callback_done")
 
-        url = build_login_url(self._login_endpoint, app_state, page_url)
+        url = build_login_url(self._login_endpoint, app_state, page_url, account_id)
         await self._url_opener.open_url(url)
         return True
 
@@ -52,11 +61,13 @@ class GoogleDriveOAuthFlow:
     ) -> dict:
         pending = store.get("gdrive_oauth_pending")
         pending_state = pending.get("state") if pending else None
+        account_id = pending.get("account_id") if pending else None
         result = self._link_account_service.complete_link(
             query_params,
             pending_state,
             is_web_runtime,
             callback_done=bool(store.get("gdrive_callback_done")),
+            account_id=account_id,
         )
         if not result["ok"]:
             if pending and result["message"] in (

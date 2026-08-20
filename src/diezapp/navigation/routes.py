@@ -12,6 +12,7 @@ SETTINGS = "/settings"
 SETTINGS_CONFLICTS = "/settings/conflicts"
 SETTINGS_CONFLICT_DETAIL = "/settings/conflicts/detail"
 GOOGLE_DRIVE = "/google-drive"
+GOOGLE_DRIVE_ACCOUNT = "/google-drive/account"
 GOOGLE_DRIVE_HISTORY = "/google-drive/history"
 CALLBACK_PREFIX = "/callback"
 

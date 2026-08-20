@@ -33,6 +33,9 @@ class FakeRepository:
         self.accounts.append({"id": "new", "google_account_email": email})
         return "new"
 
+    def update_tokens(self, account_id, access_token, refresh_token, expires_in):
+        self.updated = (account_id, access_token, refresh_token, expires_in)
+
 
 class FakeUrlOpener:
     def __init__(self):
@@ -70,6 +73,40 @@ def test_oauth_flow_start_rejects_account_limit():
 
     assert not asyncio.run(flow.start(FakeStore()))
     assert opener.urls == []
+
+
+def test_oauth_flow_start_allows_reauthentication_at_account_limit():
+    flow, opener, _ = _flow(FakeRepository(count=2))
+
+    assert asyncio.run(flow.start(FakeStore(), account_id="account-1"))
+    assert "account_id=account-1" in opener.urls[0]
+
+
+def test_oauth_flow_complete_updates_existing_account_tokens():
+    repository = FakeRepository(count=2)
+    flow, _, repository = _flow(repository)
+    store = FakeStore()
+    store.set("gdrive_oauth_pending", {"state": "state-1", "account_id": "account-1"})
+
+    result = flow.complete(
+        store,
+        {
+            "app_state": "state-1",
+            "access_token": "new-token",
+            "refresh_token": "new-refresh-token",
+            "email": "user@example.com",
+            "expires_in": "7200",
+        },
+        False,
+    )
+
+    assert result["ok"]
+    assert repository.updated == (
+        "account-1",
+        "new-token",
+        "new-refresh-token",
+        7200,
+    )
 
 
 def test_oauth_flow_complete_consumes_pending_state():

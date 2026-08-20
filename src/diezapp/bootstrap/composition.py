@@ -20,6 +20,12 @@ from diezapp.shared.presentation.theme import (
 
 def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
+    def _show_snack(message: str, keep_open: bool = True):
+        snack = ft.SnackBar(content=ft.Text(message), open=True)
+        page.overlay.append(snack)
+        if keep_open:
+            page.update()
+
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
 
@@ -236,8 +242,6 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         content = build_google_drive_view(
             page,
             get_colors,
-            lambda: route_change(),
-            lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
             dependencies.google_drive_link,
             dependencies.google_drive_url_opener,
             dependencies.google_drive_schedule_settings,
@@ -246,6 +250,10 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             dependencies.google_drive_oauth,
             dependencies.google_drive_folders,
             dependencies.google_drive_account_validator,
+            lambda account_id: (
+                page.session.store.set("gdrive_account_id", account_id),
+                page.navigate(routes.GOOGLE_DRIVE_ACCOUNT),
+            )[-1],
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,
@@ -280,6 +288,37 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
                     dependencies.conflicts,
                 )
             ],
+        )
+
+    def _build_google_drive_account_view() -> ft.View:
+        from diezapp.features.google_drive.presentation.google_drive_page import (
+            build_google_drive_account_view,
+        )
+
+        content = build_google_drive_account_view(
+            page,
+            get_colors,
+            page.session.store.get("gdrive_account_id"),
+            dependencies.google_drive_link,
+            dependencies.google_drive_refresh_token,
+            dependencies.google_drive_oauth,
+            dependencies.google_drive_folders,
+            dependencies.google_drive_account_validator,
+            dependencies.google_drive_schedule_settings,
+            dependencies.google_drive_backup,
+            lambda: page.navigate(routes.GOOGLE_DRIVE),
+            lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
+            lambda message, keep_open=True: _show_snack(message, keep_open),
+        )
+        return ft.View(
+            route=routes.GOOGLE_DRIVE_ACCOUNT,
+            padding=0,
+            appbar=_build_appbar(
+                "Cuenta de respaldo",
+                show_back=True,
+                back_route=routes.GOOGLE_DRIVE,
+            ),
+            controls=[content],
         )
 
     # ── Nested (drill-down) views ─────────────────────────
@@ -435,7 +474,11 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         nav_bar.bgcolor = ft.Colors.TRANSPARENT
         nav_bar.indicator_color = current_navigation_colors["navigation_indicator"]
 
-        if route in (routes.GOOGLE_DRIVE, routes.GOOGLE_DRIVE_HISTORY):
+        if route in (
+            routes.GOOGLE_DRIVE,
+            routes.GOOGLE_DRIVE_HISTORY,
+            routes.GOOGLE_DRIVE_ACCOUNT,
+        ):
             return 4, _build_google_drive_view()
         elif route.startswith(routes.NOTES):
             return 3, _build_notes_view()
@@ -463,6 +506,8 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             return [_build_pdf_preview_view()]
         elif route == routes.GOOGLE_DRIVE_HISTORY:
             return [_build_google_drive_history_view()]
+        elif route == routes.GOOGLE_DRIVE_ACCOUNT:
+            return [_build_google_drive_account_view()]
         elif route in (routes.SETTINGS_CONFLICTS, routes.SETTINGS_CONFLICT_DETAIL):
             from diezapp.features.conflicts.presentation.conflicts_page import (
                 build_conflict_detail_view_route,

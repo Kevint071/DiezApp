@@ -17,6 +17,14 @@ class DriveAccountRepository(Protocol):
         expires_in: int,
     ) -> str: ...
 
+    def update_tokens(
+        self,
+        account_id: str,
+        access_token: str,
+        refresh_token: str,
+        expires_in: int,
+    ) -> None: ...
+
     def remove(self, account_id: str) -> None: ...
 
     def set_folder(

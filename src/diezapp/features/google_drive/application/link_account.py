@@ -38,12 +38,24 @@ class LinkAccountService:
             expires_in=expires_in,
         )
 
+    def update_account_tokens(
+        self,
+        account_id: str,
+        access_token: str,
+        refresh_token: str,
+        expires_in: int,
+    ) -> None:
+        self._account_repository.update_tokens(
+            account_id, access_token, refresh_token, expires_in
+        )
+
     def complete_link(
         self,
         query_params: dict,
         pending_state: str | None,
         is_web_runtime: bool,
         callback_done: bool = False,
+        account_id: str | None = None,
     ) -> dict:
         if callback_done:
             return {"ok": False, "message": "La vinculación ya fue procesada"}
@@ -71,12 +83,20 @@ class LinkAccountService:
             expires_in = 3600
 
         try:
-            self.add_account(
-                email=email,
-                access_token=access_token,
-                refresh_token=query_params.get("refresh_token", ""),
-                expires_in=expires_in,
-            )
+            if account_id:
+                self.update_account_tokens(
+                    account_id,
+                    access_token,
+                    query_params.get("refresh_token", ""),
+                    expires_in,
+                )
+            else:
+                self.add_account(
+                    email=email,
+                    access_token=access_token,
+                    refresh_token=query_params.get("refresh_token", ""),
+                    expires_in=expires_in,
+                )
         except ValueError as error:
             return {"ok": False, "message": str(error)}
 

@@ -89,40 +89,22 @@ def build_frequency_cell(
 def build_manual_backup_action(
     page: ft.Page,
     colors: dict,
-    account_service,
+    account,
     refresh_access_token: RefreshAccessToken,
     backup_service: GoogleDriveBackupService,
     show_snack,
     navigate_to_settings,
 ):
-    backup_now_button = ft.IconButton(
+    backup_now_button = ft.FilledTonalButton(
+        "Respaldar ahora",
         icon=ft.Icons.CLOUD_UPLOAD_OUTLINED,
-        icon_size=22,
-        tooltip="Respaldar ahora",
     )
-    backup_accounts = []
-    backup_account_checks = []
 
-    def _refresh_backup_accounts():
-        backup_accounts[:] = [
-            account
-            for account in account_service.list_accounts()
-            if account.get("folder_id")
-        ]
-        backup_account_checks[:] = [
-            ft.Checkbox(label=account["google_account_email"], value=True)
-            for account in backup_accounts
-        ]
-        backup_dialog.content.controls = [
-            backup_dialog.content.controls[0],
-            *backup_account_checks,
-        ]
-
-    async def _run_backup(selected_ids):
+    async def _run_backup():
         backup_now_button.icon = ft.ProgressRing(width=16, height=16)
         backup_now_button.disabled = True
         page.update()
-        result = await backup_service.run(refresh_access_token.execute, selected_ids)
+        result = await backup_service.run(refresh_access_token.execute, {account["id"]})
         status = result["status"]
         if status == "skipped":
             show_snack(result.get("message", "No hay cuentas configuradas"))
@@ -136,18 +118,8 @@ def build_manual_backup_action(
 
     async def _confirm_backup(e):
         del e
-        selected_ids = {
-            account["id"]
-            for account, checkbox in zip(
-                backup_accounts, backup_account_checks, strict=True
-            )
-            if checkbox.value
-        }
-        if not selected_ids:
-            show_snack("Selecciona al menos una cuenta")
-            return
         page.pop_dialog()
-        await _run_backup(selected_ids)
+        await _run_backup()
 
     backup_dialog = ft.AlertDialog(
         modal=True,
@@ -158,7 +130,7 @@ def build_manual_backup_action(
             spacing=4,
             controls=[
                 ft.Text(
-                    "Elige dónde guardar esta copia.",
+                    "¿Harás un backup seguro?",
                     size=14,
                     color=colors["on_surface_variant"],
                 )
@@ -173,10 +145,6 @@ def build_manual_backup_action(
 
     def _open_backup_dialog(e):
         del e
-        _refresh_backup_accounts()
-        if not backup_accounts:
-            show_snack("Configura una carpeta en al menos una cuenta")
-            return
         page.show_dialog(backup_dialog)
 
     backup_now_button.on_click = _open_backup_dialog
