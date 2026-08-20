@@ -245,6 +245,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             dependencies.google_drive_refresh_token,
             dependencies.google_drive_oauth,
             dependencies.google_drive_folders,
+            dependencies.google_drive_account_validator,
         )
         return ft.View(
             route=routes.GOOGLE_DRIVE,

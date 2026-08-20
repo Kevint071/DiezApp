@@ -43,6 +43,18 @@ async def create_backup_folder(access_token: str, folder_name: str) -> str:
     return await create_folder(access_token, folder_name, "root")
 
 
+async def get_authenticated_email(access_token: str) -> str:
+    """Return the Google account email associated with an access token."""
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
+        resp = await client.get(
+            "https://www.googleapis.com/drive/v3/about",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"fields": "user(emailAddress)"},
+        )
+        _raise_for_drive_error(resp)
+        return resp.json()["user"]["emailAddress"]
+
+
 async def create_folder(access_token: str, folder_name: str, parent_id: str) -> str:
     """Create a new Drive folder below ``parent_id`` and return its file ID."""
     async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
@@ -67,6 +79,18 @@ async def delete_folder(access_token: str, folder_id: str) -> None:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         _raise_for_drive_error(resp)
+
+
+async def get_folder(access_token: str, folder_id: str) -> dict[str, str]:
+    """Return metadata for a Drive folder selected by the user."""
+    async with httpx.AsyncClient(timeout=20, verify=DRIVE_SSL_CONTEXT) as client:
+        resp = await client.get(
+            f"{DRIVE_FILES_ENDPOINT}/{folder_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"fields": "id,name,mimeType,trashed"},
+        )
+        _raise_for_drive_error(resp)
+        return resp.json()
 
 
 async def list_folders(

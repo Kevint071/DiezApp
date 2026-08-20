@@ -31,6 +31,46 @@ def test_list_folders_uses_drive_transport(monkeypatch):
     assert folders == [{"id": "folder-1", "name": "Backups"}]
 
 
+def test_get_folder_returns_metadata(monkeypatch):
+    def handler(request):
+        assert request.method == "GET"
+        assert request.url.path.endswith("/files/folder-1")
+        assert request.url.params["fields"] == "id,name,mimeType,trashed"
+        return httpx.Response(
+            200,
+            json={
+                "id": "folder-1",
+                "name": "Backups",
+                "mimeType": drive_client.FOLDER_MIME_TYPE,
+                "trashed": False,
+            },
+        )
+
+    _use_transport(monkeypatch, httpx.MockTransport(handler))
+
+    folder = asyncio.run(drive_client.get_folder("access-token", "folder-1"))
+
+    assert folder["id"] == "folder-1"
+    assert folder["trashed"] is False
+
+
+def test_get_authenticated_email_uses_drive_about_endpoint(monkeypatch):
+    def handler(request):
+        assert request.method == "GET"
+        assert request.url.path.endswith("/drive/v3/about")
+        assert request.url.params["fields"] == "user(emailAddress)"
+        return httpx.Response(
+            200,
+            json={"user": {"emailAddress": "account@example.com"}},
+        )
+
+    _use_transport(monkeypatch, httpx.MockTransport(handler))
+
+    email = asyncio.run(drive_client.get_authenticated_email("access-token"))
+
+    assert email == "account@example.com"
+
+
 def test_drive_api_error_preserves_google_error_details(monkeypatch):
     def handler(request):
         return httpx.Response(

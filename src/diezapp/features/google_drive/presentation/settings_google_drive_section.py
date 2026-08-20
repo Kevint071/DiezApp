@@ -14,6 +14,12 @@ from diezapp.features.google_drive.application.refresh_access_token import (
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
+from diezapp.features.google_drive.application.validate_drive_account import (
+    ValidateDriveAccount,
+)
+from diezapp.features.google_drive.presentation.google_drive_account_validation import (
+    GoogleDriveAccountValidationController,
+)
 from diezapp.features.settings.presentation.settings_components import (
     build_settings_cell as _settings_cell,
 )
@@ -39,6 +45,7 @@ def _build_gdrive_backups_section(
     refresh_access_token: RefreshAccessToken,
     oauth_flow: GoogleDriveOAuthFlow,
     folder_service: DriveFolderService,
+    account_validator: ValidateDriveAccount,
 ):
     """Build the 'Copias de seguridad' (Google Drive) settings section.
 
@@ -82,9 +89,58 @@ def _build_gdrive_backups_section(
     folder_delete_state = {"active": False, "selected": set()}
     current_folders = []
     folder_labels = {}
+    pending_account_validation = {account["id"] for account in accounts}
 
     def _close_folder_dialog(e):
         page.pop_dialog()
+
+    def _set_account_label(account, text, color):
+        folder_label = folder_labels.get(account["id"])
+        if folder_label:
+            folder_label.value = text
+            folder_label.color = color
+
+    def _apply_account_validation(account, validation):
+        pending_account_validation.discard(account["id"])
+        status = validation["status"]
+        if status == "valid":
+            folder_name = validation["folder_name"]
+            if folder_name != account.get("folder_name"):
+                account_service.set_account_folder(
+                    account["id"], account.get("folder_id"), folder_name
+                )
+            _set_account_label(
+                account,
+                f"Carpeta: {folder_name}",
+                c["on_surface_variant"],
+            )
+        elif status == "no_folder":
+            account_service.set_account_folder(account["id"], None, None)
+            _set_account_label(account, "Carpeta: Elegir carpeta", c["primary"])
+        elif status == "folder_unavailable":
+            _set_account_label(
+                account,
+                "No se pudo verificar la carpeta",
+                c["on_surface_variant"],
+            )
+        elif status == "access_unavailable":
+            _set_account_label(
+                account,
+                "No se pudo verificar la cuenta",
+                c["on_surface_variant"],
+            )
+        else:
+            _set_account_label(account, "Cuenta no autenticada", ft.Colors.RED_600)
+
+        return status
+
+    validation_controller = GoogleDriveAccountValidationController(
+        page,
+        accounts,
+        refresh_access_token,
+        account_validator,
+        _apply_account_validation,
+    )
 
     async def _load_folder_list():
         account_id = folder_dialog_state["account_id"]
@@ -94,8 +150,11 @@ def _build_gdrive_backups_section(
         )
         if account is None:
             return
-        access_token = await refresh_access_token.execute(account)
+        validation_status, access_token = await validation_controller.validate(account)
         if not access_token:
+            show_snack("No se pudo autenticar la cuenta")
+            return
+        if validation_status == "unauthenticated":
             show_snack("No se pudo autenticar la cuenta")
             return
         folder_dialog_state["parent_id"] = "root"
@@ -443,11 +502,18 @@ def _build_gdrive_backups_section(
 
     def _account_row(account):
         has_folder = bool(account.get("folder_id"))
-        subtitle = account["folder_name"] if has_folder else "Elegir carpeta"
+        is_pending = account["id"] in pending_account_validation
+        subtitle = (
+            "Verificando..."
+            if is_pending
+            else account["folder_name"]
+            if has_folder
+            else "Elegir carpeta"
+        )
         folder_label = ft.Text(
             f"Carpeta: {subtitle}",
             size=13,
-            color=c["on_surface_variant"] if has_folder else c["primary"],
+            color=c["on_surface_variant"] if has_folder or is_pending else c["primary"],
         )
         folder_labels[account["id"]] = folder_label
         return ft.Container(
@@ -764,4 +830,5 @@ def _build_gdrive_backups_section(
         )
     )
 
+    validation_controller.start()
     return ft.Column(spacing=0, controls=controls)

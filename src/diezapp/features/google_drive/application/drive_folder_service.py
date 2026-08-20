@@ -10,7 +10,11 @@ class DriveFolderError(Exception):
 
 
 class DriveFolderClient(Protocol):
+    async def check_access(self, access_token: str) -> str: ...
+
     async def list(self, access_token: str, parent_id: str) -> list[dict[str, str]]: ...
+
+    async def get(self, access_token: str, folder_id: str) -> dict[str, str]: ...
 
     async def create(
         self, access_token: str, folder_name: str, parent_id: str
@@ -23,8 +27,14 @@ class DriveFolderService:
     def __init__(self, client: DriveFolderClient):
         self._client = client
 
+    async def check_access(self, access_token: str) -> str:
+        return await self._client.check_access(access_token)
+
     async def list(self, access_token: str, parent_id: str) -> list[dict[str, str]]:
         return await self._client.list(access_token, parent_id)
+
+    async def get(self, access_token: str, folder_id: str) -> dict[str, str]:
+        return await self._client.get(access_token, folder_id)
 
     async def create(self, access_token: str, folder_name: str, parent_id: str) -> str:
         return await self._client.create(access_token, folder_name, parent_id)

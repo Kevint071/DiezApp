@@ -17,6 +17,9 @@ from diezapp.features.google_drive.application.refresh_access_token import (
 from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
+from diezapp.features.google_drive.application.validate_drive_account import (
+    ValidateDriveAccount,
+)
 from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.google_drive.presentation.settings_google_drive_section import (
     _build_gdrive_backups_section,
@@ -44,6 +47,7 @@ def build_google_drive_view(
     refresh_access_token: RefreshAccessToken,
     oauth_flow: GoogleDriveOAuthFlow,
     folder_service: DriveFolderService,
+    account_validator: ValidateDriveAccount,
 ):
     """Build the dedicated Google Drive account and backup management view."""
     colors = colors_fn(page)
@@ -72,6 +76,7 @@ def build_google_drive_view(
                 refresh_access_token,
                 oauth_flow,
                 folder_service,
+                account_validator,
             ),
         ),
     )

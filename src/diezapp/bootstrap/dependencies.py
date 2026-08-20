@@ -32,6 +32,9 @@ from diezapp.features.google_drive.application.run_backup import (
     GoogleDriveBackupService,
 )
 from diezapp.features.google_drive.application.url_opener import UrlOpener
+from diezapp.features.google_drive.application.validate_drive_account import (
+    ValidateDriveAccount,
+)
 from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.local_backup.application.local_backup_service import (
     LocalBackupService,
@@ -86,6 +89,7 @@ class AppDependencies:
     google_drive_history: BackupHistoryRepository
     google_drive_backup: GoogleDriveBackupService
     google_drive_folders: DriveFolderService
+    google_drive_account_validator: ValidateDriveAccount
     google_drive_link: LinkAccountService
     google_drive_oauth: GoogleDriveOAuthFlow
     google_drive_refresh_token: RefreshAccessToken
@@ -116,6 +120,7 @@ def create_dependencies() -> AppDependencies:
     refresh_access_token = RefreshAccessToken(
         BackendOAuthClient(), drive_token_repository
     )
+    drive_folder_service = DriveFolderService(DriveFolderClient())
     monthly_summary = MonthlySummaryService(calculation_repository)
     calculate_distribution = CalculateDistribution()
     calculations = CalculationService(calculation_repository, calculate_distribution)
@@ -133,7 +138,8 @@ def create_dependencies() -> AppDependencies:
             write_history=backup_history_repository.save,
             save_success_at=backup_schedule_repository.set_last_backup_at,
         ),
-        google_drive_folders=DriveFolderService(DriveFolderClient()),
+        google_drive_folders=drive_folder_service,
+        google_drive_account_validator=ValidateDriveAccount(drive_folder_service),
         google_drive_history=backup_history_repository,
         google_drive_link=link_account_service,
         google_drive_oauth=GoogleDriveOAuthFlow(link_account_service, url_opener),
