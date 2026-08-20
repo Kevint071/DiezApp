@@ -1,0 +1,138 @@
+schema: spec-driven
+
+context: |
+  DiezApp es una aplicacion Python 3.14+ con Flet 0.86.5+, SQLite local,
+  httpx para integraciones HTTP, fpdf2 para PDF y pytest/Ruff para calidad.
+  La aplicacion es principalmente local; Google Drive y OAuth son las
+  integraciones externas principales.
+
+  ## Arquitectura por secciones
+
+  - bootstrap: punto de composicion. Crea la app, dependencias compartidas,
+    ciclo de vida y manejo de errores de arranque. Aqui se conectan contratos
+    con implementaciones concretas. main.py debe limitarse a llamar a
+    bootstrap.app.create_app(page).
+  - navigation: catalogo unico de rutas, router, pila de ft.View y estado de
+    navegacion. Solo el router debe decidir que vista corresponde a una ruta y
+    modificar page.views.
+  - shared: utilidades y presentacion transversal, como colores, formato,
+    fechas, feedback, app bar y divisores. No debe contener reglas propias de
+    una feature.
+  - features/<feature>/domain: modelos, contratos de repositorio y reglas
+    puras del negocio. No importa Flet, SQLite, httpx, APIs externas ni rutas
+    de archivos.
+  - features/<feature>/application: casos de uso y servicios que coordinan
+    dominio, repositorios y puertos. No conoce Flet ni detalles de SQLite o
+    HTTP. Debe poder probarse con fakes.
+  - features/<feature>/presentation: paginas, controles y handlers Flet. Lee
+    estado, solicita acciones de aplicacion y muestra estados o errores; no
+    ejecuta SQL ni construye requests HTTP.
+  - infrastructure/database: conexion, esquema y migraciones SQLite.
+  - infrastructure/persistence: adaptadores SQLite que implementan contratos
+    del dominio.
+  - infrastructure/files: snapshot, exportacion/importacion y seleccion de
+    archivos.
+  - infrastructure/google: cliente HTTP Drive, OAuth y adaptadores externos.
+    Traduce errores tecnicos a errores de infraestructura; no decide mensajes
+    ni controles visuales.
+  - infrastructure/pdf: generacion concreta de PDF.
+
+  ## Features actuales
+
+  calculator contiene la formula y reglas de calculo; calculations contiene
+  CRUD, historial y repositorio; monthly_summary contiene agregaciones y
+  desglose; notes contiene notas y ordenamiento; settings contiene preferencias
+  y backup local; conflicts contiene conflictos de importacion; local_backup
+  contiene el flujo de backup SQLite; pdf_export coordina reportes; y
+  google_drive contiene cuentas, OAuth, carpetas, backups, scheduler e
+  historial remoto. No crear una feature transversal para esconder logica que
+  pertenece a una de estas features.
+
+  ## Flujo normal de un cambio
+
+  1. Identificar el comportamiento, ruta, caso de uso o adaptador que decide
+     el resultado y leer su test o consumidor cercano.
+  2. Crear propuesta con objetivo, alcance, no-alcance, impacto arquitectonico
+     y riesgos. No mezclar migracion de arquitectura, esquema SQLite y formato
+     de backup en el mismo cambio salvo que sea imprescindible.
+  3. Documentar el flujo en design.md: entradas, salidas, estados de error,
+     limites entre capas, alternativas descartadas y compatibilidad de datos.
+  4. Escribir specs con requisitos observables y escenarios Given/When/Then.
+  5. Dividir tasks en cambios pequenos y verificables, empezando por el test o
+     contrato que proteja el comportamiento.
+  6. Implementar dentro de la feature propietaria, conectar dependencias en
+     bootstrap y mantener navigation/shared/infrastructure en sus limites.
+  7. Validar primero la prueba mas especifica; despues Ruff, suite completa y
+     comprobaciones manuales de UI, navegacion o Flet cuando correspondan.
+  8. Revisar diff, compatibilidad de datos, errores y antipatrones antes de
+     archivar el cambio.
+
+  ## Regla permanente para features y fixes
+
+  Cada cambio nuevo debe incluir una comprobacion explicita de que respeta
+  estas fronteras y no introduce un antipatron. Antes de implementarlo hay que
+  nombrar la capa propietaria del comportamiento, el contrato que usa y la
+  prueba que puede falsar la hipotesis. Todo fix debe corregir la causa en la
+  capa que decide el comportamiento, no parchear solo el texto o control
+  visible. Si una regla nueva cruza capas, introducir un contrato o caso de
+  uso y conectarlo mediante inyeccion de dependencias.
+
+  ## Antipatrones prohibidos
+
+  - SQL en vistas, casos de uso o dominio; solo los adaptadores de
+    infrastructure/persistence acceden a SQLite mediante database/connection.
+  - Requests HTTP, tokens OAuth o rutas de API en presentation o domain.
+  - Reglas financieras, ordenamiento, agregaciones o politicas de backup en
+    controles Flet, handlers de navegacion o clientes de infraestructura.
+  - Crear repositorios, clientes o servicios globales dentro de una vista;
+    deben salir de bootstrap y entrar por parametros.
+  - Duplicar formulas, estados de backup, politicas de scheduler o validacion
+    de tokens en varios consumidores; centralizar la decision en application
+    o domain.
+  - Mutar page.views desde multiples lugares o declarar rutas duplicadas.
+  - Usar utils/views legacy en nuevos consumidores o borrar fachadas antes de
+    migrar todos sus consumidores activos.
+  - Cambiar schema, ubicacion de app.db o formato .db sin migracion y pruebas
+    de compatibilidad.
+  - Ocultar errores con catch-all, cambiar contratos publicos sin motivo o
+    hacer refactors masivos junto con un cambio funcional.
+  - Anadir una dependencia externa sin justificarla en design.md y validar su
+    impacto en desktop, Android y tests.
+
+  ## Calidad y compatibilidad
+
+  La suite completa debe permanecer verde y Ruff debe pasar antes de cerrar un
+  cambio. Usar siempre el entorno .venv del proyecto en Windows PowerShell:
+  .\.venv\Scripts\python.exe -m pytest
+  .\.venv\Scripts\python.exe -m ruff check src tests
+  .\.venv\Scripts\python.exe -m ruff format --check src tests
+  git diff --check
+  Si se tocan vistas, bootstrap o navegacion, ejecutar tambien flet run
+  src/main.py y comprobar el flujo afectado en desktop y, cuando aplique,
+  Android. No modificar datos locales, secretos ni archivos generados como
+  parte de una propuesta.
+
+rules:
+  proposal:
+    - Escribir en espanol claro y describir objetivo, alcance, no-alcance, feature propietaria, capas afectadas y riesgos.
+    - Identificar el comportamiento que decide el resultado y el antipatron que el cambio debe evitar.
+    - Incluir compatibilidad con SQLite, backups, OAuth, rutas y consumidores existentes cuando aplique.
+    - Separar cambios funcionales de migraciones arquitectonicas amplias; explicar cualquier excepcion.
+    - Definir una validacion observable y el test minimo que pueda falsar la propuesta.
+  design:
+    - Mostrar el flujo normal entre presentation, application, domain, infrastructure y bootstrap.
+    - Documentar contratos, inyeccion de dependencias, estados de error, concurrencia y limites de responsabilidad.
+    - Incluir alternativas descartadas y justificar la opcion que mejor encaja con la arquitectura actual.
+    - Revisar persistencia, compatibilidad de datos y navegacion antes de proponer cambios de esquema o rutas.
+    - Incluir una seccion de antipatrones revisados y explicar por que la solucion no los introduce.
+  specs:
+    - Expresar requisitos como comportamiento observable, no como detalles internos de implementacion.
+    - Cubrir camino feliz, datos vacios, errores de infraestructura, autenticacion, persistencia y regresiones relevantes.
+    - Usar escenarios Given/When/Then y nombrar la feature o capacidad afectada.
+    - Mantener invariantes existentes de calculo, backup, navegacion y compatibilidad salvo cambio explicito.
+  tasks:
+    - Dividir el trabajo en tareas pequenas, ordenadas por dependencia y con una validacion concreta.
+    - Indicar archivos o capas propietarias sin mover responsabilidades a una capa incorrecta.
+    - Incluir tests de dominio/aplicacion con fakes y tests de adaptadores con transportes o bases aisladas cuando aplique.
+    - Incluir Ruff, suite completa y prueba manual de Flet para cambios de UI, bootstrap o navegacion.
+    - Anadir una tarea final de revision antiantipatrones, compatibilidad y git diff --check.
