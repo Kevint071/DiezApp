@@ -14,8 +14,9 @@ wheels/
 
 # Openspec
 **opsx**
-**openspec**
-
+**openspec/**
+!openspec/
+!openspec/config.yaml
 # Db
 **app.db**
 
@@ -24,6 +25,7 @@ wheels/
 
 # Markdown
 **.md
+.markdownlint.json
 
 # SHA
 **.jks
