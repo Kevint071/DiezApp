@@ -32,10 +32,6 @@ class DriveAccountRepository(Protocol):
     ) -> None: ...
 
 
-class DriveTokenRepository(Protocol):
-    def update(self, account_id: str, access_token: str, expiry_iso: str) -> None: ...
-
-
 class BackupHistoryRepository(Protocol):
     def save(
         self,

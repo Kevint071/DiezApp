@@ -243,13 +243,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             page,
             get_colors,
             dependencies.google_drive_link,
-            dependencies.google_drive_url_opener,
-            dependencies.google_drive_schedule_settings,
-            dependencies.google_drive_backup,
-            dependencies.google_drive_refresh_token,
             dependencies.google_drive_oauth,
-            dependencies.google_drive_folders,
-            dependencies.google_drive_account_validator,
             lambda account_id: (
                 page.session.store.set("gdrive_account_id", account_id),
                 page.navigate(routes.GOOGLE_DRIVE_ACCOUNT),
@@ -279,7 +273,6 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
                 build_google_drive_history_view(
                     page,
                     get_colors,
-                    dependencies.google_drive_history,
                     dependencies.google_drive_link,
                     dependencies.google_drive_refresh_token,
                     dependencies.local_backup,

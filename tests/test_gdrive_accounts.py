@@ -51,3 +51,17 @@ class TestUnlinkIndependence:
         account_service.remove_account(id_a)
 
         assert account_service.can_add_account() is True
+
+
+class TestTokenRefresh:
+    def test_updating_one_account_token_leaves_other_untouched(self, account_service):
+        id_a = account_service.add_account("a@example.com", "tok1", "ref1", 3600)
+        id_b = account_service.add_account("b@example.com", "tok2", "ref2", 3600)
+
+        account_service.update_account_tokens(id_a, "tok1-new", "ref1-new", 7200)
+
+        accounts_by_id = {a["id"]: a for a in account_service.list_accounts()}
+        assert accounts_by_id[id_a]["access_token"] == "tok1-new"
+        assert accounts_by_id[id_a]["refresh_token"] == "ref1-new"
+        assert accounts_by_id[id_b]["access_token"] == "tok2"
+        assert accounts_by_id[id_b]["refresh_token"] == "ref2"

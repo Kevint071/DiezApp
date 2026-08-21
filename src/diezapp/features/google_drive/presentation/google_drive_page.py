@@ -20,7 +20,6 @@ from diezapp.features.google_drive.application.run_backup import (
 from diezapp.features.google_drive.application.validate_drive_account import (
     ValidateDriveAccount,
 )
-from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.google_drive.presentation.google_drive_account_validation import (
     GoogleDriveAccountValidationController,
 )
@@ -56,13 +55,7 @@ def build_google_drive_view(
     page: ft.Page,
     colors_fn,
     account_service,
-    url_opener,
-    schedule_settings: BackupScheduleSettings,
-    backup_service: GoogleDriveBackupService,
-    refresh_access_token: RefreshAccessToken,
     oauth_flow: GoogleDriveOAuthFlow,
-    folder_service: DriveFolderService,
-    account_validator: ValidateDriveAccount,
     navigate_to_account,
 ):
     """Build the dedicated Google Drive account and backup management view."""
@@ -383,7 +376,6 @@ def build_google_drive_account_view(
 def build_google_drive_history_view(
     page: ft.Page,
     colors_fn,
-    history_repository: BackupHistoryRepository,
     account_service,
     refresh_access_token: RefreshAccessToken,
     local_backup,

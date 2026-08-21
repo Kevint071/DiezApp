@@ -16,12 +16,12 @@ class FakeOAuthClient:
         return self.tokens
 
 
-class FakeTokenRepository:
+class FakeAccountRepository:
     def __init__(self):
         self.updates = []
 
-    def update(self, account_id, access_token, expiry_iso):
-        self.updates.append((account_id, access_token, expiry_iso))
+    def update_tokens(self, account_id, access_token, refresh_token, expires_in):
+        self.updates.append((account_id, access_token, refresh_token, expires_in))
 
 
 def _account(expiry, refresh_token="refresh"):
@@ -40,7 +40,7 @@ def _account(expiry, refresh_token="refresh"):
 
 def test_refresh_access_token_returns_current_token_when_still_valid():
     oauth_client = FakeOAuthClient()
-    token_repository = FakeTokenRepository()
+    token_repository = FakeAccountRepository()
     service = RefreshAccessToken(oauth_client, token_repository)
 
     result = asyncio.run(
@@ -56,19 +56,19 @@ def test_refresh_access_token_returns_current_token_when_still_valid():
 
 def test_refresh_access_token_persists_a_new_token():
     oauth_client = FakeOAuthClient({"access_token": "new", "expires_in": 3600})
-    token_repository = FakeTokenRepository()
+    token_repository = FakeAccountRepository()
     service = RefreshAccessToken(oauth_client, token_repository)
 
     result = asyncio.run(service.execute(_account("2020-01-01T00:00:00+00:00")))
 
     assert result == "new"
     assert oauth_client.refresh_tokens == ["refresh"]
-    assert token_repository.updates[0][0:2] == ("account-1", "new")
+    assert token_repository.updates[0] == ("account-1", "new", "refresh", 3600)
 
 
 def test_refresh_access_token_returns_none_when_refresh_fails():
     oauth_client = FakeOAuthClient(None)
-    token_repository = FakeTokenRepository()
+    token_repository = FakeAccountRepository()
     service = RefreshAccessToken(oauth_client, token_repository)
 
     result = asyncio.run(service.execute(_account("invalid-date")))

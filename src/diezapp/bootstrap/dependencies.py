@@ -67,9 +67,6 @@ from diezapp.infrastructure.persistence.sqlite_conflict_repository import (
 from diezapp.infrastructure.persistence.sqlite_drive_account_repository import (
     SqliteDriveAccountRepository,
 )
-from diezapp.infrastructure.persistence.sqlite_drive_token_repository import (
-    SqliteDriveTokenRepository,
-)
 from diezapp.infrastructure.persistence.sqlite_note_repository import (
     SqliteNoteRepository,
 )
@@ -107,7 +104,6 @@ def create_dependencies() -> AppDependencies:
     calculation_repository = SqliteCalculationRepository()
     conflict_repository = SqliteConflictRepository()
     drive_account_repository = SqliteDriveAccountRepository()
-    drive_token_repository = SqliteDriveTokenRepository()
     backup_history_repository = SqliteBackupHistoryRepository()
     backup_schedule_repository = SqliteBackupScheduleRepository()
     backup_adapter = SqliteBackupAdapter()
@@ -118,7 +114,7 @@ def create_dependencies() -> AppDependencies:
     link_account_service = LinkAccountService(drive_account_repository)
     url_opener = FletUrlOpener()
     refresh_access_token = RefreshAccessToken(
-        BackendOAuthClient(), drive_token_repository
+        BackendOAuthClient(), drive_account_repository
     )
     drive_folder_service = DriveFolderService(DriveFolderClient())
     monthly_summary = MonthlySummaryService(calculation_repository)

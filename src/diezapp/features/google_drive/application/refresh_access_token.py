@@ -1,14 +1,12 @@
-from datetime import timedelta
-
 from diezapp.features.google_drive.domain.models import DriveAccount
-from diezapp.features.google_drive.domain.repositories import DriveTokenRepository
-from diezapp.shared.datetime_utils import local_now, parse_datetime, to_local_iso
+from diezapp.features.google_drive.domain.repositories import DriveAccountRepository
+from diezapp.shared.datetime_utils import local_now, parse_datetime
 
 
 class RefreshAccessToken:
-    def __init__(self, oauth_client, token_repository: DriveTokenRepository):
+    def __init__(self, oauth_client, account_repository: DriveAccountRepository):
         self._oauth_client = oauth_client
-        self._token_repository = token_repository
+        self._account_repository = account_repository
 
     async def execute(self, account: DriveAccount) -> str | None:
         expiry = account.get("token_expiry_at")
@@ -29,8 +27,7 @@ class RefreshAccessToken:
             return None
 
         access_token = tokens["access_token"]
-        expires_at = local_now() + timedelta(seconds=tokens.get("expires_in", 3600))
-        self._token_repository.update(
-            account["id"], access_token, to_local_iso(expires_at)
+        self._account_repository.update_tokens(
+            account["id"], access_token, refresh_token, tokens.get("expires_in", 3600)
         )
         return access_token
