@@ -30,12 +30,6 @@ class GoogleDriveAccountValidationController:
 
     async def validate(self, account) -> tuple[str, str | None]:
         access_token = await self._refresh_access_token.execute(account)
-        print(  # noqa: T201
-            f"[DEBUG-AUTH] validate account_id={account['id']} "
-            f"expiry={account.get('token_expiry_at')!r} "
-            f"has_refresh_token={bool(account.get('refresh_token'))} "
-            f"refreshed_token={'yes' if access_token else 'NONE'}"
-        )
         if not access_token:
             result: DriveAccountValidation = {
                 "status": "unauthenticated",

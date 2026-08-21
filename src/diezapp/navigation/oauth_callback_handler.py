@@ -39,15 +39,11 @@ class OAuthCallbackHandler:
             query_params = dict(self.page.query.to_dict)
             if callback_route:
                 query_params = dict(parse_qsl(urlparse(callback_route).query))
-            print(  # noqa: T201
-                f"[DEBUG-AUTH] callback query params: {sorted(query_params.keys())}"
-            )
             result = self.oauth_flow.complete(
                 self.page.session.store,
                 query_params,
                 self.page.web or (self.page.url or "").startswith(("ws://", "wss://")),
             )
-            print(f"[DEBUG-AUTH] callback result: {result}")  # noqa: T201
             self.on_completed(result["message"])
             await self.page.push_route(routes.GOOGLE_DRIVE)
         finally:
