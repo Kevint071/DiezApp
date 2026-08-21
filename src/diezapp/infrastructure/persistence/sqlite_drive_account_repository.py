@@ -69,11 +69,21 @@ class SqliteDriveAccountRepository:
     ) -> None:
         expiry = local_now() + timedelta(seconds=expires_in)
         conn = get_connection()
-        conn.execute(
-            "UPDATE gdrive_accounts SET access_token = ?, refresh_token = ?, "
-            "token_expiry_at = ? WHERE id = ?",
-            (access_token, refresh_token, to_local_iso(expiry), account_id),
-        )
+        if refresh_token:
+            conn.execute(
+                "UPDATE gdrive_accounts SET access_token = ?, refresh_token = ?, "
+                "token_expiry_at = ? WHERE id = ?",
+                (access_token, refresh_token, to_local_iso(expiry), account_id),
+            )
+        else:
+            # Google's OAuth callback only returns a refresh_token on the
+            # first consent; a re-auth without it must not wipe the one
+            # already stored, or future refreshes become impossible.
+            conn.execute(
+                "UPDATE gdrive_accounts SET access_token = ?, "
+                "token_expiry_at = ? WHERE id = ?",
+                (access_token, to_local_iso(expiry), account_id),
+            )
         conn.commit()
 
     def remove(self, account_id: str) -> None:
