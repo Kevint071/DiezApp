@@ -17,6 +17,20 @@ class SessionStore(Protocol):
     def remove(self, key: str) -> None: ...
 
 
+def _account_id_from_state(state: str | None) -> str | None:
+    """Recover the account_id embedded in app_state.
+
+    Re-auth opens the Google consent screen in a new browser tab, which in
+    web runtime gets its own page session, so `gdrive_oauth_pending` set
+    before the redirect is not visible when the callback lands. Embedding
+    the account_id in app_state lets it survive that round trip regardless
+    of session continuity.
+    """
+    if not state or "." not in state:
+        return None
+    return state.split(".", 1)[1] or None
+
+
 class GoogleDriveOAuthFlow:
     def __init__(
         self,
@@ -43,6 +57,8 @@ class GoogleDriveOAuthFlow:
             return False
 
         app_state = uuid.uuid4().hex
+        if account_id:
+            app_state = f"{app_state}.{account_id}"
         store.set(
             "gdrive_oauth_pending", {"state": app_state, "account_id": account_id}
         )
@@ -61,7 +77,9 @@ class GoogleDriveOAuthFlow:
     ) -> dict:
         pending = store.get("gdrive_oauth_pending")
         pending_state = pending.get("state") if pending else None
-        account_id = pending.get("account_id") if pending else None
+        account_id = _account_id_from_state(query_params.get("app_state")) or (
+            pending.get("account_id") if pending else None
+        )
         result = self._link_account_service.complete_link(
             query_params,
             pending_state,

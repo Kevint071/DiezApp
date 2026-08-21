@@ -1,4 +1,7 @@
+import ssl
+
 import httpx
+import truststore
 
 from diezapp.features.google_drive.domain.models import DriveTokens
 
@@ -7,6 +10,10 @@ REFRESH_ENDPOINT = f"{BACKEND_BASE_URL}/api/auth/refresh"
 
 # Must match the backend's APP_SHARED_SECRET when that defense is enabled.
 BACKEND_SHARED_SECRET = ""
+
+# Windows' certifi-bundled CA store is often missing the local issuer chain,
+# so use the OS trust store instead (same fix as drive_client.py).
+OAUTH_SSL_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
 class BackendOAuthClient:
@@ -19,7 +26,7 @@ class BackendOAuthClient:
         )
         try:
             async with httpx.AsyncClient(
-                timeout=20, transport=self._transport
+                timeout=20, transport=self._transport, verify=OAUTH_SSL_CONTEXT
             ) as client:
                 response = await client.post(
                     REFRESH_ENDPOINT,
@@ -28,6 +35,5 @@ class BackendOAuthClient:
                 )
                 response.raise_for_status()
                 return response.json()
-        except httpx.HTTPError as error:
-            print(f"[DEBUG-AUTH] refresh_access_token failed: {error!r}")  # noqa: T201
+        except httpx.HTTPError:
             return None
