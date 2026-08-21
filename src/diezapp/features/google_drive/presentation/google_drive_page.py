@@ -20,6 +20,7 @@ from diezapp.features.google_drive.application.run_backup import (
 from diezapp.features.google_drive.application.validate_drive_account import (
     ValidateDriveAccount,
 )
+from diezapp.features.google_drive.domain.repositories import BackupHistoryRepository
 from diezapp.features.google_drive.presentation.google_drive_account_validation import (
     GoogleDriveAccountValidationController,
 )
@@ -373,9 +374,101 @@ def build_google_drive_account_view(
     )
 
 
+_HISTORY_STATUS_LABELS = {
+    "success": "Completado",
+    "partial": "Parcial",
+    "failed": "Fallido",
+}
+
+
+def _history_status_color(status: str, colors: dict):
+    return {
+        "success": colors["primary"],
+        "partial": ft.Colors.ORANGE_600,
+        "failed": ft.Colors.RED_600,
+    }.get(status, colors["on_surface_variant"])
+
+
+def _build_history_entry(entry: dict, colors: dict) -> ft.Container:
+    status = entry["status"]
+    color = _history_status_color(status, colors)
+    failed_accounts = [
+        detail for detail in entry["details"] if not detail.get("ok", True)
+    ]
+
+    return ft.Container(
+        padding=ft.Padding.symmetric(vertical=10),
+        content=ft.Column(
+            spacing=4,
+            controls=[
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text(
+                            to_local_datetime(entry["started_at"]).strftime(
+                                "%d/%m/%Y %H:%M"
+                            ),
+                            size=13,
+                            color=colors["on_surface"],
+                        ),
+                        ft.Container(
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=3),
+                            bgcolor=ft.Colors.with_opacity(0.12, color),
+                            border_radius=12,
+                            content=ft.Text(
+                                _HISTORY_STATUS_LABELS.get(status, status),
+                                size=11,
+                                weight=ft.FontWeight.W_600,
+                                color=color,
+                            ),
+                        ),
+                    ],
+                ),
+                *(
+                    [
+                        ft.Text(
+                            f"{detail['email']}: "
+                            f"{detail.get('error', 'Error desconocido')}",
+                            size=11,
+                            color=colors["on_surface_variant"],
+                        )
+                        for detail in failed_accounts
+                    ]
+                    if failed_accounts
+                    else []
+                ),
+            ],
+        ),
+    )
+
+
+def _build_history_section(
+    colors: dict, history_repository: BackupHistoryRepository
+) -> ft.Column:
+    entries = history_repository.list(limit=10)
+    if not entries:
+        return ft.Column()
+
+    controls = [
+        ft.Text(
+            "Historial de respaldos",
+            size=16,
+            weight=ft.FontWeight.W_600,
+            color=colors["on_surface"],
+        ),
+    ]
+    for index, entry in enumerate(entries):
+        controls.append(_build_history_entry(entry, colors))
+        if index < len(entries) - 1:
+            controls.append(ft.Divider(height=1, color=colors["divider"]))
+    controls.append(ft.Container(height=20))
+    return ft.Column(spacing=0, controls=controls)
+
+
 def build_google_drive_history_view(
     page: ft.Page,
     colors_fn,
+    history_repository: BackupHistoryRepository,
     account_service,
     refresh_access_token: RefreshAccessToken,
     local_backup,
@@ -695,6 +788,7 @@ def build_google_drive_history_view(
                         color=colors["on_surface_variant"],
                     ),
                     ft.Container(height=12),
+                    _build_history_section(colors, history_repository),
                     content,
                 ],
             ),

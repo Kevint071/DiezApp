@@ -8,6 +8,7 @@ from diezapp.features.settings.domain.models import AppSettings
 from diezapp.navigation import routes
 from diezapp.navigation.navigation_state import NavigationState
 from diezapp.navigation.oauth_callback_handler import OAuthCallbackHandler
+from diezapp.navigation.route_context import RouteContext
 from diezapp.navigation.router import AppRouter
 from diezapp.shared.presentation.theme import (
     get_colors,
@@ -80,6 +81,14 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             elevation_on_scroll=0,
             actions=actions,
         )
+
+    route_context = RouteContext(
+        page=page,
+        dependencies=dependencies,
+        colors_fn=get_colors,
+        build_appbar=_build_appbar,
+        show_snack=_show_snack,
+    )
 
     # ── Bottom Navigation Bar ────────────────────────────
     nav_state = NavigationState()
@@ -235,84 +244,25 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         return _apply_root(routes.SETTINGS, _build_appbar("Configuración"), content)
 
     def _build_google_drive_view() -> ft.View:
-        from diezapp.features.google_drive.presentation.google_drive_page import (
-            build_google_drive_view,
+        from diezapp.features.google_drive.presentation.routes import (
+            build_google_drive_route,
         )
 
-        content = build_google_drive_view(
-            page,
-            get_colors,
-            dependencies.google_drive_link,
-            dependencies.google_drive_oauth,
-            lambda account_id: (
-                page.session.store.set("gdrive_account_id", account_id),
-                page.navigate(routes.GOOGLE_DRIVE_ACCOUNT),
-            )[-1],
-        )
-        return ft.View(
-            route=routes.GOOGLE_DRIVE,
-            padding=0,
-            appbar=_build_appbar(
-                "Copias de seguridad", show_back=True, back_route=routes.SETTINGS
-            ),
-            controls=[content],
-        )
+        return build_google_drive_route(route_context)
 
     def _build_google_drive_history_view() -> ft.View:
-        from diezapp.features.google_drive.presentation.google_drive_page import (
-            build_google_drive_history_view,
+        from diezapp.features.google_drive.presentation.routes import (
+            build_google_drive_history_route,
         )
 
-        return ft.View(
-            route=routes.GOOGLE_DRIVE_HISTORY,
-            padding=0,
-            appbar=_build_appbar(
-                "Copias realizadas", show_back=True, back_route=routes.GOOGLE_DRIVE
-            ),
-            controls=[
-                build_google_drive_history_view(
-                    page,
-                    get_colors,
-                    dependencies.google_drive_link,
-                    dependencies.google_drive_refresh_token,
-                    dependencies.local_backup,
-                    dependencies.calculations,
-                    dependencies.notes,
-                    dependencies.conflicts,
-                )
-            ],
-        )
+        return build_google_drive_history_route(route_context)
 
     def _build_google_drive_account_view() -> ft.View:
-        from diezapp.features.google_drive.presentation.google_drive_page import (
-            build_google_drive_account_view,
+        from diezapp.features.google_drive.presentation.routes import (
+            build_google_drive_account_route,
         )
 
-        content = build_google_drive_account_view(
-            page,
-            get_colors,
-            page.session.store.get("gdrive_account_id"),
-            dependencies.google_drive_link,
-            dependencies.google_drive_refresh_token,
-            dependencies.google_drive_oauth,
-            dependencies.google_drive_folders,
-            dependencies.google_drive_account_validator,
-            dependencies.google_drive_schedule_settings,
-            dependencies.google_drive_backup,
-            lambda: page.navigate(routes.GOOGLE_DRIVE),
-            lambda: page.navigate(routes.GOOGLE_DRIVE_HISTORY),
-            lambda message, keep_open=True: _show_snack(message, keep_open),
-        )
-        return ft.View(
-            route=routes.GOOGLE_DRIVE_ACCOUNT,
-            padding=0,
-            appbar=_build_appbar(
-                "Cuenta de respaldo",
-                show_back=True,
-                back_route=routes.GOOGLE_DRIVE,
-            ),
-            controls=[content],
-        )
+        return build_google_drive_account_route(route_context)
 
     # ── Nested (drill-down) views ─────────────────────────
     def _build_pdf_preview_view() -> ft.View:
