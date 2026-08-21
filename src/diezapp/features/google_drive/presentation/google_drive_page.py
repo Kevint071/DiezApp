@@ -349,6 +349,7 @@ def build_google_drive_account_view(
         expand=True,
         content=ft.Container(
             expand=True,
+            padding=ft.Padding.only(top=4),
             content=ft.Column(
                 expand=True,
                 spacing=0,
@@ -479,7 +480,7 @@ def build_google_drive_history_view(
     """Build the Drive backup browser and its import/delete actions."""
     colors = colors_fn(page)
 
-    content = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=12)
+    content = ft.Column(spacing=12)
     import_service = BackupImportService(
         calculations_service, notes_service, conflicts_service
     )
@@ -761,35 +762,55 @@ def build_google_drive_history_view(
         expand=True,
         content=ft.Container(
             expand=True,
-            padding=ft.Padding.only(top=12, left=24, right=24),
+            padding=ft.Padding.only(top=4),
             content=ft.Column(
                 expand=True,
-                scroll=ft.ScrollMode.AUTO,
+                spacing=0,
                 controls=[
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    (divider := build_scroll_divider()),
+                    ft.Column(
+                        expand=True,
+                        scroll=ft.Scrollbar(thickness=6, radius=4),
+                        on_scroll=make_scroll_divider_handler(divider, colors),
                         controls=[
-                            ft.Text(
-                                "Mis copias",
-                                size=20,
-                                weight=ft.FontWeight.W_600,
-                                color=colors["on_surface"],
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.REFRESH,
-                                tooltip="Actualizar carpetas",
-                                on_click=lambda e: page.run_task(load_backups),
-                            ),
+                            ft.Container(
+                                margin=ft.Margin.symmetric(horizontal=24),
+                                content=ft.Column(
+                                    spacing=12,
+                                    controls=[
+                                        ft.Row(
+                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                            controls=[
+                                                ft.Text(
+                                                    "Mis copias",
+                                                    size=20,
+                                                    weight=ft.FontWeight.W_600,
+                                                    color=colors["on_surface"],
+                                                ),
+                                                ft.IconButton(
+                                                    icon=ft.Icons.REFRESH,
+                                                    tooltip="Actualizar carpetas",
+                                                    on_click=lambda e: page.run_task(
+                                                        load_backups
+                                                    ),
+                                                ),
+                                            ],
+                                        ),
+                                        ft.Text(
+                                            "Explora tus carpetas, importa una copia o "
+                                            "elimina las que ya no necesites.",
+                                            size=13,
+                                            color=colors["on_surface_variant"],
+                                        ),
+                                        _build_history_section(
+                                            colors, history_repository
+                                        ),
+                                        content,
+                                    ],
+                                ),
+                            )
                         ],
                     ),
-                    ft.Text(
-                        "Explora tus carpetas, importa una copia o elimina las que ya no necesites.",
-                        size=13,
-                        color=colors["on_surface_variant"],
-                    ),
-                    ft.Container(height=12),
-                    _build_history_section(colors, history_repository),
-                    content,
                 ],
             ),
         ),
