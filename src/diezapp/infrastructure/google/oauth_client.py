@@ -28,5 +28,6 @@ class BackendOAuthClient:
                 )
                 response.raise_for_status()
                 return response.json()
-        except httpx.HTTPError:
+        except httpx.HTTPError as error:
+            print(f"[DEBUG-AUTH] refresh_access_token failed: {error!r}")  # noqa: T201
             return None

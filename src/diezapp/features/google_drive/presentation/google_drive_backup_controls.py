@@ -148,13 +148,18 @@ def build_manual_backup_action(
         page.show_dialog(backup_dialog)
 
     backup_now_button.on_click = _open_backup_dialog
+    backup_now_button.style = ft.ButtonStyle(
+        shape=ft.RoundedRectangleBorder(radius=10),
+        padding=ft.Padding.symmetric(vertical=8, horizontal=12),
+        text_style=ft.TextStyle(size=13, weight=ft.FontWeight.W_600),
+    )
     return ft.Container(
         padding=ft.Padding.symmetric(vertical=12, horizontal=18),
         content=ft.Row(
             spacing=12,
             controls=[
                 ft.Icon(
-                    ft.Icons.CLOUD_UPLOAD_OUTLINED, size=24, color=colors["primary"]
+                    ft.Icons.CLOUD_UPLOAD_OUTLINED, size=22, color=colors["primary"]
                 ),
                 ft.Column(
                     expand=True,
@@ -162,8 +167,8 @@ def build_manual_backup_action(
                     controls=[
                         ft.Text(
                             "Respaldo manual",
-                            size=14,
-                            weight=ft.FontWeight.W_600,
+                            size=15,
+                            weight=ft.FontWeight.W_500,
                             color=colors["on_surface"],
                         ),
                         ft.Text(

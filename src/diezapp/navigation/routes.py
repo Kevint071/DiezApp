@@ -14,6 +14,7 @@ SETTINGS_CONFLICT_DETAIL = "/settings/conflicts/detail"
 GOOGLE_DRIVE = "/google-drive"
 GOOGLE_DRIVE_ACCOUNT = "/google-drive/account"
 GOOGLE_DRIVE_HISTORY = "/google-drive/history"
+GOOGLE_DRIVE_BACKUP_DETAIL = "/google-drive/backup"
 CALLBACK_PREFIX = "/callback"
 
 ROOT_ROUTES = [HOME, SAVED, PDF_EXPORT, NOTES, SETTINGS]

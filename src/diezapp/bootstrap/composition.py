@@ -264,6 +264,13 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
         return build_google_drive_account_route(route_context)
 
+    def _build_google_drive_backup_detail_view() -> ft.View:
+        from diezapp.features.google_drive.presentation.routes import (
+            build_google_drive_backup_detail_route,
+        )
+
+        return build_google_drive_backup_detail_route(route_context)
+
     # ── Nested (drill-down) views ─────────────────────────
     def _build_pdf_preview_view() -> ft.View:
         from diezapp.features.calculations.presentation.calculations_page import (
@@ -421,6 +428,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             routes.GOOGLE_DRIVE,
             routes.GOOGLE_DRIVE_HISTORY,
             routes.GOOGLE_DRIVE_ACCOUNT,
+            routes.GOOGLE_DRIVE_BACKUP_DETAIL,
         ):
             return 4, _build_google_drive_view()
         elif route.startswith(routes.NOTES):
@@ -451,6 +459,8 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             return [_build_google_drive_history_view()]
         elif route == routes.GOOGLE_DRIVE_ACCOUNT:
             return [_build_google_drive_account_view()]
+        elif route == routes.GOOGLE_DRIVE_BACKUP_DETAIL:
+            return [_build_google_drive_backup_detail_view()]
         elif route in (routes.SETTINGS_CONFLICTS, routes.SETTINGS_CONFLICT_DETAIL):
             from diezapp.features.conflicts.presentation.conflicts_page import (
                 build_conflict_detail_view_route,

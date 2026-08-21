@@ -33,7 +33,7 @@ def _raise_for_drive_error(resp: httpx.Response) -> None:
         details = error.get("errors", [{}])[0]
         reason = details.get("reason") or error.get("status") or reason
         message = error.get("message") or message
-    except ValueError, AttributeError, IndexError, TypeError:
+    except (ValueError, AttributeError, IndexError, TypeError):
         pass
     raise DriveApiError(resp.status_code, reason, message)
 
@@ -136,7 +136,7 @@ async def list_backup_files(access_token: str, parent_id: str) -> list[dict[str,
                     f"'{parent_id}' in parents and trashed = false and "
                     "mimeType != 'application/vnd.google-apps.folder'"
                 ),
-                "fields": "nextPageToken,files(id,name,size,modifiedTime,mimeType)",
+                "fields": "nextPageToken,files(id,name,size,modifiedTime,createdTime,mimeType)",
                 "orderBy": "modifiedTime desc",
                 "pageSize": "100",
             }

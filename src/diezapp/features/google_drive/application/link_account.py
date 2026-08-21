@@ -58,12 +58,17 @@ class LinkAccountService:
         account_id: str | None = None,
     ) -> dict:
         if callback_done:
+            print("[DEBUG-AUTH] rejected: callback_done already True")  # noqa: T201
             return {"ok": False, "message": "La vinculación ya fue procesada"}
 
         returned_state = query_params.get("app_state")
         if not is_web_runtime and (
             not pending_state or returned_state != pending_state
         ):
+            print(  # noqa: T201
+                f"[DEBUG-AUTH] rejected: state mismatch pending={pending_state!r} "
+                f"returned={returned_state!r} is_web_runtime={is_web_runtime}"
+            )
             return {"ok": False, "message": "No se pudo completar la vinculación"}
 
         if query_params.get("error"):
@@ -84,6 +89,11 @@ class LinkAccountService:
 
         try:
             if account_id:
+                print(  # noqa: T201
+                    f"[DEBUG-AUTH] update_account_tokens account_id={account_id} "
+                    f"has_refresh_token={bool(query_params.get('refresh_token'))} "
+                    f"expires_in={expires_in}"
+                )
                 self.update_account_tokens(
                     account_id,
                     access_token,
