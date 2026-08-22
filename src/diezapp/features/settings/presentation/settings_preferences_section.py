@@ -1,5 +1,10 @@
 import flet as ft
 
+from diezapp.shared.presentation.dialogs import (
+    build_dialog,
+    dialog_cancel_button,
+    dialog_primary_button,
+)
 from diezapp.shared.presentation.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,
@@ -131,16 +136,15 @@ def build_preferences_section(
 
     percentage_field.on_submit = _save_percentage
     percentage_field.on_change = _validate_percentage
-    percentage_dialog = ft.AlertDialog(
+    percentage_dialog = build_dialog(
+        colors,
         modal=True,
-        title=ft.Text("Aporte al fondo local", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        title="Aporte al fondo local",
         content=ft.Column(tight=True, spacing=0, controls=[percentage_field]),
         actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: page.pop_dialog()),
-            ft.FilledTonalButton("Guardar", on_click=_save_percentage),
+            dialog_cancel_button("Cancelar", lambda e: page.pop_dialog(), colors),
+            dialog_primary_button("Guardar", _save_percentage, colors),
         ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
     def _open_percentage_dialog(e):

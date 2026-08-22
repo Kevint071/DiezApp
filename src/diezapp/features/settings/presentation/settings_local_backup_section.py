@@ -15,6 +15,13 @@ from diezapp.features.local_backup.application.local_backup_service import (
 )
 from diezapp.features.notes.application.note_service import NoteService
 from diezapp.shared.datetime_utils import local_now
+from diezapp.shared.presentation.dialogs import (
+    OPTION_CONTENT_PADDING,
+    build_dialog,
+    dialog_body_text,
+    dialog_cancel_button,
+    dialog_primary_button,
+)
 from diezapp.shared.presentation.share_files import share_local_file
 
 
@@ -124,31 +131,24 @@ def build_local_backup_section(
             page, output_path, file_name, title="Exportar copia de seguridad"
         )
 
-    export_dialog = ft.AlertDialog(
+    export_dialog = build_dialog(
+        colors,
         modal=True,
-        title=ft.Text("Exportar", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        title="Exportar",
         content=ft.Column(
             tight=True,
             spacing=8,
             controls=[
-                ft.Text(
-                    "¿Qué deseas exportar?", size=14, color=colors["on_surface_variant"]
-                ),
+                dialog_body_text("¿Qué deseas exportar?", colors),
                 export_targets,
-                ft.Text(
-                    "¿Qué deseas hacer con el archivo?",
-                    size=14,
-                    color=colors["on_surface_variant"],
-                ),
+                dialog_body_text("¿Qué deseas hacer con el archivo?", colors),
                 export_methods,
             ],
         ),
         actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: page.pop_dialog()),
-            ft.FilledTonalButton("Exportar", on_click=confirm_export),
+            dialog_cancel_button("Cancelar", lambda e: page.pop_dialog(), colors),
+            dialog_primary_button("Exportar", confirm_export, colors),
         ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
     def open_export_dialog(e):
@@ -287,32 +287,25 @@ def build_local_backup_section(
         show_snack(". ".join(messages), keep_open=False)
         navigate_to_settings()
 
-    import_dialog = ft.AlertDialog(
+    import_dialog = build_dialog(
+        colors,
         modal=True,
-        title=ft.Text("Importar", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+        title="Importar",
         content=ft.Column(
             tight=True,
             spacing=8,
             controls=[
-                ft.Text(
-                    "¿Qué deseas importar?", size=14, color=colors["on_surface_variant"]
-                ),
+                dialog_body_text("¿Qué deseas importar?", colors),
                 import_targets,
                 ft.Container(height=4),
-                ft.Text(
-                    "¿Cómo deseas importar?",
-                    size=14,
-                    color=colors["on_surface_variant"],
-                ),
+                dialog_body_text("¿Cómo deseas importar?", colors),
                 import_modes,
             ],
         ),
         actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: page.pop_dialog()),
-            ft.FilledTonalButton("Aceptar", on_click=confirm_import),
+            dialog_cancel_button("Cancelar", lambda e: page.pop_dialog(), colors),
+            dialog_primary_button("Aceptar", confirm_import, colors),
         ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
     def open_import_dialog(e):
@@ -372,9 +365,10 @@ def build_local_backup_section(
             ),
         )
 
-    conflicts_dialog = ft.AlertDialog(
-        title=ft.Text("Resolver conflictos", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=20, right=20, top=12, bottom=8),
+    conflicts_dialog = build_dialog(
+        colors,
+        title="Resolver conflictos",
+        content_padding=OPTION_CONTENT_PADDING,
         content=ft.Column(
             tight=True,
             spacing=6,
