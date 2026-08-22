@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 
 import flet as ft
@@ -8,6 +9,9 @@ from diezapp.features.google_drive.application.drive_folder_service import (
 )
 from diezapp.features.google_drive.application.refresh_access_token import (
     RefreshAccessToken,
+)
+from diezapp.features.google_drive.application.validate_drive_account import (
+    DRIVE_FOLDER_MIME_TYPE,
 )
 from diezapp.features.google_drive.presentation.google_drive_account_validation import (
     GoogleDriveAccountValidationController,
@@ -44,7 +48,18 @@ class GoogleDriveFolderPicker:
         self._delete_state = {"active": False, "selected": set()}
         self._current_folders = []
         self._folders_loaded = False
+        self._cache_account_id = None
+        self._load_lock = asyncio.Lock()
+        self._busy = False
         self._name_field = ft.TextField(label="Nombre de la carpeta")
+        self._error_text = ft.Text("", size=12, color=ft.Colors.RED_600)
+        self._error_banner = ft.Container(
+            visible=False,
+            padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+            border_radius=8,
+            bgcolor=ft.Colors.with_opacity(0.14, ft.Colors.RED),
+            content=self._error_text,
+        )
         self._path = ft.Text("Mi unidad", size=13, color=colors["on_surface_variant"])
         self._loading = ft.ProgressRing(width=22, height=22, visible=False)
         self._folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
@@ -63,9 +78,18 @@ class GoogleDriveFolderPicker:
                 },
             ),
         )
-        self._use_button.on_click = self._select_current_folder
+        self._use_button.on_click = lambda e: self._page.run_task(
+            self._use_selected_folder, e
+        )
         self._create_dialog = self._build_create_dialog()
         self._dialog = self._build_dialog()
+
+    def prefetch(self, account_id):
+        """Warm the folder list in the background so the dialog opens instantly."""
+        self._page.run_task(self._prefetch_folder_list, account_id)
+
+    async def _prefetch_folder_list(self, account_id):
+        await self._ensure_folders_loaded(account_id, interactive=False)
 
     def open(self, account_id):
         def _handler(e):
@@ -77,58 +101,83 @@ class GoogleDriveFolderPicker:
             )
             self._delete_state["active"] = False
             self._delete_state["selected"].clear()
-            self._current_folders.clear()
-            self._folders_loaded = False
+            self._busy = False
             self._selection.update(id=None, name=None)
             self._name_field.value = "Respaldos DiezApp"
             self._path.value = "Mi unidad"
-            self._loading.visible = True
+            self._clear_error()
+            cached = self._has_cache(account_id)
+            if not cached:
+                self._current_folders.clear()
+                self._folders_loaded = False
+            self._loading.visible = not cached
             self._render_folder_list()
             self._update_dialog_actions()
             self._page.show_dialog(self._dialog)
-            self._page.run_task(self._load_folder_list)
+            if not cached:
+                self._page.run_task(self._open_folder_list, account_id)
 
         return _handler
 
+    def _has_cache(self, account_id):
+        return self._folders_loaded and self._cache_account_id == account_id
+
     def _account(self):
-        account_id = self._dialog_state["account_id"]
+        return self._find_account(self._dialog_state["account_id"])
+
+    def _find_account(self, account_id):
         return next(
             (a for a in self._account_service.list_accounts() if a["id"] == account_id),
             None,
         )
 
-    async def _load_folder_list(self):
-        account = self._account()
-        if account is None:
-            self._stop_loading()
-            return
-        validation_status, access_token = await self._validation_controller.validate(
-            account
-        )
-        if not access_token or validation_status == "unauthenticated":
-            self._stop_loading()
+    async def _open_folder_list(self, account_id):
+        await self._ensure_folders_loaded(account_id, interactive=True)
+        self._loading.visible = False
+        self._render_folder_list()
+        self._page.update()
+
+    async def _ensure_folders_loaded(self, account_id, *, interactive):
+        """Fill the folder cache once, no matter who asks for it first."""
+        async with self._load_lock:
+            if self._has_cache(account_id):
+                return True
+            account = self._find_account(account_id)
+            if account is None:
+                return False
+            access_token = await self._authenticate(account, interactive=interactive)
+            if not access_token:
+                return False
+            try:
+                folders = await self._folder_service.list(access_token, "root")
+            except DriveFolderError as error:
+                if interactive:
+                    self._show_folder_error(error)
+                return False
+            self._dialog_state.update(parent_id="root", parent_name="Mi unidad")
+            self._path.value = "Mi unidad"
+            self._current_folders[:] = folders
+            self._cache_account_id = account_id
+            self._folders_loaded = True
+            return True
+
+    async def _authenticate(self, account, *, interactive):
+        """Prefetching stays quiet; the account view already reports its status."""
+        if not interactive:
+            return await self._refresh_access_token.execute(account)
+        status, access_token = await self._validation_controller.validate(account)
+        if not access_token or status == "unauthenticated":
             self._show_snack("No se pudo autenticar la cuenta")
-            return
+            return None
+        return access_token
 
-        self._dialog_state.update(parent_id="root", parent_name="Mi unidad")
-        self._path.value = "Mi unidad"
-        try:
-            folders = await self._folder_service.list(access_token, "root")
-        except DriveFolderError as error:
-            self._stop_loading()
-            self._show_folder_error(error)
-            return
-        self._current_folders[:] = folders
-        self._folders_loaded = True
-        self._loading.visible = False
-        self._render_folder_list()
-        self._page.update()
+    def _show_error(self, message):
+        self._error_text.value = message
+        self._error_banner.visible = True
 
-    def _stop_loading(self):
-        """Hide the spinner without claiming the folder list came back empty."""
-        self._loading.visible = False
-        self._render_folder_list()
-        self._page.update()
+    def _clear_error(self):
+        self._error_text.value = ""
+        self._error_banner.visible = False
 
     def _show_folder_error(self, error: DriveFolderError):
         if error.status_code is not None:
@@ -272,9 +321,10 @@ class GoogleDriveFolderPicker:
                     on_click=lambda e: self._set_delete_mode(True),
                 ),
             ]
-        self._use_button.disabled = self._selection["id"] is None
+        self._use_button.disabled = self._busy or self._selection["id"] is None
 
     def _select_folder(self, folder):
+        self._clear_error()
         if self._selection["id"] == folder["id"]:
             self._selection.update(id=None, name=None)
         else:
@@ -283,19 +333,71 @@ class GoogleDriveFolderPicker:
         self._update_dialog_actions()
         self._page.update()
 
-    def _select_current_folder(self, e):
+    async def _use_selected_folder(self, e):
         del e
-        if self._selection["id"] is None:
+        folder_id = self._selection["id"]
+        folder_name = self._selection["name"]
+        if folder_id is None:
             return
+        account = self._account()
+        if account is None:
+            return
+        self._set_busy(True)
+        access_token = await self._refresh_access_token.execute(account)
+        if not access_token:
+            self._set_busy(False)
+            self._show_snack("No se pudo autenticar la cuenta")
+            return
+        try:
+            folder = await self._folder_service.get(access_token, folder_id)
+        except DriveFolderError as error:
+            if error.status_code == 404:
+                await self._reject_missing_folder(folder_name)
+            else:
+                self._set_busy(False)
+                self._show_error(error.message)
+                self._page.update()
+            return
+        if folder.get("trashed") or folder.get("mimeType") != DRIVE_FOLDER_MIME_TYPE:
+            await self._reject_missing_folder(folder_name)
+            return
+        self._set_busy(False)
+        self._save_selected_folder(folder_id, folder_name)
+
+    def _save_selected_folder(self, folder_id, folder_name):
         account_id = self._dialog_state["account_id"]
-        self._account_service.set_account_folder(
-            account_id, self._selection["id"], self._selection["name"]
-        )
+        self._account_service.set_account_folder(account_id, folder_id, folder_name)
         self._page.pop_dialog()
         folder_label = self._folder_labels.get(account_id)
         if folder_label:
-            folder_label.value = f"Carpeta: {self._selection['name']}"
+            folder_label.value = f"Carpeta: {folder_name}"
             folder_label.color = self._colors["on_surface_variant"]
+        self._page.update()
+
+    async def _reject_missing_folder(self, folder_name):
+        """The folder vanished after we listed it, so say so and list again."""
+        account_id = self._dialog_state["account_id"]
+        self._show_error(
+            f"No se puede usar la carpeta «{folder_name}» porque ya no existe."
+        )
+        self._selection.update(id=None, name=None)
+        self._current_folders.clear()
+        self._folders_loaded = False
+        self._cache_account_id = None
+        self._loading.visible = True
+        self._render_folder_list()
+        self._update_dialog_actions()
+        self._page.update()
+        await self._ensure_folders_loaded(account_id, interactive=True)
+        self._busy = False
+        self._loading.visible = False
+        self._render_folder_list()
+        self._update_dialog_actions()
+        self._page.update()
+
+    def _set_busy(self, busy):
+        self._busy = busy
+        self._update_dialog_actions()
         self._page.update()
 
     async def _create_folder(self, e):
@@ -372,6 +474,7 @@ class GoogleDriveFolderPicker:
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         controls=[ft.Container(expand=True), self._loading],
                     ),
+                    self._error_banner,
                     ft.Container(height=260, content=self._folder_list),
                 ],
             ),

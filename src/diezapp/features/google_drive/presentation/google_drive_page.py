@@ -176,6 +176,9 @@ def build_google_drive_account_view(
             status_text.color = status_dot.color = ft.Colors.RED_600
             status_chip.bgcolor = error_bg
         page.update()
+        if result in ("valid", "no_folder"):
+            # The token is fresh now, so warm the folder list before it is asked for.
+            folder_picker.prefetch(current_account["id"])
 
     validation_controller = GoogleDriveAccountValidationController(
         page,
