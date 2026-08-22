@@ -16,6 +16,12 @@ from diezapp.features.google_drive.application.validate_drive_account import (
 from diezapp.features.google_drive.presentation.google_drive_account_validation import (
     GoogleDriveAccountValidationController,
 )
+from diezapp.shared.presentation.dialogs import (
+    build_dialog,
+    dialog_cancel_button,
+    dialog_primary_button,
+    dialog_title,
+)
 
 
 class GoogleDriveFolderPicker:
@@ -70,19 +76,8 @@ class GoogleDriveFolderPicker:
         self._loading = ft.ProgressRing(width=22, height=22, visible=False)
         self._folder_list = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
         self._folder_actions = ft.Row(spacing=0, controls=[])
-        self._use_button = ft.FilledButton(
-            "Usar carpeta",
-            disabled=True,
-            style=ft.ButtonStyle(
-                bgcolor={
-                    ft.ControlState.DEFAULT: colors["primary"],
-                    ft.ControlState.DISABLED: colors["outline"],
-                },
-                color={
-                    ft.ControlState.DEFAULT: colors["on_primary"],
-                    ft.ControlState.DISABLED: colors["on_surface_variant"],
-                },
-            ),
+        self._use_button = dialog_primary_button(
+            "Usar carpeta", None, colors, disabled=True
         )
         self._use_button.on_click = lambda e: self._page.run_task(
             self._use_selected_folder, e
@@ -430,22 +425,17 @@ class GoogleDriveFolderPicker:
         self._page.update()
 
     def _build_create_dialog(self):
-        return ft.AlertDialog(
+        return build_dialog(
+            self._colors,
             modal=True,
-            bgcolor=self._colors["surface"],
-            title=ft.Text(
-                "Nueva carpeta",
-                size=17,
-                weight=ft.FontWeight.W_600,
-                color=self._colors["on_surface"],
-            ),
-            content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+            title="Nueva carpeta",
             content=ft.Column(tight=True, spacing=0, controls=[self._name_field]),
             actions=[
-                ft.TextButton("Cancelar", on_click=lambda e: self._page.pop_dialog()),
-                ft.FilledTonalButton("Crear", on_click=self._create_folder),
+                dialog_cancel_button(
+                    "Cancelar", lambda e: self._page.pop_dialog(), self._colors
+                ),
+                dialog_primary_button("Crear", self._create_folder, self._colors),
             ],
-            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
 
     def _open_create_dialog(self):
@@ -453,8 +443,8 @@ class GoogleDriveFolderPicker:
         self._page.show_dialog(self._create_dialog)
 
     def _build_dialog(self):
-        return ft.AlertDialog(
-            bgcolor=self._colors["surface"],
+        return build_dialog(
+            self._colors,
             title=ft.Row(
                 vertical_alignment=ft.CrossAxisAlignment.START,
                 controls=[
@@ -462,11 +452,7 @@ class GoogleDriveFolderPicker:
                         expand=True,
                         spacing=3,
                         controls=[
-                            ft.Text(
-                                "Seleccionar carpeta",
-                                size=17,
-                                weight=ft.FontWeight.W_600,
-                            ),
+                            dialog_title("Seleccionar carpeta", self._colors),
                             ft.Text(
                                 "Elige dónde guardar tus respaldos",
                                 size=12,
@@ -490,8 +476,9 @@ class GoogleDriveFolderPicker:
                 ],
             ),
             actions=[
-                ft.TextButton("Cancelar", on_click=lambda e: self._page.pop_dialog()),
+                dialog_cancel_button(
+                    "Cancelar", lambda e: self._page.pop_dialog(), self._colors
+                ),
                 self._use_button,
             ],
-            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )

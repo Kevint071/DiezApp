@@ -47,6 +47,12 @@ from diezapp.infrastructure.google.drive_client import (
 from diezapp.shared.datetime_utils import to_local_datetime
 from diezapp.shared.presentation.byte_format import format_bytes
 from diezapp.shared.presentation.date_labels import full_date, relative_label
+from diezapp.shared.presentation.dialogs import (
+    build_dialog,
+    dialog_cancel_button,
+    dialog_primary_button,
+    dialog_secondary_button,
+)
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -214,15 +220,17 @@ def build_google_drive_account_view(
             page.pop_dialog()
 
         page.show_dialog(
-            ft.AlertDialog(
+            build_dialog(
+                colors,
                 modal=True,
-                title=ft.Text("Desvincular cuenta"),
-                content=ft.Text(
-                    f"¿Seguro que quieres desvincular {account['google_account_email']}?"
+                title="Desvincular cuenta",
+                content=(
+                    "¿Seguro que quieres desvincular "
+                    f"{account['google_account_email']}?"
                 ),
                 actions=[
-                    ft.TextButton("No", on_click=lambda event: page.pop_dialog()),
-                    ft.FilledButton("Sí", on_click=confirm),
+                    dialog_cancel_button("No", lambda event: page.pop_dialog(), colors),
+                    dialog_primary_button("Sí", confirm, colors, destructive=True),
                 ],
                 on_dismiss=after_dismiss,
             )
@@ -584,24 +592,28 @@ def build_google_drive_backup_detail_view(
             return handler
 
         page.show_dialog(
-            ft.AlertDialog(
+            build_dialog(
+                colors,
                 modal=True,
-                title=ft.Text("¿Cómo quieres importar?"),
-                content=ft.Text(
+                title="¿Cómo quieres importar?",
+                content=(
                     "Mezclar conserva tus datos y permite resolver choques. "
                     "Reemplazar todo borra el contenido actual de cálculos y notas."
                 ),
                 actions=[
-                    ft.TextButton("Cancelar", on_click=close),
-                    ft.OutlinedButton(
+                    dialog_cancel_button("Cancelar", close, colors),
+                    dialog_secondary_button(
                         "Mezclar y revisar conflictos",
-                        on_click=import_with_mode("merge"),
+                        import_with_mode("merge"),
+                        colors,
                     ),
-                    ft.FilledButton(
-                        "Reemplazar todo", on_click=import_with_mode("replace")
+                    dialog_primary_button(
+                        "Reemplazar todo",
+                        import_with_mode("replace"),
+                        colors,
+                        destructive=True,
                     ),
                 ],
-                actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             )
         )
 
@@ -628,17 +640,20 @@ def build_google_drive_backup_detail_view(
                 await remove_temp_file(temp_path)
 
         page.show_dialog(
-            ft.AlertDialog(
+            build_dialog(
+                colors,
                 modal=True,
-                title=ft.Text("Importar copia"),
-                content=ft.Text(
-                    "Se agregarán los cálculos y notas que todavía no existan en la app."
+                title="Importar copia",
+                content=(
+                    "Se agregarán los cálculos y notas que todavía no existan "
+                    "en la app."
                 ),
                 actions=[
-                    ft.TextButton("Cancelar", on_click=close),
-                    ft.FilledButton(
+                    dialog_cancel_button("Cancelar", close, colors),
+                    dialog_primary_button(
                         "Importar y agregar",
-                        on_click=lambda e: page.run_task(import_copy, e),
+                        lambda e: page.run_task(import_copy, e),
+                        colors,
                     ),
                 ],
             )
@@ -669,13 +684,14 @@ def build_google_drive_backup_detail_view(
             page.run_task(remove_copy)
 
         page.show_dialog(
-            ft.AlertDialog(
+            build_dialog(
+                colors,
                 modal=True,
-                title=ft.Text("Eliminar copia"),
-                content=ft.Text(f"¿Quieres enviar «{file['name']}» a la papelera?"),
+                title="Eliminar copia",
+                content=f"¿Quieres enviar «{file['name']}» a la papelera?",
                 actions=[
-                    ft.TextButton("Cancelar", on_click=close),
-                    ft.FilledButton("Eliminar", on_click=remove),
+                    dialog_cancel_button("Cancelar", close, colors),
+                    dialog_primary_button("Eliminar", remove, colors, destructive=True),
                 ],
             )
         )

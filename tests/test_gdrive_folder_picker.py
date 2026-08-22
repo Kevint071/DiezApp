@@ -26,6 +26,8 @@ COLORS = {
         "hero_bg",
         "input_border",
         "input_focused",
+        "card_bg",
+        "error",
     )
 }
 

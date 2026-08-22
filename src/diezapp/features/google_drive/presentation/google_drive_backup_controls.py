@@ -12,6 +12,11 @@ from diezapp.features.google_drive.application.run_backup import (
 from diezapp.features.settings.presentation.settings_components import (
     build_settings_cell as _settings_cell,
 )
+from diezapp.shared.presentation.dialogs import (
+    build_dialog,
+    dialog_cancel_button,
+    dialog_primary_button,
+)
 
 MIN_INTERVAL_SECONDS = 8 * 3600
 
@@ -104,8 +109,9 @@ def build_frequency_cell(
         page.pop_dialog()
         page.update()
 
-    dialog = ft.AlertDialog(
-        title=ft.Text("Frecuencia de respaldo", size=17, weight=ft.FontWeight.W_600),
+    dialog = build_dialog(
+        colors,
+        title="Frecuencia de respaldo",
         content=ft.Column(
             tight=True,
             spacing=8,
@@ -115,10 +121,9 @@ def build_frequency_cell(
             ],
         ),
         actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: page.pop_dialog()),
-            ft.FilledTonalButton("Guardar", on_click=_confirm),
+            dialog_cancel_button("Cancelar", lambda e: page.pop_dialog(), colors),
+            dialog_primary_button("Guardar", _confirm, colors),
         ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
     return _settings_cell(
@@ -166,26 +171,15 @@ def build_manual_backup_action(
         page.pop_dialog()
         await _run_backup()
 
-    backup_dialog = ft.AlertDialog(
+    backup_dialog = build_dialog(
+        colors,
         modal=True,
-        title=ft.Text("Respaldar ahora", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=24, right=24, top=12, bottom=8),
-        content=ft.Column(
-            tight=True,
-            spacing=4,
-            controls=[
-                ft.Text(
-                    "¿Harás un backup seguro?",
-                    size=14,
-                    color=colors["on_surface_variant"],
-                )
-            ],
-        ),
+        title="Respaldar ahora",
+        content="¿Harás un backup seguro?",
         actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: page.pop_dialog()),
-            ft.FilledButton("Respaldar", on_click=_confirm_backup),
+            dialog_cancel_button("Cancelar", lambda e: page.pop_dialog(), colors),
+            dialog_primary_button("Respaldar", _confirm_backup, colors),
         ],
-        actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
     def _open_backup_dialog(e):
