@@ -197,7 +197,6 @@ def build_notes_view(
         dense=True,
         cursor_color=c["primary"],
         on_change=_on_search_change,
-        visible=bool(notes),
     )
 
     search_field_stack = ft.Stack(
@@ -235,6 +234,7 @@ def build_notes_view(
                     ft.Container(
                         margin=ft.Margin.symmetric(horizontal=24),
                         content=search_field_stack,
+                        visible=bool(notes),
                     ),
                     results_container,
                 ],
