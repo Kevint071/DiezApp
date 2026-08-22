@@ -64,7 +64,7 @@ def build_google_drive_history_route(ctx: RouteContext) -> ft.View:
         appbar=ctx.build_appbar(
             "Copias realizadas",
             show_back=True,
-            back_route=routes.GOOGLE_DRIVE,
+            back_route=routes.GOOGLE_DRIVE_ACCOUNT,
             actions=actions,
         ),
         controls=[content],
