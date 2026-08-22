@@ -14,12 +14,25 @@ from diezapp.features.settings.presentation.settings_components import (
 )
 
 
+def _format_interval(seconds):
+    if not seconds:
+        return "Sin configurar"
+    days, remainder = divmod(seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, _ = divmod(remainder, 60)
+    parts = [
+        f"{value}{unit}"
+        for value, unit in ((days, "d"), (hours, "h"), (minutes, "min"))
+        if value
+    ]
+    return " ".join(parts) if parts else "Sin configurar"
+
+
 def build_frequency_cell(
     page: ft.Page,
     colors: dict,
     schedule_settings: BackupScheduleSettings,
     show_snack,
-    navigate_to_settings,
 ):
     interval_seconds = schedule_settings.get_interval_seconds()
     days, remainder = divmod(interval_seconds or 0, 86400)
@@ -39,6 +52,10 @@ def build_frequency_cell(
         )
     ]
 
+    subtitle_text = ft.Text(
+        _format_interval(interval_seconds), size=14, color=colors["on_surface_variant"]
+    )
+
     def _confirm(e):
         del e
         try:
@@ -51,8 +68,9 @@ def build_frequency_cell(
             show_snack("La frecuencia debe ser mayor a 0")
             return
         schedule_settings.set_interval_seconds(total)
+        subtitle_text.value = _format_interval(total)
         page.pop_dialog()
-        navigate_to_settings()
+        page.update()
 
     dialog = ft.AlertDialog(
         title=ft.Text("Frecuencia de respaldo", size=17, weight=ft.FontWeight.W_600),
@@ -64,23 +82,10 @@ def build_frequency_cell(
         actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
     )
 
-    def _format_interval(seconds):
-        if not seconds:
-            return "Sin configurar"
-        days, remainder = divmod(seconds, 86400)
-        hours, remainder = divmod(remainder, 3600)
-        minutes, _ = divmod(remainder, 60)
-        parts = [
-            f"{value}{unit}"
-            for value, unit in ((days, "d"), (hours, "h"), (minutes, "min"))
-            if value
-        ]
-        return " ".join(parts) if parts else "Sin configurar"
-
     return _settings_cell(
         icon=ft.Icons.SCHEDULE_OUTLINED,
         title="Frecuencia",
-        subtitle=_format_interval(interval_seconds),
+        subtitle=subtitle_text,
         colors=colors,
         on_click=lambda e: page.show_dialog(dialog),
     )
@@ -93,7 +98,6 @@ def build_manual_backup_action(
     refresh_access_token: RefreshAccessToken,
     backup_service: GoogleDriveBackupService,
     show_snack,
-    navigate_to_settings,
 ):
     backup_now_button = ft.FilledTonalButton(
         "Respaldar ahora",
@@ -114,7 +118,9 @@ def build_manual_backup_action(
             show_snack("Copia parcial: alguna cuenta falló")
         else:
             show_snack("No se pudo completar la copia de seguridad")
-        navigate_to_settings()
+        backup_now_button.icon = ft.Icons.CLOUD_UPLOAD_OUTLINED
+        backup_now_button.disabled = False
+        page.update()
 
     async def _confirm_backup(e):
         del e
