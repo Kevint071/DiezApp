@@ -113,12 +113,19 @@ class FakeFolderService:
         self.folders = folders
         self.missing = set()
         self.list_calls = 0
+        self.create_calls = 0
 
     async def list(self, access_token, parent_id):
         del access_token, parent_id
         self.list_calls += 1
         await asyncio.sleep(0)
         return list(self.folders)
+
+    async def create(self, access_token, folder_name, parent_id):
+        del access_token, parent_id
+        self.create_calls += 1
+        await asyncio.sleep(0)
+        return f"new-{self.create_calls}"
 
     async def get(self, access_token, folder_id):
         del access_token
@@ -262,6 +269,21 @@ def test_using_a_folder_that_still_exists_saves_it_and_closes_the_dialog():
     assert picker._account_service.saved == [(1, "a", "Respaldos")]
     assert page.popped == 1
     assert picker._error_banner.visible is False
+
+
+def test_double_clicking_create_folder_only_creates_it_once():
+    page = FakePage()
+    picker = _build_picker(page, [])
+    _open(page, picker)
+    picker._name_field.value = "Respaldos DiezApp"
+
+    page.run_task(picker._create_folder, None)
+    page.run_task(picker._create_folder, None)
+    asyncio.run(_drain(page))
+
+    assert picker._folder_service.create_calls == 1
+    assert len(picker._current_folders) == 1
+    assert page.popped == 1
 
 
 def test_reopening_after_a_check_was_left_in_flight_re_enables_the_use_button():

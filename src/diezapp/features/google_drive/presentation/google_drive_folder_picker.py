@@ -57,6 +57,7 @@ class GoogleDriveFolderPicker:
         self._cache_account_id = None
         self._load_lock = asyncio.Lock()
         self._busy = False
+        self._creating_folder = False
         self._name_field = ft.TextField(
             label="Nombre de la carpeta",
             border_radius=12,
@@ -402,27 +403,33 @@ class GoogleDriveFolderPicker:
 
     async def _create_folder(self, e):
         del e
+        if self._creating_folder:
+            return
         account = self._account()
         folder_name = (self._name_field.value or "").strip()
         if not account or not folder_name:
             self._show_snack("Escribe un nombre para la carpeta")
             return
-        access_token = await self._refresh_access_token.execute(account)
-        if not access_token:
-            self._show_snack("No se pudo autenticar la cuenta")
-            return
+        self._creating_folder = True
         try:
-            folder_id = await self._folder_service.create(
-                access_token, folder_name, self._dialog_state["parent_id"]
-            )
-        except DriveFolderError as error:
-            self._show_folder_error(error)
-            return
-        self._current_folders.append({"id": folder_id, "name": folder_name})
-        self._select_folder(self._current_folders[-1])
-        self._name_field.value = ""
-        self._page.pop_dialog()
-        self._page.update()
+            access_token = await self._refresh_access_token.execute(account)
+            if not access_token:
+                self._show_snack("No se pudo autenticar la cuenta")
+                return
+            try:
+                folder_id = await self._folder_service.create(
+                    access_token, folder_name, self._dialog_state["parent_id"]
+                )
+            except DriveFolderError as error:
+                self._show_folder_error(error)
+                return
+            self._current_folders.append({"id": folder_id, "name": folder_name})
+            self._select_folder(self._current_folders[-1])
+            self._name_field.value = ""
+            self._page.pop_dialog()
+            self._page.update()
+        finally:
+            self._creating_folder = False
 
     def _build_create_dialog(self):
         return build_dialog(
