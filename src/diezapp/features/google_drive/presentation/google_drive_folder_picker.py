@@ -43,6 +43,7 @@ class GoogleDriveFolderPicker:
         self._selection = {"id": None, "name": None}
         self._delete_state = {"active": False, "selected": set()}
         self._current_folders = []
+        self._folders_loaded = False
         self._name_field = ft.TextField(label="Nombre de la carpeta")
         self._path = ft.Text("Mi unidad", size=13, color=colors["on_surface_variant"])
         self._loading = ft.ProgressRing(width=22, height=22, visible=False)
@@ -77,9 +78,12 @@ class GoogleDriveFolderPicker:
             self._delete_state["active"] = False
             self._delete_state["selected"].clear()
             self._current_folders.clear()
+            self._folders_loaded = False
             self._selection.update(id=None, name=None)
             self._name_field.value = "Respaldos DiezApp"
             self._path.value = "Mi unidad"
+            self._loading.visible = True
+            self._render_folder_list()
             self._update_dialog_actions()
             self._page.show_dialog(self._dialog)
             self._page.run_task(self._load_folder_list)
@@ -96,28 +100,33 @@ class GoogleDriveFolderPicker:
     async def _load_folder_list(self):
         account = self._account()
         if account is None:
+            self._stop_loading()
             return
         validation_status, access_token = await self._validation_controller.validate(
             account
         )
         if not access_token or validation_status == "unauthenticated":
+            self._stop_loading()
             self._show_snack("No se pudo autenticar la cuenta")
             return
 
         self._dialog_state.update(parent_id="root", parent_name="Mi unidad")
         self._path.value = "Mi unidad"
-        self._loading.visible = True
-        self._folder_list.controls = []
-        self._page.update()
         try:
             folders = await self._folder_service.list(access_token, "root")
         except DriveFolderError as error:
+            self._stop_loading()
             self._show_folder_error(error)
             return
-        finally:
-            self._loading.visible = False
-            self._page.update()
         self._current_folders[:] = folders
+        self._folders_loaded = True
+        self._loading.visible = False
+        self._render_folder_list()
+        self._page.update()
+
+    def _stop_loading(self):
+        """Hide the spinner without claiming the folder list came back empty."""
+        self._loading.visible = False
         self._render_folder_list()
         self._page.update()
 
@@ -130,6 +139,9 @@ class GoogleDriveFolderPicker:
             self._show_snack(error.message)
 
     def _render_folder_list(self):
+        if not self._folders_loaded:
+            self._folder_list.controls = []
+            return
         if self._delete_state["active"]:
             controls = [
                 ft.ListTile(
