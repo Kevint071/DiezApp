@@ -13,6 +13,8 @@ from diezapp.features.settings.presentation.settings_components import (
     build_settings_cell as _settings_cell,
 )
 
+MIN_INTERVAL_SECONDS = 8 * 3600
+
 
 def _format_interval(seconds):
     if not seconds:
@@ -66,6 +68,9 @@ def build_frequency_cell(
         total = values[0] * 86400 + values[1] * 3600 + values[2] * 60
         if total <= 0:
             show_snack("La frecuencia debe ser mayor a 0")
+            return
+        if total < MIN_INTERVAL_SECONDS:
+            show_snack("La frecuencia mínima es de 8 horas")
             return
         schedule_settings.set_interval_seconds(total)
         subtitle_text.value = _format_interval(total)
