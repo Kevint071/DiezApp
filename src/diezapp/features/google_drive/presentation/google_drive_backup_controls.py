@@ -34,7 +34,6 @@ def build_frequency_cell(
     page: ft.Page,
     colors: dict,
     schedule_settings: BackupScheduleSettings,
-    show_snack,
 ):
     interval_seconds = schedule_settings.get_interval_seconds()
     days, remainder = divmod(interval_seconds or 0, 86400)
@@ -58,20 +57,29 @@ def build_frequency_cell(
         _format_interval(interval_seconds), size=14, color=colors["on_surface_variant"]
     )
 
+    error_text = ft.Text("", size=12, color=colors["error"], visible=False)
+
     def _confirm(e):
         del e
         try:
             values = [int(field.value or 0) for field in fields]
         except ValueError:
-            show_snack("Ingresa valores numéricos válidos")
+            error_text.value = "Ingresa valores numéricos válidos"
+            error_text.visible = True
+            page.update()
             return
         total = values[0] * 86400 + values[1] * 3600 + values[2] * 60
         if total <= 0:
-            show_snack("La frecuencia debe ser mayor a 0")
+            error_text.value = "La frecuencia debe ser mayor a 0"
+            error_text.visible = True
+            page.update()
             return
         if total < MIN_INTERVAL_SECONDS:
-            show_snack("La frecuencia mínima es de 8 horas")
+            error_text.value = "La frecuencia mínima es de 8 horas"
+            error_text.visible = True
+            page.update()
             return
+        error_text.visible = False
         schedule_settings.set_interval_seconds(total)
         subtitle_text.value = _format_interval(total)
         page.pop_dialog()
@@ -79,7 +87,14 @@ def build_frequency_cell(
 
     dialog = ft.AlertDialog(
         title=ft.Text("Frecuencia de respaldo", size=17, weight=ft.FontWeight.W_600),
-        content=ft.Row(spacing=8, controls=fields),
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Row(spacing=8, controls=fields),
+                error_text,
+            ],
+        ),
         actions=[
             ft.TextButton("Cancelar", on_click=lambda e: page.pop_dialog()),
             ft.FilledTonalButton("Guardar", on_click=_confirm),
