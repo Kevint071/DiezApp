@@ -33,6 +33,10 @@ ERROR_LIGHT = "#FEE2E2"
 ERROR_TEXT_LIGHT = "#DC2626"
 ERROR_DARK = "#371520"
 ERROR_TEXT_DARK = "#FCA5A5"
+WARNING_LIGHT = "#FEF3C7"
+WARNING_TEXT_LIGHT = "#B45309"
+WARNING_DARK = "#3A2A08"
+WARNING_TEXT_DARK = "#FCD34D"
 APPBAR_BGCOLOR_LIGHT = PRIMARY
 APPBAR_BGCOLOR_DARK = "#0a0c10"
 
@@ -66,6 +70,10 @@ def get_colors(page: ft.Page) -> dict:
         "summary_total_border": None if light else ft.Border.all(1, PRIMARY_DARK),
         "secondary": SECONDARY if light else SECONDARY_DARK,
         "on_primary": ON_PRIMARY if light else "#F1F5F9",
+        "error": ERROR_TEXT_LIGHT if light else ERROR_TEXT_DARK,
+        "error_bg": ERROR_LIGHT if light else ERROR_DARK,
+        "warning": WARNING_TEXT_LIGHT if light else WARNING_TEXT_DARK,
+        "warning_bg": WARNING_LIGHT if light else WARNING_DARK,
     }
 
 
