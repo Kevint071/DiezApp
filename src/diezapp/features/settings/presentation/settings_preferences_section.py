@@ -1,6 +1,7 @@
 import flet as ft
 
 from diezapp.shared.presentation.dialogs import (
+    OPTION_CONTENT_PADDING,
     build_dialog,
     dialog_cancel_button,
     dialog_primary_button,
@@ -64,9 +65,10 @@ def build_preferences_section(
             ),
         )
 
-    theme_dialog = ft.AlertDialog(
-        title=ft.Text("Tema", size=17, weight=ft.FontWeight.W_600),
-        content_padding=ft.Padding.only(left=20, right=20, top=12, bottom=8),
+    theme_dialog = build_dialog(
+        colors,
+        title="Tema",
+        content_padding=OPTION_CONTENT_PADDING,
         content=ft.Column(
             tight=True,
             spacing=6,
