@@ -25,6 +25,7 @@ from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
 )
+from diezapp.shared.presentation.share_files import share_local_file
 from diezapp.shared.presentation.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,
@@ -910,9 +911,10 @@ def build_saved_calculations_view(
     # Filtered mode: show list + export button at bottom
     async def _export_filtered(e):
         pdf_path = pdf_export_service.export_calculations(calculations)
-        share = ft.Share()
-        await share.share_files(
-            [ft.ShareFile.from_path(pdf_path, name=pdf_path.split(os.sep)[-1])],
+        await share_local_file(
+            page,
+            pdf_path,
+            pdf_path.split(os.sep)[-1],
             title="Exportar cálculos",
         )
 

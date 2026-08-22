@@ -15,6 +15,7 @@ from diezapp.features.local_backup.application.local_backup_service import (
 )
 from diezapp.features.notes.application.note_service import NoteService
 from diezapp.shared.datetime_utils import local_now
+from diezapp.shared.presentation.share_files import share_local_file
 
 
 def build_local_backup_section(
@@ -119,10 +120,8 @@ def build_local_backup_section(
                 show_snack("Copia guardada correctamente", keep_open=False)
             return
 
-        share = ft.Share()
-        await share.share_files(
-            [ft.ShareFile.from_path(output_path, name=file_name)],
-            title="Exportar copia de seguridad",
+        await share_local_file(
+            page, output_path, file_name, title="Exportar copia de seguridad"
         )
 
     export_dialog = ft.AlertDialog(
