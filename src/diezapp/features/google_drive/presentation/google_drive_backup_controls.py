@@ -45,6 +45,9 @@ def build_frequency_cell(
             value=str(value),
             keyboard_type=ft.KeyboardType.NUMBER,
             width=90,
+            border_radius=12,
+            border_color=colors["input_border"],
+            focused_border_color=colors["input_focused"],
         )
         for label, value in (
             ("Días", days),
@@ -65,6 +68,22 @@ def build_frequency_cell(
             values = [int(field.value or 0) for field in fields]
         except ValueError:
             error_text.value = "Ingresa valores numéricos válidos"
+            error_text.visible = True
+            page.update()
+            return
+        days, hours, minutes = values
+        if not 0 <= days <= 365:
+            error_text.value = "Los días deben ser entre 0 y 365"
+            error_text.visible = True
+            page.update()
+            return
+        if not 0 <= hours <= 23:
+            error_text.value = "Las horas deben ser entre 0 y 23"
+            error_text.visible = True
+            page.update()
+            return
+        if not 0 <= minutes <= 59:
+            error_text.value = "Los minutos deben ser entre 0 y 59"
             error_text.visible = True
             page.update()
             return
