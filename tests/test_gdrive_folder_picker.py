@@ -24,6 +24,8 @@ COLORS = {
         "navigation_indicator",
         "divider",
         "hero_bg",
+        "input_border",
+        "input_focused",
     )
 }
 

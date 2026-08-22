@@ -51,7 +51,13 @@ class GoogleDriveFolderPicker:
         self._cache_account_id = None
         self._load_lock = asyncio.Lock()
         self._busy = False
-        self._name_field = ft.TextField(label="Nombre de la carpeta")
+        self._name_field = ft.TextField(
+            label="Nombre de la carpeta",
+            border_radius=12,
+            content_padding=ft.Padding.symmetric(vertical=14, horizontal=14),
+            border_color=colors["input_border"],
+            focused_border_color=colors["input_focused"],
+        )
         self._error_text = ft.Text("", size=12, color=ft.Colors.RED_600)
         self._error_banner = ft.Container(
             visible=False,
@@ -213,11 +219,10 @@ class GoogleDriveFolderPicker:
                         ft.Icons.FOLDER_OUTLINED, color=self._colors["primary"]
                     ),
                     title=ft.Text(folder["name"]),
-                    selected=folder["id"] == self._selection["id"],
-                    selected_tile_color=self._colors["navigation_indicator"],
                     on_click=lambda e, item=folder: self._select_folder(item),
                     trailing=ft.Icon(
-                        ft.Icons.CHECK,
+                        ft.Icons.CHECK_CIRCLE,
+                        size=22,
                         color=self._colors["primary"],
                         visible=folder["id"] == self._selection["id"],
                     ),
@@ -428,13 +433,19 @@ class GoogleDriveFolderPicker:
         return ft.AlertDialog(
             modal=True,
             bgcolor=self._colors["surface"],
-            title=ft.Text("Nueva carpeta", color=self._colors["on_surface"]),
-            content=self._name_field,
+            title=ft.Text(
+                "Nueva carpeta",
+                size=17,
+                weight=ft.FontWeight.W_600,
+                color=self._colors["on_surface"],
+            ),
+            content_padding=ft.Padding.only(left=24, right=24, top=16, bottom=8),
+            content=ft.Column(tight=True, spacing=0, controls=[self._name_field]),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: self._page.pop_dialog()),
-                ft.FilledButton("Crear", on_click=self._create_folder),
+                ft.FilledTonalButton("Crear", on_click=self._create_folder),
             ],
-            actions_alignment=ft.MainAxisAlignment.END,
+            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
 
     def _open_create_dialog(self):
