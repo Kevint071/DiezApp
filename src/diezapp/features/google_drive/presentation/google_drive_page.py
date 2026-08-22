@@ -108,7 +108,6 @@ def build_google_drive_account_view(
     account_id,
     account_service,
     refresh_access_token: RefreshAccessToken,
-    oauth_flow: GoogleDriveOAuthFlow,
     folder_service: DriveFolderService,
     account_validator: ValidateDriveAccount,
     schedule_settings: BackupScheduleSettings,
@@ -191,17 +190,6 @@ def build_google_drive_account_view(
         folder_labels,
     )
 
-    async def reauthenticate(e):
-        del e
-        if not oauth_flow.is_configured():
-            show_snack("OAuth de Google no configurado")
-            return
-        started = await oauth_flow.start(
-            page.session.store, page.url, account_id=account["id"]
-        )
-        if not started:
-            show_snack("No se pudo iniciar la reautenticación")
-
     def open_unlink(e):
         del e
         confirmed = False
@@ -242,6 +230,24 @@ def build_google_drive_account_view(
                 size=11,
                 weight=ft.FontWeight.W_600,
                 color=colors["on_surface_variant"],
+            ),
+        )
+
+    def danger_cell(icon, title, on_click):
+        return ft.Container(
+            padding=ft.Padding.symmetric(vertical=14, horizontal=18),
+            on_click=on_click,
+            content=ft.Row(
+                spacing=14,
+                controls=[
+                    ft.Icon(icon, size=22, color=ft.Colors.RED_600),
+                    ft.Text(
+                        title,
+                        size=15,
+                        weight=ft.FontWeight.W_500,
+                        color=ft.Colors.RED_600,
+                    ),
+                ],
             ),
         )
 
@@ -307,31 +313,38 @@ def build_google_drive_account_view(
     header_card = ft.Container(
         bgcolor=colors["card_bg"],
         border_radius=16,
-        padding=ft.Padding.symmetric(vertical=22, horizontal=18),
-        content=ft.Column(
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10,
+        padding=ft.Padding.symmetric(vertical=18, horizontal=18),
+        content=ft.Row(
+            spacing=14,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 ft.Container(
-                    width=56,
-                    height=56,
-                    border_radius=28,
+                    width=52,
+                    height=52,
+                    border_radius=26,
                     bgcolor=colors["hero_bg"],
                     alignment=ft.Alignment.CENTER,
                     content=ft.Icon(
                         ft.Icons.ACCOUNT_CIRCLE_OUTLINED,
-                        size=32,
+                        size=28,
                         color=colors["primary"],
                     ),
                 ),
-                ft.Text(
-                    account["google_account_email"],
-                    size=16,
-                    weight=ft.FontWeight.W_600,
-                    color=colors["on_surface"],
-                    text_align=ft.TextAlign.CENTER,
+                ft.Column(
+                    expand=True,
+                    spacing=6,
+                    controls=[
+                        ft.Text(
+                            account["google_account_email"],
+                            size=16,
+                            weight=ft.FontWeight.W_600,
+                            color=colors["on_surface"],
+                            max_lines=1,
+                            overflow=ft.TextOverflow.ELLIPSIS,
+                        ),
+                        status_chip,
+                    ],
                 ),
-                status_chip,
             ],
         ),
     )
@@ -370,24 +383,9 @@ def build_google_drive_account_view(
         ),
         section_label("Cuenta"),
         card(
-            nav_cell(
-                ft.Icons.LOCK_RESET,
-                "Reautenticar cuenta",
-                "Volver a conectar con Google",
-                reauthenticate,
-            ),
+            danger_cell(ft.Icons.LINK_OFF, "Desvincular cuenta", open_unlink),
         ),
-        ft.Container(
-            alignment=ft.Alignment.CENTER,
-            padding=ft.Padding.only(top=18, bottom=18),
-            content=ft.TextButton(
-                "Desvincular cuenta",
-                icon=ft.Icons.LINK_OFF,
-                icon_color=ft.Colors.RED_600,
-                style=ft.ButtonStyle(color=ft.Colors.RED_600),
-                on_click=open_unlink,
-            ),
-        ),
+        ft.Container(height=24),
     ]
 
     return ft.SafeArea(
@@ -504,11 +502,12 @@ def build_google_drive_history_view(
             padding=ft.Padding.symmetric(vertical=12, horizontal=18),
             on_click=lambda e, a=account, f=file: navigate_to_detail(a, f),
             content=ft.Row(
+                spacing=14,
                 controls=[
-                    avatar(
+                    ft.Icon(
                         ft.Icons.INSERT_DRIVE_FILE_OUTLINED,
-                        size=36,
-                        icon_size=18,
+                        size=22,
+                        color=colors["on_surface_variant"],
                     ),
                     ft.Column(
                         expand=True,

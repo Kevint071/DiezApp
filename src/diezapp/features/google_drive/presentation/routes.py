@@ -111,7 +111,6 @@ def build_google_drive_account_route(ctx: RouteContext) -> ft.View:
         ctx.page.session.store.get("gdrive_account_id"),
         dependencies.google_drive_link,
         dependencies.google_drive_refresh_token,
-        dependencies.google_drive_oauth,
         dependencies.google_drive_folders,
         dependencies.google_drive_account_validator,
         dependencies.google_drive_schedule_settings,
