@@ -48,7 +48,7 @@ class SqliteBackupHistoryRepository:
         for row in rows:
             try:
                 details = json.loads(row[4])
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 details = []
             history.append(
                 {

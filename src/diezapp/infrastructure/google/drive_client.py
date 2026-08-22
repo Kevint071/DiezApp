@@ -33,7 +33,7 @@ def _raise_for_drive_error(resp: httpx.Response) -> None:
         details = error.get("errors", [{}])[0]
         reason = details.get("reason") or error.get("status") or reason
         message = error.get("message") or message
-    except (ValueError, AttributeError, IndexError, TypeError):
+    except ValueError, AttributeError, IndexError, TypeError:
         pass
     raise DriveApiError(resp.status_code, reason, message)
 

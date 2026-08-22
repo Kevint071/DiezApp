@@ -358,7 +358,7 @@ def build_google_drive_account_view(
         ft.Container(padding=ft.Padding.only(top=16), content=header_card),
         section_label("Configuración"),
         card(
-            build_frequency_cell(page, colors, schedule_settings, show_snack),
+            build_frequency_cell(page, colors, schedule_settings),
             build_manual_backup_action(
                 page,
                 colors,

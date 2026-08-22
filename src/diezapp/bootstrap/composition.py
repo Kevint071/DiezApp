@@ -456,7 +456,10 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         elif route == routes.PDF_PREVIEW:
             return [_build_pdf_preview_view()]
         elif route == routes.GOOGLE_DRIVE_HISTORY:
-            return [_build_google_drive_account_view(), _build_google_drive_history_view()]
+            return [
+                _build_google_drive_account_view(),
+                _build_google_drive_history_view(),
+            ]
         elif route == routes.GOOGLE_DRIVE_ACCOUNT:
             return [_build_google_drive_account_view()]
         elif route == routes.GOOGLE_DRIVE_BACKUP_DETAIL:
