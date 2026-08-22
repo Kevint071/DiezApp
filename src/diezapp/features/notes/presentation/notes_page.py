@@ -3,6 +3,11 @@ import flet as ft
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
 from diezapp.shared.datetime_utils import to_local_datetime
+from diezapp.shared.presentation.dialogs import (
+    build_dialog,
+    dialog_cancel_button,
+    dialog_primary_button,
+)
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -448,15 +453,15 @@ def build_note_detail_view(
             page.pop_dialog()
 
         page.show_dialog(
-            ft.AlertDialog(
+            build_dialog(
+                c,
                 modal=True,
-                title=ft.Text("Eliminar nota", size=17, weight=ft.FontWeight.W_600),
-                content=ft.Text("¿Estás seguro de que deseas eliminar esta nota?"),
+                title="Eliminar nota",
+                content="¿Estás seguro de que deseas eliminar esta nota?",
                 actions=[
-                    ft.TextButton("Cancelar", on_click=_cancel_delete),
-                    ft.FilledTonalButton("Eliminar", on_click=_do_delete),
+                    dialog_cancel_button("Cancelar", _cancel_delete, c),
+                    dialog_primary_button("Eliminar", _do_delete, c, destructive=True),
                 ],
-                actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             )
         )
 
@@ -519,18 +524,17 @@ def build_note_detail_view(
                 cancel()
 
         page.show_dialog(
-            ft.AlertDialog(
-                title=ft.Text(
-                    "Cambios sin guardar", size=17, weight=ft.FontWeight.W_600
-                ),
-                content=ft.Text(
-                    "Tienes cambios sin guardar en esta nota. ¿Deseas guardarlos o descartarlos?"
+            build_dialog(
+                c,
+                title="Cambios sin guardar",
+                content=(
+                    "Tienes cambios sin guardar en esta nota. "
+                    "¿Deseas guardarlos o descartarlos?"
                 ),
                 actions=[
-                    ft.TextButton("Descartar", on_click=_handle_discard),
-                    ft.FilledButton("Guardar", on_click=_handle_save),
+                    dialog_cancel_button("Descartar", _handle_discard, c),
+                    dialog_primary_button("Guardar", _handle_save, c),
                 ],
-                actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 on_dismiss=_handle_dismiss,
             )
         )

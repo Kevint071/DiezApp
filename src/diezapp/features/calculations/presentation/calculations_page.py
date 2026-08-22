@@ -21,6 +21,11 @@ from diezapp.features.calculations.presentation.calculation_components import (
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.shared.datetime_utils import local_now, to_local_datetime, to_local_iso
+from diezapp.shared.presentation.dialogs import (
+    build_dialog,
+    dialog_cancel_button,
+    dialog_primary_button,
+)
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -799,19 +804,17 @@ def build_saved_calculations_view(
                 page.pop_dialog()
 
             page.show_dialog(
-                ft.AlertDialog(
+                build_dialog(
+                    c,
                     modal=True,
-                    title=ft.Text(
-                        "Eliminar cálculo", size=17, weight=ft.FontWeight.W_600
-                    ),
-                    content=ft.Text(
-                        "¿Estás seguro de que deseas eliminar este cálculo?"
-                    ),
+                    title="Eliminar cálculo",
+                    content="¿Estás seguro de que deseas eliminar este cálculo?",
                     actions=[
-                        ft.TextButton("Cancelar", on_click=_cancel_delete),
-                        ft.FilledTonalButton("Eliminar", on_click=_do_delete),
+                        dialog_cancel_button("Cancelar", _cancel_delete, c),
+                        dialog_primary_button(
+                            "Eliminar", _do_delete, c, destructive=True
+                        ),
                     ],
-                    actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 )
             )
 
