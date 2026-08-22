@@ -43,13 +43,15 @@ from diezapp.features.settings.presentation.settings_components import (
 from diezapp.infrastructure.google.drive_client import (
     delete_file,
     download_file,
-    list_backup_files,
 )
 from diezapp.shared.datetime_utils import to_local_datetime
+from diezapp.shared.presentation.byte_format import format_bytes
+from diezapp.shared.presentation.date_labels import full_date, relative_label
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
 )
+from diezapp.shared.presentation.share_files import share_local_file
 
 
 def build_google_drive_view(
@@ -125,7 +127,10 @@ def build_google_drive_account_view(
         return ft.Container(content=ft.Text("Cuenta no encontrada"))
 
     status_text = ft.Text(
-        "Verificando...", size=13, weight=ft.FontWeight.W_600, color=colors["on_surface_variant"]
+        "Verificando...",
+        size=13,
+        weight=ft.FontWeight.W_600,
+        color=colors["on_surface_variant"],
     )
     status_dot = ft.Icon(ft.Icons.CIRCLE, size=8, color=colors["on_surface_variant"])
     status_chip = ft.Container(
@@ -429,313 +434,6 @@ def _is_desktop(page: ft.Page) -> bool:
     return page.platform in _DESKTOP_PLATFORMS
 
 
-def build_google_drive_history_view(
-    page: ft.Page,
-    colors_fn,
-    account_service,
-    refresh_access_token: RefreshAccessToken,
-    local_backup,
-    calculations_service,
-    notes_service,
-    conflicts_service,
-    navigate_to_detail,
-):
-    """Build the Drive backup browser and its import/delete actions."""
-    colors = colors_fn(page)
-
-    content = ft.Column(spacing=12)
-
-    def format_size(value: str | None) -> str:
-        try:
-            size = int(value or 0)
-        except ValueError:
-            return "Tamaño desconocido"
-        if size < 1024 * 1024:
-            return f"{max(1, size // 1024)} KB"
-        return f"{size / (1024 * 1024):.1f} MB"
-
-    def format_modified(value: str | None) -> str:
-        if not value:
-            return "Fecha desconocida"
-        try:
-            return to_local_datetime(value).strftime("%d/%m/%Y %H:%M")
-        except ValueError:
-            return value
-
-    def avatar(icon, size=40, icon_size=20, bgcolor=None):
-        return ft.Container(
-            width=size,
-            height=size,
-            border_radius=size / 2,
-            bgcolor=bgcolor or colors["hero_bg"],
-            alignment=ft.Alignment.CENTER,
-            content=ft.Icon(icon, size=icon_size, color=colors["primary"]),
-        )
-
-    def count_badge(count: int):
-        return ft.Container(
-            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
-            border_radius=20,
-            bgcolor=colors["divider"],
-            content=ft.Text(
-                f"{count} {'copia' if count == 1 else 'copias'}",
-                size=12,
-                weight=ft.FontWeight.W_600,
-                color=colors["on_surface_variant"],
-            ),
-        )
-
-    def inline_status(icon, message, color):
-        return ft.Container(
-            padding=ft.Padding.symmetric(vertical=14, horizontal=18),
-            content=ft.Row(
-                spacing=10,
-                controls=[
-                    ft.Icon(icon, size=18, color=color),
-                    ft.Text(message, size=13, color=color),
-                ],
-            ),
-        )
-
-    def file_row(account, file, is_last):
-        row = ft.Container(
-            padding=ft.Padding.symmetric(vertical=12, horizontal=18),
-            on_click=lambda e, a=account, f=file: navigate_to_detail(a, f),
-            content=ft.Row(
-                spacing=14,
-                controls=[
-                    ft.Icon(
-                        ft.Icons.INSERT_DRIVE_FILE_OUTLINED,
-                        size=22,
-                        color=colors["on_surface_variant"],
-                    ),
-                    ft.Column(
-                        expand=True,
-                        spacing=2,
-                        controls=[
-                            ft.Text(
-                                file["name"],
-                                size=14,
-                                weight=ft.FontWeight.W_500,
-                                color=colors["on_surface"],
-                                max_lines=1,
-                                overflow=ft.TextOverflow.ELLIPSIS,
-                            ),
-                            ft.Text(
-                                f"{format_modified(file.get('modifiedTime'))} · "
-                                f"{format_size(file.get('size'))}",
-                                size=12,
-                                color=colors["on_surface_variant"],
-                            ),
-                        ],
-                    ),
-                    ft.Icon(
-                        ft.Icons.CHEVRON_RIGHT,
-                        color=colors["on_surface_variant"],
-                    ),
-                ],
-            ),
-        )
-        if is_last:
-            return row
-        return ft.Column(
-            spacing=0,
-            controls=[
-                row,
-                ft.Container(
-                    padding=ft.Padding.symmetric(horizontal=18),
-                    content=ft.Divider(height=1, color=colors["divider"]),
-                ),
-            ],
-        )
-
-    def account_group(account, files):
-        header_row_controls = [
-            ft.Row(
-                spacing=12,
-                expand=True,
-                controls=[
-                    avatar(ft.Icons.FOLDER_OUTLINED),
-                    ft.Column(
-                        expand=True,
-                        spacing=2,
-                        controls=[
-                            ft.Text(
-                                account.get("folder_name") or "Carpeta de copias",
-                                size=15,
-                                weight=ft.FontWeight.W_600,
-                                color=colors["on_surface"],
-                                max_lines=1,
-                                overflow=ft.TextOverflow.ELLIPSIS,
-                            ),
-                            ft.Text(
-                                account["google_account_email"],
-                                size=12,
-                                color=colors["on_surface_variant"],
-                                max_lines=1,
-                                overflow=ft.TextOverflow.ELLIPSIS,
-                            ),
-                        ],
-                    ),
-                ],
-            )
-        ]
-        if isinstance(files, list):
-            header_row_controls.append(count_badge(len(files)))
-        header = ft.Container(
-            padding=ft.Padding.symmetric(vertical=14, horizontal=18),
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                controls=header_row_controls,
-            ),
-        )
-        body_divider = ft.Container(
-            padding=ft.Padding.symmetric(horizontal=18),
-            content=ft.Divider(height=1, color=colors["divider"]),
-        )
-        if isinstance(files, Exception):
-            body = inline_status(
-                ft.Icons.ERROR_OUTLINE, "No se pudo leer esta carpeta", ft.Colors.RED_600
-            )
-        elif not files:
-            body = inline_status(
-                ft.Icons.INBOX_OUTLINED,
-                "No hay copias guardadas",
-                colors["on_surface_variant"],
-            )
-        else:
-            body = ft.Column(
-                spacing=0,
-                controls=[
-                    file_row(account, file, index == len(files) - 1)
-                    for index, file in enumerate(files)
-                ],
-            )
-        return ft.Container(
-            bgcolor=colors["card_bg"],
-            border_radius=16,
-            padding=ft.Padding.symmetric(vertical=6, horizontal=0),
-            content=ft.Column(spacing=0, controls=[header, body_divider, body]),
-        )
-
-    def empty_state(icon, message):
-        return ft.Container(
-            expand=True,
-            alignment=ft.Alignment.TOP_CENTER,
-            padding=ft.Padding.only(top=56),
-            content=ft.Column(
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Icon(icon, size=44, color=colors["on_surface_variant"]),
-                    ft.Container(height=12),
-                    ft.Text(
-                        message,
-                        size=14,
-                        color=colors["on_surface_variant"],
-                        text_align=ft.TextAlign.CENTER,
-                    ),
-                ],
-            ),
-        )
-
-    async def load_backups():
-        content.controls = [
-            ft.Container(
-                alignment=ft.Alignment.CENTER,
-                padding=ft.Padding.only(top=56),
-                content=ft.Column(
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=12,
-                    controls=[
-                        ft.ProgressRing(color=colors["primary"]),
-                        ft.Text(
-                            "Buscando carpetas y copias...",
-                            size=13,
-                            color=colors["on_surface_variant"],
-                        ),
-                    ],
-                ),
-            )
-        ]
-        page.update()
-        groups = []
-        for account in account_service.list_accounts():
-            if not account.get("folder_id"):
-                continue
-            try:
-                token = await refresh_access_token.execute(account)
-                if not token:
-                    continue
-                files = await list_backup_files(token, account["folder_id"])
-                groups.append((account, files))
-            except Exception as error:  # noqa: BLE001 - one account must not hide others
-                groups.append((account, error))
-        controls = [account_group(account, files) for account, files in groups]
-        content.controls = controls or [
-            empty_state(
-                ft.Icons.CLOUD_OFF_OUTLINED,
-                "Vincula una carpeta de Google Drive para ver tus copias aquí.",
-            )
-        ]
-        page.update()
-
-    page.run_task(load_backups)
-    return ft.SafeArea(
-        expand=True,
-        content=ft.Container(
-            expand=True,
-            padding=ft.Padding.only(top=4),
-            content=ft.Column(
-                expand=True,
-                spacing=0,
-                controls=[
-                    (divider := build_scroll_divider()),
-                    ft.Column(
-                        expand=True,
-                        scroll=ft.Scrollbar(thickness=6, radius=4),
-                        on_scroll=make_scroll_divider_handler(divider, colors),
-                        controls=[
-                            ft.Container(
-                                margin=ft.Margin.symmetric(horizontal=24),
-                                content=ft.Column(
-                                    spacing=12,
-                                    controls=[
-                                        ft.Row(
-                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                            controls=[
-                                                ft.Text(
-                                                    "Historial de copias",
-                                                    size=20,
-                                                    weight=ft.FontWeight.W_600,
-                                                    color=colors["on_surface"],
-                                                ),
-                                                ft.IconButton(
-                                                    icon=ft.Icons.REFRESH,
-                                                    tooltip="Actualizar carpetas",
-                                                    on_click=lambda e: page.run_task(
-                                                        load_backups
-                                                    ),
-                                                ),
-                                            ],
-                                        ),
-                                        ft.Text(
-                                            "Explora tus carpetas, importa una copia o "
-                                            "elimina las que ya no necesites.",
-                                            size=13,
-                                            color=colors["on_surface_variant"],
-                                        ),
-                                        content,
-                                    ],
-                                ),
-                            )
-                        ],
-                    ),
-                ],
-            ),
-        ),
-    )
-
-
 def build_google_drive_backup_detail_view(
     page: ft.Page,
     colors_fn,
@@ -762,22 +460,13 @@ def build_google_drive_backup_detail_view(
         if keep_open:
             page.update()
 
-    def format_size(value: str | None) -> str:
-        try:
-            size = int(value or 0)
-        except ValueError:
-            return "Tamaño desconocido"
-        if size < 1024 * 1024:
-            return f"{max(1, size // 1024)} KB"
-        return f"{size / (1024 * 1024):.1f} MB"
-
-    def format_date(value: str | None) -> str:
+    def parse_moment(value: str | None):
         if not value:
-            return "Fecha desconocida"
+            return None
         try:
-            return to_local_datetime(value).strftime("%d/%m/%Y %H:%M")
-        except ValueError:
-            return value
+            return to_local_datetime(value)
+        except TypeError, ValueError:
+            return None
 
     async def remove_temp_file(path: str | None):
         if not path:
@@ -842,9 +531,10 @@ def build_google_drive_backup_detail_view(
         temp_path = None
         try:
             temp_path = await download_to_temp()
-            share = ft.Share()
-            await share.share_files(
-                [ft.ShareFile.from_path(temp_path, name=file["name"])],
+            await share_local_file(
+                page,
+                temp_path,
+                file["name"],
                 title="Compartir copia de seguridad",
             )
         except Exception as error:  # noqa: BLE001 - Drive errors are user-facing
@@ -990,41 +680,136 @@ def build_google_drive_backup_detail_view(
             )
         )
 
-    action_divider = ft.Container(
-        padding=ft.Padding.symmetric(horizontal=18, vertical=0),
-        content=ft.Divider(height=1, color=colors["divider"]),
-    )
+    def action_divider():
+        # `divider` equals `card_bg` in dark mode, so in-card hairlines use
+        # `outline` to stay visible in both themes.
+        return ft.Container(
+            padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+            content=ft.Divider(height=1, thickness=1, color=colors["outline"]),
+        )
+
+    moment = parse_moment(file.get("createdTime") or file.get("modifiedTime"))
 
     header = ft.Container(
-        padding=ft.Padding.only(top=12, bottom=20),
+        padding=ft.Padding.only(top=20, bottom=24),
         content=ft.Column(
-            spacing=6,
+            spacing=0,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
-                ft.Icon(
-                    ft.Icons.INSERT_DRIVE_FILE_OUTLINED,
-                    size=38,
-                    color=colors["primary"],
+                ft.Container(
+                    width=64,
+                    height=64,
+                    border_radius=32,
+                    bgcolor=colors["hero_bg"],
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Icon(
+                        ft.Icons.CLOUD_DONE_OUTLINED, size=30, color=colors["primary"]
+                    ),
                 ),
+                ft.Container(height=14),
                 ft.Text(
-                    file["name"],
-                    size=18,
-                    weight=ft.FontWeight.W_600,
+                    relative_label(moment) if moment else "Fecha desconocida",
+                    size=20,
+                    weight=ft.FontWeight.W_700,
                     color=colors["on_surface"],
+                    text_align=ft.TextAlign.CENTER,
                 ),
+                ft.Container(height=4),
                 ft.Text(
-                    f"{format_size(file.get('size'))} · Creado el "
-                    f"{format_date(file.get('createdTime') or file.get('modifiedTime'))}",
+                    f"{full_date(moment)} · {moment.strftime('%H:%M')}"
+                    if moment
+                    else "Sin fecha registrada",
                     size=13,
                     color=colors["on_surface_variant"],
-                ),
-                ft.Text(
-                    account["google_account_email"],
-                    size=12,
-                    color=colors["on_surface_variant"],
+                    text_align=ft.TextAlign.CENTER,
                 ),
             ],
         ),
     )
+
+    def meta_row(label, value, is_last=False):
+        row = ft.Container(
+            padding=ft.Padding.symmetric(vertical=12, horizontal=18),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                spacing=16,
+                controls=[
+                    ft.Text(label, size=13, color=colors["on_surface_variant"]),
+                    ft.Text(
+                        value,
+                        size=13,
+                        weight=ft.FontWeight.W_500,
+                        color=colors["on_surface"],
+                        max_lines=1,
+                        overflow=ft.TextOverflow.ELLIPSIS,
+                        text_align=ft.TextAlign.RIGHT,
+                        expand=True,
+                    ),
+                ],
+            ),
+        )
+        if is_last:
+            return row
+        return ft.Column(spacing=0, controls=[row, action_divider()])
+
+    details = ft.Container(
+        margin=ft.Margin.only(bottom=16),
+        bgcolor=colors["card_bg"],
+        border_radius=16,
+        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
+        content=ft.Column(
+            spacing=0,
+            controls=[
+                meta_row("Tamaño", format_bytes(file.get("size"))),
+                meta_row("Cuenta", account["google_account_email"]),
+                meta_row("Archivo", file["name"], is_last=True),
+            ],
+        ),
+    )
+
+    def action_cell(icon, title, subtitle, on_click, destructive=False):
+        tone = colors["error"] if destructive else colors["primary"]
+        return ft.Container(
+            padding=ft.Padding.symmetric(vertical=13, horizontal=18),
+            on_click=on_click,
+            content=ft.Row(
+                spacing=14,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Icon(icon, size=22, color=tone),
+                    ft.Column(
+                        expand=True,
+                        spacing=2,
+                        controls=[
+                            ft.Text(
+                                title,
+                                size=15,
+                                weight=ft.FontWeight.W_500,
+                                color=colors["error"]
+                                if destructive
+                                else colors["on_surface"],
+                            ),
+                            ft.Text(
+                                subtitle,
+                                size=12,
+                                color=colors["on_surface_variant"],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+    def section_label(value):
+        return ft.Container(
+            padding=ft.Padding.only(left=4, top=4, bottom=8),
+            content=ft.Text(
+                value.upper(),
+                size=11,
+                weight=ft.FontWeight.W_700,
+                color=colors["on_surface_variant"],
+            ),
+        )
 
     actions = ft.Container(
         bgcolor=colors["card_bg"],
@@ -1033,34 +818,40 @@ def build_google_drive_backup_detail_view(
         content=ft.Column(
             spacing=0,
             controls=[
-                _settings_cell(
-                    icon=ft.Icons.DOWNLOAD_OUTLINED,
-                    title="Descargar",
-                    colors=colors,
-                    on_click=lambda e: page.run_task(download_copy, e),
+                action_cell(
+                    ft.Icons.RESTORE_OUTLINED,
+                    "Restaurar en la app",
+                    "Trae los cálculos y notas de esta copia",
+                    open_import_dialog,
                 ),
-                action_divider,
-                _settings_cell(
-                    icon=ft.Icons.SHARE_OUTLINED,
-                    title="Compartir",
-                    colors=colors,
-                    on_click=lambda e: page.run_task(share_copy, e),
+                action_divider(),
+                action_cell(
+                    ft.Icons.DOWNLOAD_OUTLINED,
+                    "Descargar",
+                    "Guarda el archivo en este dispositivo",
+                    lambda e: page.run_task(download_copy, e),
                 ),
-                action_divider,
-                _settings_cell(
-                    icon=ft.Icons.FILE_UPLOAD_OUTLINED,
-                    title="Importar",
-                    colors=colors,
-                    on_click=open_import_dialog,
-                ),
-                action_divider,
-                _settings_cell(
-                    icon=ft.Icons.DELETE_OUTLINE,
-                    title="Eliminar",
-                    colors=colors,
-                    on_click=confirm_delete,
+                action_divider(),
+                action_cell(
+                    ft.Icons.SHARE_OUTLINED,
+                    "Compartir",
+                    "Envía la copia a otra app",
+                    lambda e: page.run_task(share_copy, e),
                 ),
             ],
+        ),
+    )
+
+    danger = ft.Container(
+        bgcolor=colors["card_bg"],
+        border_radius=16,
+        padding=ft.Padding.symmetric(vertical=6, horizontal=0),
+        content=action_cell(
+            ft.Icons.DELETE_OUTLINE,
+            "Eliminar de Drive",
+            "Envía el archivo a la papelera de Google Drive",
+            confirm_delete,
+            destructive=True,
         ),
     )
 
@@ -1080,10 +871,19 @@ def build_google_drive_backup_detail_view(
                         on_scroll=make_scroll_divider_handler(divider, colors),
                         controls=[
                             ft.Container(
-                                margin=ft.Margin.symmetric(horizontal=24),
+                                margin=ft.Margin.symmetric(horizontal=20),
                                 content=ft.Column(
                                     spacing=0,
-                                    controls=[header, actions],
+                                    controls=[
+                                        header,
+                                        section_label("Detalles"),
+                                        details,
+                                        section_label("Acciones"),
+                                        actions,
+                                        ft.Container(height=20),
+                                        danger,
+                                        ft.Container(height=32),
+                                    ],
                                 ),
                             )
                         ],

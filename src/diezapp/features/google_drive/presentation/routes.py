@@ -7,10 +7,12 @@ Google Drive screens are put together.
 
 import flet as ft
 
+from diezapp.features.google_drive.presentation.google_drive_history_page import (
+    build_google_drive_history_view,
+)
 from diezapp.features.google_drive.presentation.google_drive_page import (
     build_google_drive_account_view,
     build_google_drive_backup_detail_view,
-    build_google_drive_history_view,
     build_google_drive_view,
 )
 from diezapp.navigation import routes
@@ -48,25 +50,24 @@ def build_google_drive_history_route(ctx: RouteContext) -> ft.View:
         )
         ctx.page.navigate(routes.GOOGLE_DRIVE_BACKUP_DETAIL)
 
+    content, actions = build_google_drive_history_view(
+        ctx.page,
+        ctx.colors_fn,
+        ctx.page.session.store.get("gdrive_account_id"),
+        dependencies.google_drive_link,
+        dependencies.google_drive_refresh_token,
+        navigate_to_detail,
+    )
     return ft.View(
         route=routes.GOOGLE_DRIVE_HISTORY,
         padding=0,
         appbar=ctx.build_appbar(
-            "Copias realizadas", show_back=True, back_route=routes.GOOGLE_DRIVE
+            "Copias realizadas",
+            show_back=True,
+            back_route=routes.GOOGLE_DRIVE,
+            actions=actions,
         ),
-        controls=[
-            build_google_drive_history_view(
-                ctx.page,
-                ctx.colors_fn,
-                dependencies.google_drive_link,
-                dependencies.google_drive_refresh_token,
-                dependencies.local_backup,
-                dependencies.calculations,
-                dependencies.notes,
-                dependencies.conflicts,
-                navigate_to_detail,
-            )
-        ],
+        controls=[content],
     )
 
 
