@@ -416,7 +416,7 @@ class CalculatorView:
 
     # ── Actions ──
 
-    def calculate(self, e):
+    async def calculate(self, e):
         try:
             amount = self._parse_amount()
         except ValueError, AttributeError:
@@ -451,6 +451,9 @@ class CalculatorView:
         self.bar.scale.scale_x = 1
         self.bar_bracket.opacity = 1
         self.page.update()
+        # Flet has no blur(): parking focus on the save button drops the amount
+        # field's focus and hides the keyboard so the results are fully visible.
+        await self.save_btn.focus()
 
     def _save_calculation(self, e):
         if self.conflicts.count() > 0:
