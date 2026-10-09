@@ -246,7 +246,7 @@ def build_google_drive_history_view(
         return ft.Container(
             padding=ft.Padding.only(left=4, top=12, bottom=2),
             content=ft.Text(
-                f"{count} {'copia' if count == 1 else 'copias'} · "
+                f"{count} {'copia' if count == 1 else 'copias'}, "
                 f"{format_bytes(total_bytes(files))} en total",
                 size=12,
                 color=colors["on_surface_variant"],

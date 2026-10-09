@@ -732,7 +732,7 @@ def build_google_drive_backup_detail_view(
                 ),
                 ft.Container(height=4),
                 ft.Text(
-                    f"{full_date(moment)} · {moment.strftime('%H:%M')}"
+                    f"{full_date(moment)} a las {moment.strftime('%H:%M')}"
                     if moment
                     else "Sin fecha registrada",
                     size=13,

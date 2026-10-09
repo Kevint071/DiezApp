@@ -685,22 +685,13 @@ def build_saved_calculations_view(
     def calc_row(calc: Calculation):
         moment = _created_at(calc)
         caption = (
-            f"{WEEKDAYS_SHORT[moment.weekday()].capitalize()} · {clock(moment)}"
+            f"{WEEKDAYS_SHORT[moment.weekday()].capitalize()} a las {clock(moment)}"
             if moment
             else "Sin fecha"
         )
         caption_controls = [
             ft.Text(caption, size=12, color=c["on_surface_variant"]),
         ]
-        if calc.get("updated_at"):
-            caption_controls.append(
-                ft.Text(
-                    "· editado",
-                    size=12,
-                    italic=True,
-                    color=c["on_surface_variant"],
-                )
-            )
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=10, horizontal=14),
             ink=True,
@@ -755,7 +746,7 @@ def build_saved_calculations_view(
                                 color=c["on_surface"],
                             ),
                             ft.Text(
-                                f"{count_label(count)} · {format_currency(total)}",
+                                f"{count_label(count)}, {format_currency(total)}",
                                 size=12,
                                 color=c["on_surface_variant"],
                             ),

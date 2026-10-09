@@ -168,8 +168,8 @@ def test_rows_show_only_net_amount_and_when():
     texts = _texts(view)
 
     assert "$1.500.000" in texts
-    assert "Jue · 10:32" in texts
-    assert "· editado" in texts
+    assert "Jue a las 10:32" in texts
+    assert not any("ditado" in t for t in texts if t)
     # The breakdown lives in the detail view, not the list.
     assert not any("Envío" in t for t in texts if t)
 
@@ -181,9 +181,9 @@ def test_month_header_totals_cover_the_whole_month_across_pages():
     texts = _texts(view)
 
     assert "Octubre 2026" in texts
-    assert "25 cálculos · $2.500" in texts
+    assert "25 cálculos, $2.500" in texts
     assert "Septiembre 2026" in texts
-    assert "1 cálculo · $50" in texts
+    assert "1 cálculo, $50" in texts
 
 
 def test_group_by_month_keeps_consecutive_runs():

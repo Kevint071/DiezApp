@@ -7,7 +7,6 @@ from flet.utils.validation import validate
 
 from diezapp.features.calculations.presentation.calculation_detail_page import (
     build_calculation_detail_view,
-    edited_label,
     parse_amount,
 )
 from diezapp.features.calculator.application.calculate_distribution import (
@@ -148,12 +147,18 @@ class Screen:
             if b.content.value == label
         )
 
-    def tap_edit(self):
-        next(a for a in self.actions if isinstance(a, ft.IconButton)).on_click(None)
+    def _action(self, tooltip):
+        return next(
+            a
+            for a in self.actions
+            if isinstance(a, ft.IconButton) and a.tooltip == tooltip
+        )
 
-    def tap_delete_menu(self):
-        menu = next(a for a in self.actions if isinstance(a, ft.PopupMenuButton))
-        menu.items[0].on_click(None)
+    def tap_edit(self):
+        self._action("Editar").on_click(None)
+
+    def tap_delete(self):
+        self._action("Eliminar").on_click(None)
 
     def type_amount(self, value):
         self.field.value = value
@@ -167,7 +172,7 @@ def test_detail_shows_everything_about_the_calculation():
     assert "$1.000.000" in texts
     assert "Envío" in texts and "$210.000" in texts
     assert "Fondo local" in texts and "Sostenimiento" in texts
-    assert "Jue, 8 de octubre de 2026 · 10:32" in texts
+    assert "Jue, 8 de octubre de 2026 a las 10:32" in texts
     # Preorder walk: the last column holding the field is the innermost one.
     edit_block = [
         c for c in screen.controls(ft.Column) if screen.field in list(_walk(c.controls))
@@ -192,7 +197,7 @@ def test_edit_recalculates_live_and_saves_the_new_amount():
     assert screen.update.calls == [("calc-1", 2_000_000)]
     assert screen.calc["amount"] == 2_000_000
     assert "$2.000.000" in screen.texts()
-    assert "Editado el 9 oct 2026 · 08:10" in screen.texts()
+    assert not any("ditado" in t for t in screen.texts() if t)
     assert screen.actions, "actions come back after saving"
 
 
@@ -226,7 +231,7 @@ def test_leaving_with_an_unsaved_amount_asks_first():
 
 def test_delete_asks_for_confirmation_then_reports_back():
     screen = Screen()
-    screen.tap_delete_menu()
+    screen.tap_delete()
     dialog = screen.page.dialogs[-1]
     confirm = dialog.actions[-1]
 
@@ -240,7 +245,7 @@ def test_conflicts_block_editing_and_deleting():
     screen = Screen(conflicts=1)
 
     screen.tap_edit()
-    screen.tap_delete_menu()
+    screen.tap_delete()
 
     assert screen.page.dialogs == []
     assert len(screen.page.overlay) == 2
@@ -258,7 +263,29 @@ def test_view_tree_passes_flet_validation_in_both_modes():
         validate(control)
 
 
-def test_parse_amount_and_edited_label():
+def test_parse_amount():
     assert parse_amount("1.500.000") == 1_500_000
     assert parse_amount("") is None
-    assert edited_label(None) is None
+
+
+def test_header_actions_are_a_yellow_pencil_and_a_red_trash_icon():
+    screen = Screen()
+    colors = get_colors(screen.page)
+
+    edit, delete = [a for a in screen.actions if isinstance(a, ft.IconButton)]
+
+    assert (edit.icon, edit.icon_color) == (ft.Icons.EDIT_OUTLINED, colors["edit"])
+    assert (delete.icon, delete.icon_color) == (
+        ft.Icons.DELETE_OUTLINE,
+        colors["error"],
+    )
+    assert not any(isinstance(a, ft.PopupMenuButton) for a in screen.actions)
+
+
+def test_no_middle_dot_anywhere_on_the_page():
+    screen = Screen()
+    assert not any("·" in t for t in screen.texts() if t)
+    screen.tap_edit()
+    screen.type_amount("2000000")
+    screen.button("Guardar").on_click(None)
+    assert not any("·" in t for t in screen.texts() if t)

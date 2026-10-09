@@ -37,6 +37,9 @@ WARNING_LIGHT = "#FEF3C7"
 WARNING_TEXT_LIGHT = "#B45309"
 WARNING_DARK = "#3A2A08"
 WARNING_TEXT_DARK = "#FCD34D"
+# Edit affordance: a true yellow (the warning tokens read amber/brown on light).
+EDIT_LIGHT = "#CA8A04"
+EDIT_DARK = "#FACC15"
 # Distribution segments (sostenimiento reuses the brand primary).
 # Filled action buttons: text on these passes WCAG AA (light 5.5:1, dark 7.9:1).
 BUTTON_LIGHT = "#047857"
@@ -84,6 +87,7 @@ def get_colors(page: ft.Page) -> dict:
         "error_bg": ERROR_LIGHT if light else ERROR_DARK,
         "warning": WARNING_TEXT_LIGHT if light else WARNING_TEXT_DARK,
         "warning_bg": WARNING_LIGHT if light else WARNING_DARK,
+        "edit": EDIT_LIGHT if light else EDIT_DARK,
         "button": BUTTON_LIGHT if light else BUTTON_DARK,
         "on_button": ON_BUTTON_LIGHT if light else ON_BUTTON_DARK,
         "chart_envio": CHART_ENVIO_LIGHT if light else CHART_ENVIO_DARK,

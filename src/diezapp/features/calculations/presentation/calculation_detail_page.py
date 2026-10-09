@@ -30,7 +30,6 @@ from diezapp.features.calculator.presentation.distribution_breakdown import (
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.shared.datetime_utils import to_local_datetime
 from diezapp.shared.presentation.date_labels import (
-    MONTHS_SHORT,
     WEEKDAYS_SHORT,
     clock,
     full_date,
@@ -50,27 +49,13 @@ SAVE_BTN_HEIGHT = 48
 
 
 def created_label(value: str) -> str:
-    """e.g. ``Mié, 8 de octubre de 2026 · 10:32``."""
+    """e.g. ``Mié, 8 de octubre de 2026 a las 10:32``."""
     try:
         moment = to_local_datetime(value)
     except ValueError, TypeError:
         return "Sin fecha"
     weekday = WEEKDAYS_SHORT[moment.weekday()].capitalize()
-    return f"{weekday}, {full_date(moment)} · {clock(moment)}"
-
-
-def edited_label(value: str | None) -> str | None:
-    """e.g. ``Editado el 9 oct 2026 · 08:10``; ``None`` if never edited."""
-    if not value:
-        return None
-    try:
-        moment = to_local_datetime(value)
-    except ValueError, TypeError:
-        return None
-    return (
-        f"Editado el {moment.day} {MONTHS_SHORT[moment.month - 1]} "
-        f"{moment.year} · {clock(moment)}"
-    )
+    return f"{weekday}, {full_date(moment)} a las {clock(moment)}"
 
 
 def format_thousands(value: float) -> str:
@@ -160,15 +145,6 @@ def build_calculation_detail_view(
             underline,
         ],
     )
-    edited_text = ft.Text("", size=12, italic=True, color=c["on_surface_variant"])
-
-    def _paint_edited():
-        label = edited_label(calc.get("updated_at"))
-        edited_text.value = label or ""
-        edited_text.visible = label is not None
-
-    _paint_edited()
-
     hero = ft.Column(
         spacing=0,
         controls=[
@@ -195,8 +171,6 @@ def build_calculation_detail_view(
                     ),
                 ],
             ),
-            ft.Container(height=4),
-            edited_text,
         ],
     )
 
@@ -303,7 +277,6 @@ def build_calculation_detail_view(
         if updated is None:
             return False
         calc.update(updated)
-        _paint_edited()
         _set_editing(False)
         return True
 
@@ -341,7 +314,7 @@ def build_calculation_detail_view(
             )
         )
 
-    # ── App-bar actions: edit up front, the destructive one tucked away ──
+    # ── App-bar actions: yellow edit, red delete (confirmed by a dialog) ──
     def _build_actions() -> list[ft.Control]:
         if state["editing"]:
             return []
@@ -349,31 +322,16 @@ def build_calculation_detail_view(
             ft.IconButton(
                 ft.Icons.EDIT_OUTLINED,
                 icon_size=20,
-                icon_color=c["on_surface_variant"],
+                icon_color=c["edit"],
                 tooltip="Editar",
                 on_click=_start_edit,
             ),
-            ft.PopupMenuButton(
-                icon=ft.Icons.MORE_VERT,
-                icon_color=c["on_surface_variant"],
+            ft.IconButton(
+                ft.Icons.DELETE_OUTLINE,
                 icon_size=20,
-                tooltip="Más opciones",
-                items=[
-                    ft.PopupMenuItem(
-                        content=ft.Row(
-                            spacing=10,
-                            controls=[
-                                ft.Icon(
-                                    ft.Icons.DELETE_OUTLINE,
-                                    size=18,
-                                    color=c["error"],
-                                ),
-                                ft.Text("Eliminar", color=c["error"]),
-                            ],
-                        ),
-                        on_click=_confirm_delete,
-                    )
-                ],
+                icon_color=c["error"],
+                tooltip="Eliminar",
+                on_click=_confirm_delete,
             ),
             ft.Container(width=4),
         ]

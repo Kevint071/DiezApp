@@ -82,7 +82,7 @@ def build_distribution_breakdown(
                         ),
                     ),
                     ft.Text(
-                        "Restante · 79%",
+                        "Restante 79%",
                         size=11,
                         weight=ft.FontWeight.W_500,
                         color=c["on_surface_variant"],
