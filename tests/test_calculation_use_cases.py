@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from diezapp.features.calculations.application.create_calculation import (
@@ -9,6 +11,7 @@ from diezapp.features.calculations.application.delete_calculation import (
 from diezapp.features.calculations.application.update_calculation import (
     UpdateCalculation,
 )
+from diezapp.shared.datetime_utils import local_now, to_local_datetime
 
 
 class InMemoryCalculationRepository:
@@ -80,3 +83,50 @@ def test_delete_calculation_returns_false_for_unknown_id():
     repository = InMemoryCalculationRepository()
 
     assert DeleteCalculation(repository).execute("missing") is False
+
+
+def test_create_calculation_defaults_to_today():
+    repository = InMemoryCalculationRepository()
+
+    calculation = CreateCalculation(repository).execute(1000, 10)
+
+    created = to_local_datetime(calculation["created_at"])
+    assert created.date() == local_now().date()
+
+
+def test_create_calculation_accepts_a_past_date():
+    repository = InMemoryCalculationRepository()
+
+    calculation = CreateCalculation(repository).execute(
+        1000, 10, calculation_date=date(2024, 3, 15)
+    )
+
+    assert to_local_datetime(calculation["created_at"]).date() == date(2024, 3, 15)
+
+
+def test_create_calculation_with_past_date_is_placed_chronologically():
+    repository = InMemoryCalculationRepository()
+    use_case = CreateCalculation(repository)
+    newest = use_case.execute(1000, 10, calculation_date=date(2026, 5, 10))
+    oldest = use_case.execute(1000, 10, calculation_date=date(2026, 1, 10))
+
+    middle = use_case.execute(1000, 10, calculation_date=date(2026, 3, 10))
+
+    assert [c["id"] for c in repository.list()] == [
+        newest["id"],
+        middle["id"],
+        oldest["id"],
+    ]
+
+
+def test_update_calculation_keeps_the_original_date():
+    repository = InMemoryCalculationRepository()
+    calculation = CreateCalculation(repository).execute(
+        1000, 10, calculation_date=date(2024, 3, 15)
+    )
+    original_created_at = calculation["created_at"]
+
+    updated = UpdateCalculation(repository).execute(calculation["id"], 2000)
+
+    assert updated["created_at"] == original_created_at
+    assert repository.list()[0]["created_at"] == original_created_at

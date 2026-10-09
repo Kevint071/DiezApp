@@ -20,7 +20,7 @@ from diezapp.features.calculations.presentation.calculation_components import (
 )
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
-from diezapp.shared.datetime_utils import local_now, to_local_datetime, to_local_iso
+from diezapp.shared.datetime_utils import local_now, to_local_datetime
 from diezapp.shared.presentation.dialogs import (
     build_dialog,
     dialog_cancel_button,
@@ -639,7 +639,7 @@ def build_saved_calculations_view(
         )
 
         date_txt = ft.Text(
-            format_date(calc.get("updated_at") or calc.get("created_at", "")),
+            format_date(calc.get("created_at", "")),
             size=12,
             weight=ft.FontWeight.W_600,
             color=c["on_surface_variant"],
@@ -772,8 +772,6 @@ def build_saved_calculations_view(
             calc.update(updated_calculation)
             txt_amount.value = format_currency(new_amount)
             _recalculate(new_amount)
-            calc["updated_at"] = to_local_iso(local_now())
-            date_txt.value = format_date(calc["updated_at"])
             state["editing"] = False
             txt_amount.visible = True
             edit_field.visible = False
