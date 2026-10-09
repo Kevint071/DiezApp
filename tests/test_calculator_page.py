@@ -1,6 +1,7 @@
 import dataclasses
 from datetime import date
 
+import flet as ft
 from flet.controls.base_control import BaseControl
 from flet.utils.validation import validate
 
@@ -233,3 +234,21 @@ def test_date_and_save_live_in_the_bottom_action_bar():
 
     view.reset()
     assert view.action_bar.visible is False
+
+
+def test_ink_containers_with_animation_do_not_carry_their_own_padding():
+    # Flet applies `padding` twice on an ink + animate container (outer
+    # AnimatedContainer and inner InkWell child) but once when it is disabled,
+    # so the date card shrank on save and dragged the "Guardar" button along.
+    view, _ = _calculated_view()
+
+    offenders = [
+        control
+        for control in _walk_controls(view.build_content())
+        if isinstance(control, ft.Container)
+        and control.ink
+        and control.animate is not None
+        and control.padding is not None
+    ]
+
+    assert offenders == []

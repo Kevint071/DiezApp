@@ -16,6 +16,10 @@ from diezapp.features.calculator.application.calculate_distribution import (
     CalculateDistribution,
 )
 from diezapp.features.calculator.presentation.date_sheet import show_date_sheet
+from diezapp.features.calculator.presentation.distribution_breakdown import (
+    build_breakdown_bar,
+    build_distribution_breakdown,
+)
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.shared.datetime_utils import local_now
 from diezapp.shared.presentation.date_labels import MONTHS_SHORT, WEEKDAYS_SHORT
@@ -39,7 +43,6 @@ def date_row_label(value: date, today: date) -> str:
 CALC_BTN_SIZE = 48
 SAVE_BTN_HEIGHT = 48
 SAVE_BTN_WIDTH = 150
-TREE_ROW_HEIGHT = 48
 RESULTS_HIDDEN_OFFSET = ft.Offset(0, 0.04)
 ACTION_BAR_HIDDEN_OFFSET = ft.Offset(0, 0.15)
 
@@ -138,10 +141,7 @@ class CalculatorView:
             animate_offset=ft.Animation(320, ft.AnimationCurve.EASE_OUT_CUBIC),
         )
         # The bar grows from the left on every calculation.
-        self.bar = ft.Container(
-            height=10,
-            border_radius=999,
-            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        self.bar = build_breakdown_bar(
             scale=ft.Scale(scale_x=0, scale_y=1, alignment=ft.Alignment.CENTER_LEFT),
             animate_scale=ft.Animation(650, ft.AnimationCurve.EASE_OUT_CUBIC),
         )
@@ -165,26 +165,31 @@ class CalculatorView:
         self.date_icon = ft.Icon(ft.Icons.EXPAND_MORE_ROUNDED, size=18)
         self.date_card = ft.Container(
             border_radius=12,
-            # Horizontal padding gives the hover/ripple room around the text.
-            padding=ft.Padding.symmetric(vertical=8, horizontal=12),
             animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             animate_opacity=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
             ink=True,
             tooltip="Cambiar fecha",
             on_click=self._open_date_picker,
             on_hover=self._on_date_hover,
-            content=ft.Column(
-                spacing=2,
-                tight=True,
-                controls=[
-                    self.date_label,
-                    ft.Row(
-                        spacing=2,
-                        tight=True,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[self.date_switcher, self.date_icon],
-                    ),
-                ],
+            # Padding lives on an inner container: on an ink + animate container
+            # Flet applies it twice while enabled but once when disabled, so the
+            # card shrank on save and dragged the "Guardar" button with it.
+            content=ft.Container(
+                # Horizontal padding gives the hover/ripple room around the text.
+                padding=ft.Padding.symmetric(vertical=8, horizontal=12),
+                content=ft.Column(
+                    spacing=2,
+                    tight=True,
+                    controls=[
+                        self.date_label,
+                        ft.Row(
+                            spacing=2,
+                            tight=True,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[self.date_switcher, self.date_icon],
+                        ),
+                    ],
+                ),
             ),
         )
 
@@ -345,190 +350,13 @@ class CalculatorView:
 
     def _build_results(self, distribution):
         c = self.colors_fn(self.page)
-        pct = self.state["fund_percentage"]
-        amount = distribution.amount or 1
-
-        def _segment(value: float, color: str) -> ft.Container:
-            # `expand` takes ints, so shares are spread over 1000 parts.
-            return ft.Container(
-                expand=max(1, round(value / amount * 1000)),
-                bgcolor=color,
-            )
-
-        self.bar.bgcolor = c["outline"]
-        self.bar.content = ft.Row(
-            spacing=3,
-            controls=[
-                _segment(distribution.envio_21, c["chart_envio"]),
-                _segment(distribution.fondo_local, c["chart_fondo"]),
-                _segment(distribution.sostenimiento, c["primary"]),
-            ],
+        breakdown = build_distribution_breakdown(
+            c,
+            distribution,
+            self.state["fund_percentage"],
+            bar=self.bar,
+            bar_bracket=self.bar_bracket,
         )
-
-        restante_share = max(1, round(distribution.restante / amount * 1000))
-        envio_share = max(1, round(distribution.envio_21 / amount * 1000))
-        # A bracket under the fondo + sostenimiento segments labels them as
-        # "Restante", so the bar shows the same two-level split as the list.
-        self.bar_bracket.content = ft.Row(
-            spacing=3,
-            controls=[
-                ft.Container(expand=envio_share),
-                ft.Column(
-                    expand=restante_share,
-                    spacing=4,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.Container(
-                            height=6,
-                            border=ft.Border.only(
-                                left=ft.BorderSide(1.5, c["outline"]),
-                                right=ft.BorderSide(1.5, c["outline"]),
-                                bottom=ft.BorderSide(1.5, c["outline"]),
-                            ),
-                            border_radius=ft.BorderRadius.only(
-                                bottom_left=4, bottom_right=4
-                            ),
-                        ),
-                        ft.Text(
-                            "Restante · 79%",
-                            size=11,
-                            weight=ft.FontWeight.W_500,
-                            color=c["on_surface_variant"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-
-        def _pill(text: str, color: str) -> ft.Container:
-            return ft.Container(
-                padding=ft.Padding.symmetric(vertical=1, horizontal=7),
-                border_radius=999,
-                bgcolor=ft.Colors.with_opacity(0.14, color),
-                content=ft.Text(text, size=11, weight=ft.FontWeight.W_600, color=color),
-            )
-
-        def _dot(color: str) -> ft.Container:
-            return ft.Container(width=10, height=10, border_radius=999, bgcolor=color)
-
-        def _row(leading, label, pill, value, caption=None, value_size=15):
-            title = ft.Row(
-                spacing=8,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Text(
-                        label,
-                        size=14,
-                        weight=ft.FontWeight.W_600,
-                        color=c["on_surface"],
-                    ),
-                    pill,
-                ],
-            )
-            return ft.Row(
-                spacing=12,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Container(
-                        width=16, alignment=ft.Alignment.CENTER, content=leading
-                    ),
-                    ft.Column(
-                        expand=True,
-                        spacing=2,
-                        tight=True,
-                        controls=[title]
-                        + (
-                            [ft.Text(caption, size=12, color=c["on_surface_variant"])]
-                            if caption
-                            else []
-                        ),
-                    ),
-                    ft.Text(
-                        self.format_currency(value),
-                        size=value_size,
-                        weight=ft.FontWeight.W_700,
-                        color=c["on_surface"],
-                    ),
-                ],
-            )
-
-        def _connector(last: bool) -> ft.Stack:
-            """├ / └ elbow joining a child row to the "Restante" trunk."""
-            mid = TREE_ROW_HEIGHT / 2
-            return ft.Stack(
-                width=22,
-                height=TREE_ROW_HEIGHT,
-                controls=[
-                    ft.Container(
-                        left=7.25,
-                        top=0,
-                        width=1.5,
-                        height=mid if last else TREE_ROW_HEIGHT,
-                        bgcolor=c["outline"],
-                    ),
-                    ft.Container(
-                        left=8,
-                        top=mid - 0.75,
-                        width=14,
-                        height=1.5,
-                        bgcolor=c["outline"],
-                    ),
-                ],
-            )
-
-        def _child(label, pct_value, value, color, last=False):
-            return ft.Container(
-                height=TREE_ROW_HEIGHT,
-                content=ft.Row(
-                    spacing=6,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        _connector(last),
-                        ft.Container(
-                            expand=True,
-                            content=_row(
-                                _dot(color), label, _pill(f"{pct_value}%", color), value
-                            ),
-                        ),
-                    ],
-                ),
-            )
-
-        restante_group = ft.Column(
-            spacing=0,
-            controls=[
-                _row(
-                    # Hollow ring: a subtotal, not a segment, and not tappable.
-                    ft.Container(
-                        width=12,
-                        height=12,
-                        border_radius=999,
-                        border=ft.Border.all(2, c["on_surface_variant"]),
-                    ),
-                    "Restante",
-                    _pill("79%", c["on_surface_variant"]),
-                    distribution.restante,
-                    caption="Se reparte en",
-                ),
-                ft.Container(height=6),
-                _child("Fondo local", pct, distribution.fondo_local, c["chart_fondo"]),
-                _child(
-                    "Sostenimiento",
-                    100 - pct,
-                    distribution.sostenimiento,
-                    c["primary"],
-                    last=True,
-                ),
-            ],
-        )
-
-        def _divider(vertical: int) -> ft.Container:
-            return ft.Container(
-                height=1,
-                bgcolor=c["outline"],
-                margin=ft.Margin.symmetric(vertical=vertical),
-            )
-
         self._refresh_date_card()
         self.results_container.content = ft.Column(
             spacing=0,
@@ -542,18 +370,7 @@ class CalculatorView:
                     color=c["on_surface"],
                 ),
                 ft.Container(height=16),
-                self.bar,
-                ft.Container(height=4),
-                self.bar_bracket,
-                ft.Container(height=20),
-                _row(
-                    _dot(c["chart_envio"]),
-                    "Envío",
-                    _pill("21%", c["chart_envio"]),
-                    distribution.envio_21,
-                ),
-                _divider(16),
-                restante_group,
+                *breakdown,
             ],
         )
 
