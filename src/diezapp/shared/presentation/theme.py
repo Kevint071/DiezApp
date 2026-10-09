@@ -37,6 +37,16 @@ WARNING_LIGHT = "#FEF3C7"
 WARNING_TEXT_LIGHT = "#B45309"
 WARNING_DARK = "#3A2A08"
 WARNING_TEXT_DARK = "#FCD34D"
+# Distribution segments (sostenimiento reuses the brand primary).
+# Filled action buttons: text on these passes WCAG AA (light 5.5:1, dark 7.9:1).
+BUTTON_LIGHT = "#047857"
+ON_BUTTON_LIGHT = "#FFFFFF"
+BUTTON_DARK = PRIMARY_DARK
+ON_BUTTON_DARK = "#022C22"
+CHART_ENVIO_LIGHT = "#2563EB"
+CHART_ENVIO_DARK = "#60A5FA"
+CHART_FONDO_LIGHT = "#D97706"
+CHART_FONDO_DARK = "#FBBF24"
 APPBAR_BGCOLOR_LIGHT = PRIMARY
 APPBAR_BGCOLOR_DARK = "#0a0c10"
 
@@ -74,6 +84,10 @@ def get_colors(page: ft.Page) -> dict:
         "error_bg": ERROR_LIGHT if light else ERROR_DARK,
         "warning": WARNING_TEXT_LIGHT if light else WARNING_TEXT_DARK,
         "warning_bg": WARNING_LIGHT if light else WARNING_DARK,
+        "button": BUTTON_LIGHT if light else BUTTON_DARK,
+        "on_button": ON_BUTTON_LIGHT if light else ON_BUTTON_DARK,
+        "chart_envio": CHART_ENVIO_LIGHT if light else CHART_ENVIO_DARK,
+        "chart_fondo": CHART_FONDO_LIGHT if light else CHART_FONDO_DARK,
     }
 
 
