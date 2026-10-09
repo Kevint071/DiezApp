@@ -9,14 +9,13 @@ page of rows is ever built, which is what keeps a large account from landing
 on Flet all at once.
 """
 
-import math
-
 import flet as ft
 
 from diezapp.infrastructure.google.drive_client import list_backup_files
 from diezapp.shared.datetime_utils import local_now, to_local_datetime
 from diezapp.shared.presentation.byte_format import format_bytes, total_bytes
 from diezapp.shared.presentation.date_labels import clock, short_date
+from diezapp.shared.presentation.pager import Pager, page_count
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -164,54 +163,7 @@ def build_google_drive_history_view(
     list_column = ft.Column(spacing=0)
 
     # ── Pinned pager: thumb-reachable, never scrolled away ─
-    page_label = ft.Text(
-        "", size=13, weight=ft.FontWeight.W_700, color=colors["on_surface"]
-    )
-    range_label = caption("", size=11)
-
-    def nav_button(icon, delta, tooltip):
-        return ft.Container(
-            width=46,
-            height=46,
-            border_radius=23,
-            alignment=ft.Alignment.CENTER,
-            tooltip=tooltip,
-            animate=ft.Animation(140, ft.AnimationCurve.EASE_OUT),
-            on_click=lambda e: go(delta),
-            content=ft.Icon(icon, size=22),
-        )
-
-    prev_button = nav_button(ft.Icons.CHEVRON_LEFT_ROUNDED, -1, "Página anterior")
-    next_button = nav_button(ft.Icons.CHEVRON_RIGHT_ROUNDED, 1, "Página siguiente")
-
-    def paint_nav(control, enabled):
-        # Disabled reads as a flat, low-contrast well rather than a filled
-        # button, so the state is carried by shape and not by colour alone.
-        control.disabled = not enabled
-        control.bgcolor = colors["primary"] if enabled else colors["divider"]
-        control.content.color = (
-            colors["on_primary"] if enabled else colors["on_surface_variant"]
-        )
-
-    pager = ft.Container(
-        visible=False,
-        bgcolor=colors["surface"],
-        border=ft.Border.only(top=ft.BorderSide(1, colors["outline"])),
-        padding=ft.Padding.symmetric(vertical=10, horizontal=16),
-        content=ft.Row(
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[
-                prev_button,
-                ft.Column(
-                    expand=True,
-                    spacing=1,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[page_label, range_label],
-                ),
-                next_button,
-            ],
-        ),
-    )
+    pager = Pager(colors, lambda delta: go(delta))
 
     # ── App-bar actions: screen options belong here, not over the list ──
     size_menu_items = []
@@ -251,7 +203,7 @@ def build_google_drive_history_view(
 
     # ── Paging ────────────────────────────────────────────
     def total_pages():
-        return max(1, math.ceil(len(state["entries"]) / state["size"]))
+        return page_count(len(state["entries"]), state["size"])
 
     def paint_page():
         pages = total_pages()
@@ -262,13 +214,7 @@ def build_google_drive_history_view(
             backup_row(file, moment, index == len(window) - 1)
             for index, (file, moment) in enumerate(window)
         ]
-        page_label.value = f"Página {state['page'] + 1} de {pages}"
-        range_label.value = (
-            f"{start + 1}–{start + len(window)} de {len(state['entries'])}"
-        )
-        paint_nav(prev_button, state["page"] > 0)
-        paint_nav(next_button, state["page"] < pages - 1)
-        pager.visible = pages > 1
+        pager.paint(state["page"], pages, start, len(window), len(state["entries"]))
 
     def scroll_to_top():
         # `scroll_to` is a coroutine in Flet, so it has to be handed to the
@@ -436,7 +382,7 @@ def build_google_drive_history_view(
         return controls
 
     async def load_backups():
-        pager.visible = False
+        pager.control.visible = False
         body.controls = [skeleton()]
         page.update()
         try:
@@ -508,7 +454,7 @@ def build_google_drive_history_view(
             content=ft.Column(
                 expand=True,
                 spacing=0,
-                controls=[divider, scroll_column, pager],
+                controls=[divider, scroll_column, pager.control],
             ),
         ),
     )
