@@ -18,6 +18,12 @@ from diezapp.shared.presentation.theme import (
 # settings_view and other secondary views are lazy-imported on first use to
 # speed up startup.
 
+# History list route -> (its detail route, session key holding its page).
+_CALCULATION_LISTS = {
+    routes.SAVED: (routes.SAVED_DETAIL, "saved_page"),
+    routes.PDF_PREVIEW: (routes.PDF_PREVIEW_DETAIL, "pdf_preview_page"),
+}
+
 
 def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
@@ -162,23 +168,33 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         )
         return _apply_root(routes.HOME, _build_appbar("Inicio"), content)
 
-    def _build_saved_view() -> ft.View:
+    def _build_saved_list(route, date_range=None):
+        """History list for ``route``; rows open ``route``'s detail view."""
         from diezapp.features.calculations.presentation.calculations_page import (
             build_saved_calculations_view,
         )
 
-        # `page.navigate` no-ops when the target route equals the current
-        # one, so refreshing in place must call the route handler directly.
-        content = build_saved_calculations_view(
+        detail_route, page_key = _CALCULATION_LISTS[route]
+
+        def _open(calculation_id):
+            page.session.store.set("calculation_id", calculation_id)
+            page.navigate(detail_route)
+
+        # The route rebuilds the list on every visit, so the page lives in the
+        # session to survive a round-trip to the detail view.
+        return build_saved_calculations_view(
             page,
             get_colors,
-            lambda: route_change(),
             dependencies.calculations,
-            dependencies.update_calculation,
-            dependencies.delete_calculation,
-            dependencies.conflicts,
             dependencies.pdf_export,
+            _open,
+            date_range=date_range,
+            initial_page=page.session.store.get(page_key) or 0,
+            on_page_change=lambda index: page.session.store.set(page_key, index),
         )
+
+    def _build_saved_view() -> ft.View:
+        content = _build_saved_list(routes.SAVED)
         return _apply_root(routes.SAVED, _build_appbar("Cálculos guardados"), content)
 
     def _build_pdf_export_view() -> ft.View:
@@ -188,6 +204,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
         def _on_show_filtered(start, end):
             page.session.store.set("pdf_export_range", (start, end))
+            page.session.store.set("pdf_preview_page", 0)
             page.navigate(routes.PDF_PREVIEW)
 
         content = build_date_range_picker_view(
@@ -273,22 +290,8 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
     # ── Nested (drill-down) views ─────────────────────────
     def _build_pdf_preview_view() -> ft.View:
-        from diezapp.features.calculations.presentation.calculations_page import (
-            build_saved_calculations_view,
-        )
-
         start, end = page.session.store.get("pdf_export_range")
-        content = build_saved_calculations_view(
-            page,
-            get_colors,
-            lambda: route_change(),
-            dependencies.calculations,
-            dependencies.update_calculation,
-            dependencies.delete_calculation,
-            dependencies.conflicts,
-            dependencies.pdf_export,
-            date_range=(start, end),
-        )
+        content = _build_saved_list(routes.PDF_PREVIEW, date_range=(start, end))
         return ft.View(
             route=routes.PDF_PREVIEW,
             padding=0,
@@ -297,6 +300,58 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             ),
             controls=[content],
         )
+
+    def _build_calculation_detail_view(route, back_route) -> ft.View | None:
+        from diezapp.features.calculations.presentation.calculation_detail_page import (
+            build_calculation_detail_view,
+        )
+
+        calculation_id = page.session.store.get("calculation_id")
+        calculation = next(
+            (
+                item
+                for item in dependencies.calculations.list()
+                if item["id"] == calculation_id
+            ),
+            None,
+        )
+        if calculation is None:
+            return None
+
+        appbar = _build_appbar("Cálculo", show_back=True, back_route=back_route)
+
+        def _set_actions(actions):
+            appbar.actions = actions
+            page.update()
+
+        def _on_deleted():
+            _show_snack("Cálculo eliminado", keep_open=False)
+            page.navigate(back_route)
+
+        content = build_calculation_detail_view(
+            page,
+            get_colors,
+            calculation,
+            dependencies.calculate_distribution,
+            dependencies.update_calculation,
+            dependencies.delete_calculation,
+            dependencies.conflicts,
+            _on_deleted,
+            _set_actions,
+            _register_leave_guard,
+        )
+        view = ft.View(route=route, padding=0, appbar=appbar, controls=[content])
+
+        # Same as the note detail: the unsaved-changes guard has to intercept
+        # the pop attempt itself rather than react after the fact.
+        view.can_pop = False
+
+        async def _on_confirm_pop(ev):
+            await view.confirm_pop(False)
+            _guard_navigate(back_route)
+
+        view.on_confirm_pop = _on_confirm_pop
+        return view
 
     def _build_new_note_view() -> ft.View:
         from diezapp.features.notes.presentation.notes_page import build_new_note_view
@@ -455,6 +510,12 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             return [_build_note_detail_view()]
         elif route == routes.PDF_PREVIEW:
             return [_build_pdf_preview_view()]
+        elif route == routes.SAVED_DETAIL:
+            detail = _build_calculation_detail_view(route, routes.SAVED)
+            return [detail] if detail else []
+        elif route == routes.PDF_PREVIEW_DETAIL:
+            detail = _build_calculation_detail_view(route, routes.PDF_PREVIEW)
+            return [_build_pdf_preview_view(), *([detail] if detail else [])]
         elif route == routes.GOOGLE_DRIVE_HISTORY:
             return [
                 _build_google_drive_account_view(),

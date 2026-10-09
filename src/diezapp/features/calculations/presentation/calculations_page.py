@@ -1,5 +1,14 @@
+"""Saved calculations: the paged history list and the PDF date-range picker.
+
+The history shows one compact row per calculation (date + cantidad neta),
+grouped by month; the full breakdown, editing and deletion live in the detail
+view. Only one page of rows is ever built, which keeps a long history from
+landing on Flet all at once.
+"""
+
 import calendar
 import os
+from collections.abc import Callable
 from datetime import date
 
 import flet as ft
@@ -7,37 +16,27 @@ import flet as ft
 from diezapp.features.calculations.application.calculation_service import (
     CalculationService,
 )
-from diezapp.features.calculations.application.delete_calculation import (
-    DeleteCalculation,
-)
-from diezapp.features.calculations.application.update_calculation import (
-    UpdateCalculation,
-)
+from diezapp.features.calculations.domain.models import Calculation
 from diezapp.features.calculations.presentation.calculation_components import (
-    build_data_row,
     format_currency,
-    format_date,
 )
-from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.pdf_export.application.pdf_export_service import PdfExportService
 from diezapp.shared.datetime_utils import local_now, to_local_datetime
-from diezapp.shared.presentation.dialogs import (
-    build_dialog,
-    dialog_cancel_button,
-    dialog_primary_button,
+from diezapp.shared.presentation.date_labels import (
+    MONTHS_LONG,
+    MONTHS_SHORT,
+    WEEKDAYS_SHORT,
+    clock,
 )
+from diezapp.shared.presentation.pager import Pager, page_count
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
 )
 from diezapp.shared.presentation.share_files import share_local_file
-from diezapp.shared.presentation.theme import (
-    FOCUS_DARK,
-    FOCUS_LIGHT,
-    ON_SURFACE_DARK,
-    ON_SURFACE_LIGHT,
-    OUTLINE_LIGHT_INPUT,
-)
+from diezapp.shared.presentation.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
+
+PAGE_SIZE = 20
 
 
 def build_date_range_picker_view(
@@ -528,33 +527,86 @@ def apply_saved_calculations_appbar(
     )
 
 
+def _created_at(calc: Calculation):
+    try:
+        return to_local_datetime(calc.get("created_at", ""))
+    except ValueError, TypeError:
+        return None
+
+
+def filter_by_date_range(
+    calculations: list[Calculation], date_range: tuple[date, date] | None
+) -> list[Calculation]:
+    if not date_range:
+        return calculations
+    start_date, end_date = date_range
+    return [
+        calc
+        for calc in calculations
+        if (moment := _created_at(calc)) is not None
+        and start_date <= moment.date() <= end_date
+    ]
+
+
+def month_key(calc: Calculation) -> tuple[int, int] | None:
+    moment = _created_at(calc)
+    return (moment.year, moment.month) if moment else None
+
+
+def month_totals(calculations: list[Calculation]) -> dict:
+    """``{(year, month): (count, total amount)}`` over the whole list.
+
+    Headers show the whole month even when it spills over two pages, so the
+    figures never change depending on where the page break falls.
+    """
+    totals: dict = {}
+    for calc in calculations:
+        key = month_key(calc)
+        count, total = totals.get(key, (0, 0.0))
+        totals[key] = (count + 1, total + (calc.get("amount") or 0))
+    return totals
+
+
+def group_by_month(window: list[Calculation]) -> list[tuple]:
+    """Split a newest-first window into consecutive ``(key, calcs)`` runs."""
+    groups: list[tuple] = []
+    for calc in window:
+        key = month_key(calc)
+        if groups and groups[-1][0] == key:
+            groups[-1][1].append(calc)
+        else:
+            groups.append((key, [calc]))
+    return groups
+
+
+def month_title(key: tuple[int, int] | None) -> str:
+    if key is None:
+        return "Sin fecha"
+    year, month = key
+    return f"{MONTHS_LONG[month - 1].capitalize()} {year}"
+
+
+def count_label(count: int) -> str:
+    return f"{count} {'cálculo' if count == 1 else 'cálculos'}"
+
+
 def build_saved_calculations_view(
     page: ft.Page,
     colors_fn,
-    on_refresh,
     calculations_service: CalculationService,
-    update_calculation: UpdateCalculation,
-    delete_calculation: DeleteCalculation,
-    conflicts_service: ConflictService,
     pdf_export_service: PdfExportService,
+    on_open: Callable[[str], None],
     date_range=None,
+    initial_page: int = 0,
+    on_page_change: Callable[[int], None] | None = None,
 ):
-    c = colors_fn(page)
-    light = page.theme_mode == ft.ThemeMode.LIGHT
-    all_calculations = calculations_service.list()
+    """Paged, month-grouped history. Tapping a row calls ``on_open(id)``.
 
-    if date_range:
-        start_date, end_date = date_range
-        calculations = []
-        for calc in all_calculations:
-            try:
-                cd = to_local_datetime(calc.get("created_at", "")).date()
-                if start_date <= cd <= end_date:
-                    calculations.append(calc)
-            except ValueError, TypeError:
-                continue
-    else:
-        calculations = all_calculations
+    ``initial_page``/``on_page_change`` let the caller keep the page across a
+    round-trip to the detail view, since the route rebuilds this view.
+    """
+    c = colors_fn(page)
+    calculations = filter_by_date_range(calculations_service.list(), date_range)
 
     if not calculations:
         empty_msg = (
@@ -589,375 +641,237 @@ def build_saved_calculations_view(
             ),
         )
 
-    def _build_item(calc: dict):
-        calc_id = calc["id"]
-        fund_pct = calc.get("fund_percentage", 1)
-        state = {"editing": False, "original_amount": calc["amount"], "container": None}
+    totals = month_totals(calculations)
+    state = {"page": initial_page}
 
-        focus_color = FOCUS_LIGHT if light else FOCUS_DARK
-        input_border = OUTLINE_LIGHT_INPUT if light else c["outline"]
-        label_color = "#475569" if light else "#CBD5E1"
-
-        def _fmt_int(n: int) -> str:
-            digits = str(int(n))
-            out = ""
-            for i, d in enumerate(reversed(digits)):
-                if i > 0 and i % 3 == 0:
-                    out = "." + out
-                out = d + out
-            return out
-
-        txt_amount = ft.Text(
-            format_currency(calc["amount"]),
-            size=14,
-            weight=ft.FontWeight.W_600,
-            color=c["primary"],
-        )
-        txt_envio = ft.Text(
-            format_currency(calc["envio_21"]),
-            size=14,
-            weight=ft.FontWeight.W_600,
-            color=c["primary"],
-        )
-        txt_restante = ft.Text(
-            format_currency(calc["restante"]),
-            size=14,
-            weight=ft.FontWeight.W_600,
-            color=c["primary"],
-        )
-        txt_fondo = ft.Text(
-            format_currency(calc["fondo_local"]),
-            size=14,
-            weight=ft.FontWeight.W_600,
-            color=c["primary"],
-        )
-        txt_sost = ft.Text(
-            format_currency(calc["sostenimiento"]),
-            size=14,
-            weight=ft.FontWeight.W_600,
-            color=c["primary"],
+    # ── Primitives ────────────────────────────────────────
+    def hairline():
+        # `divider` collapses into `card_bg` in dark mode, so in-card separators
+        # use `outline`, which keeps contrast in both themes.
+        return ft.Container(
+            padding=ft.Padding.only(left=76, right=16),
+            content=ft.Divider(height=1, thickness=1, color=c["outline"]),
         )
 
-        date_txt = ft.Text(
-            format_date(calc.get("created_at", "")),
-            size=12,
-            weight=ft.FontWeight.W_600,
-            color=c["on_surface_variant"],
-        )
-
-        edit_field = ft.TextField(
-            value=_fmt_int(int(calc["amount"])),
-            keyboard_type=ft.KeyboardType.NUMBER,
-            border_radius=8,
-            content_padding=ft.Padding.symmetric(vertical=0, horizontal=0),
-            text_size=14,
-            text_align=ft.TextAlign.RIGHT,
-            border_color=input_border,
-            focused_border_color=focus_color,
-            visible=False,
-            width=110,
-            height=27,
-        )
-
-        edit_btn = ft.IconButton(
-            icon=ft.Icons.EDIT_OUTLINED,
-            icon_color=c["primary"],
-            icon_size=18,
-            tooltip="Editar",
-            style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-            width=32,
-            height=32,
-            visible=not bool(date_range),
-        )
-        delete_btn = ft.IconButton(
-            icon=ft.Icons.DELETE_OUTLINE,
-            icon_color="#D32F2F",
-            icon_size=18,
-            tooltip="Eliminar",
-            style=ft.ButtonStyle(padding=ft.Padding.all(6)),
-            width=32,
-            height=32,
-            visible=not bool(date_range),
-        )
-        save_btn = ft.FilledButton(
-            "Guardar",
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=8),
-                padding=ft.Padding.symmetric(vertical=10, horizontal=16),
-            ),
-        )
-        cancel_btn = ft.TextButton(
-            "Cancelar",
-            style=ft.ButtonStyle(color=c["on_surface_variant"]),
-        )
-
-        edit_actions = ft.Container(
-            visible=False,
-            padding=ft.Padding.only(left=16, right=16, top=4, bottom=10),
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.END,
-                spacing=8,
-                controls=[cancel_btn, save_btn],
-            ),
-        )
-
-        def _recalculate(amount: float):
-            val_21 = amount * 0.21
-            val_79 = amount * 0.79
-            val_fondo = val_79 * (fund_pct / 100)
-            txt_envio.value = format_currency(val_21)
-            txt_restante.value = format_currency(val_79)
-            txt_fondo.value = format_currency(val_fondo)
-            txt_sost.value = format_currency(amount - val_21 - val_fondo)
-
-        def _on_change(e):
-            raw = edit_field.value.replace(".", "").replace(",", "")
-            digits = "".join(ch for ch in raw if ch.isdigit())
-            if not digits:
-                edit_field.value = ""
-                page.update()
-                return
-            edit_field.value = _fmt_int(int(digits))
-            try:
-                _recalculate(float(digits))
-            except ValueError, AttributeError:
-                pass
-            page.update()
-
-        edit_field.on_change = _on_change
-
-        def _enter_edit(e):
-            state["editing"] = True
-            state["original_amount"] = calc["amount"]
-            edit_field.value = _fmt_int(int(calc["amount"]))
-            txt_amount.visible = False
-            edit_field.visible = True
-            edit_btn.visible = False
-            delete_btn.visible = False
-            edit_actions.visible = True
-            if state["container"]:
-                state["container"].border = ft.Border.all(1.5, c["primary"])
-            page.update()
-
-        def _cancel_edit(e):
-            state["editing"] = False
-            txt_amount.visible = True
-            edit_field.visible = False
-            edit_btn.visible = True
-            delete_btn.visible = True
-            edit_actions.visible = False
-            txt_amount.value = format_currency(state["original_amount"])
-            _recalculate(state["original_amount"])
-            if state["container"]:
-                state["container"].border = ft.Border.all(1, c["outline"])
-            page.update()
-
-        def _save_edit(e):
-            if conflicts_service.count() > 0:
-                page.overlay.append(
-                    ft.SnackBar(
-                        content=ft.Text("Resuelve los conflictos antes de editar"),
-                        open=True,
-                    )
-                )
-                page.update()
-                return
-            try:
-                new_amount = float(edit_field.value.replace(".", ""))
-            except ValueError, AttributeError:
-                return
-            updated_calculation = update_calculation.execute(calc_id, new_amount)
-            if updated_calculation is None:
-                return
-            calc.update(updated_calculation)
-            txt_amount.value = format_currency(new_amount)
-            _recalculate(new_amount)
-            state["editing"] = False
-            txt_amount.visible = True
-            edit_field.visible = False
-            edit_btn.visible = True
-            delete_btn.visible = True
-            edit_actions.visible = False
-            if state["container"]:
-                state["container"].border = ft.Border.all(1, c["outline"])
-            page.update()
-
-        def _confirm_delete(e):
-            if conflicts_service.count() > 0:
-                page.overlay.append(
-                    ft.SnackBar(
-                        content=ft.Text("Resuelve los conflictos antes de eliminar"),
-                        open=True,
-                    )
-                )
-                page.update()
-                return
-
-            def _do_delete(ev):
-                delete_calculation.execute(calc_id)
-                page.pop_dialog()
-                on_refresh()
-
-            def _cancel_delete(ev):
-                page.pop_dialog()
-
-            page.show_dialog(
-                build_dialog(
-                    c,
-                    modal=True,
-                    title="Eliminar cálculo",
-                    content="¿Estás seguro de que deseas eliminar este cálculo?",
-                    actions=[
-                        dialog_cancel_button("Cancelar", _cancel_delete, c),
-                        dialog_primary_button(
-                            "Eliminar", _do_delete, c, destructive=True
-                        ),
-                    ],
-                )
-            )
-
-        edit_btn.on_click = _enter_edit
-        cancel_btn.on_click = _cancel_edit
-        save_btn.on_click = _save_edit
-        delete_btn.on_click = _confirm_delete
-
-        item = ft.Container(
-            bgcolor=ft.Colors.TRANSPARENT,
-            border=ft.Border.all(1, c["outline"]),
+    def date_tile(moment):
+        return ft.Container(
+            width=48,
+            height=48,
             border_radius=12,
-            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-            margin=ft.Margin.only(right=16, bottom=12),
+            bgcolor=c["hero_bg"],
+            alignment=ft.Alignment.CENTER,
             content=ft.Column(
                 spacing=0,
+                tight=True,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    # ── Date header + action icons ──────────────
-                    ft.Container(
-                        padding=ft.Padding.only(left=16, right=4, top=14, bottom=4),
-                        content=ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                            controls=[
-                                date_txt,
-                                ft.Row(
-                                    spacing=0,
-                                    tight=True,
-                                    controls=[edit_btn, delete_btn],
-                                ),
-                            ],
-                        ),
+                    ft.Text(
+                        str(moment.day) if moment else "--",
+                        size=17,
+                        weight=ft.FontWeight.W_700,
+                        color=c["primary"],
                     ),
-                    # ── Data rows ───────────────────────────────
-                    build_data_row(
-                        "Cantidad neta",
-                        edit_field,
-                        label_color,
-                        c["divider"],
-                        is_amount=True,
-                        amount_control=txt_amount,
+                    ft.Text(
+                        MONTHS_SHORT[moment.month - 1].upper() if moment else "",
+                        size=10,
+                        weight=ft.FontWeight.W_600,
+                        color=c["primary"],
                     ),
-                    build_data_row("Envío (21%)", txt_envio, label_color, c["divider"]),
-                    build_data_row("Restante", txt_restante, label_color, c["divider"]),
-                    build_data_row(
-                        f"Fondo local ({fund_pct}%)",
-                        txt_fondo,
-                        label_color,
-                        c["divider"],
-                    ),
-                    build_data_row(
-                        "Sostenimiento",
-                        txt_sost,
-                        label_color,
-                        c["divider"],
-                        last=True,
-                    ),
-                    # ── Edit actions (visible only when editing) ─
-                    edit_actions,
-                    ft.Container(height=10),
                 ],
             ),
         )
-        state["container"] = item
-        return item
 
-    items_column = ft.Column(
-        expand=True,
-        spacing=0,
-        scroll=ft.Scrollbar(thickness=6, radius=4),
-        controls=[_build_item(calc) for calc in calculations],
-    )
-
-    if not date_range:
-        divider = build_scroll_divider()
-        items_column.on_scroll = make_scroll_divider_handler(divider, c)
-        return ft.SafeArea(
-            expand=True,
-            content=ft.Container(
-                expand=True,
-                padding=ft.Padding.only(top=4, bottom=0),
-                content=ft.Column(
-                    expand=True,
-                    spacing=0,
-                    controls=[
-                        divider,
-                        ft.Container(
-                            expand=True,
-                            padding=ft.Padding.only(left=16),
-                            content=items_column,
-                        ),
-                    ],
-                ),
+    # ── Row: only the net amount and when; the rest is one tap away ──
+    def calc_row(calc: Calculation):
+        moment = _created_at(calc)
+        caption = (
+            f"{WEEKDAYS_SHORT[moment.weekday()].capitalize()} · {clock(moment)}"
+            if moment
+            else "Sin fecha"
+        )
+        caption_controls = [
+            ft.Text(caption, size=12, color=c["on_surface_variant"]),
+        ]
+        if calc.get("updated_at"):
+            caption_controls.append(
+                ft.Text(
+                    "· editado",
+                    size=12,
+                    italic=True,
+                    color=c["on_surface_variant"],
+                )
+            )
+        return ft.Container(
+            padding=ft.Padding.symmetric(vertical=10, horizontal=14),
+            ink=True,
+            on_click=lambda e, calc_id=calc["id"]: on_open(calc_id),
+            content=ft.Row(
+                spacing=14,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    date_tile(moment),
+                    ft.Column(
+                        expand=True,
+                        spacing=2,
+                        controls=[
+                            ft.Text(
+                                format_currency(calc.get("amount") or 0),
+                                size=16,
+                                weight=ft.FontWeight.W_700,
+                                color=c["on_surface"],
+                            ),
+                            ft.Row(spacing=4, controls=caption_controls),
+                        ],
+                    ),
+                    ft.Icon(
+                        ft.Icons.CHEVRON_RIGHT,
+                        size=20,
+                        color=c["on_surface_variant"],
+                    ),
+                ],
             ),
         )
 
-    # Filtered mode: show list + export button at bottom
-    async def _export_filtered(e):
-        pdf_path = pdf_export_service.export_calculations(calculations)
-        await share_local_file(
-            page,
-            pdf_path,
-            pdf_path.split(os.sep)[-1],
-            title="Exportar cálculos",
-        )
-
-    export_btn = ft.FilledButton(
-        "Exportar PDF",
-        icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
-        on_click=_export_filtered,
-        style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
-        ),
-        width=float("inf"),
-    )
-
-    filtered_divider = build_scroll_divider()
-    return ft.SafeArea(
-        expand=True,
-        content=ft.Column(
-            expand=True,
+    def month_section(key, calcs: list[Calculation]):
+        count, total = totals.get(key, (len(calcs), 0.0))
+        rows: list[ft.Control] = []
+        for index, calc in enumerate(calcs):
+            if index:
+                rows.append(hairline())
+            rows.append(calc_row(calc))
+        return ft.Column(
             spacing=0,
             controls=[
-                filtered_divider,
-                ft.Column(
-                    expand=True,
-                    spacing=0,
-                    scroll=ft.Scrollbar(thickness=6, radius=4),
-                    on_scroll=make_scroll_divider_handler(filtered_divider, c),
-                    controls=[
-                        ft.Container(
-                            expand=True,
-                            padding=ft.Padding.only(top=4, left=16, right=0, bottom=0),
-                            content=items_column,
-                        ),
-                        ft.Container(
-                            padding=ft.Padding.only(
-                                left=24, right=24, top=8, bottom=24
+                ft.Container(
+                    padding=ft.Padding.only(left=4, right=4, top=18, bottom=8),
+                    content=ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Text(
+                                month_title(key),
+                                size=14,
+                                weight=ft.FontWeight.W_700,
+                                color=c["on_surface"],
                             ),
-                            content=export_btn,
-                        ),
-                    ],
+                            ft.Text(
+                                f"{count_label(count)} · {format_currency(total)}",
+                                size=12,
+                                color=c["on_surface_variant"],
+                            ),
+                        ],
+                    ),
+                ),
+                ft.Container(
+                    bgcolor=c["card_bg"],
+                    border_radius=16,
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                    padding=ft.Padding.symmetric(vertical=4),
+                    content=ft.Column(spacing=0, controls=rows),
                 ),
             ],
+        )
+
+    # ── Paging ────────────────────────────────────────────
+    list_column = ft.Column(spacing=0)
+    pager = Pager(c, lambda delta: go(delta))
+
+    def total_pages():
+        return page_count(len(calculations), PAGE_SIZE)
+
+    def paint_page():
+        pages = total_pages()
+        state["page"] = max(0, min(state["page"], pages - 1))
+        start = state["page"] * PAGE_SIZE
+        window = calculations[start : start + PAGE_SIZE]
+        list_column.controls = [
+            month_section(key, calcs) for key, calcs in group_by_month(window)
+        ]
+        pager.paint(state["page"], pages, start, len(window), len(calculations))
+
+    def go(delta):
+        state["page"] = max(0, min(total_pages() - 1, state["page"] + delta))
+        paint_page()
+        if on_page_change is not None:
+            on_page_change(state["page"])
+        page.update()
+        # A new page starts at its first row, not wherever the old one was left.
+        page.run_task(scroll_column.scroll_to, offset=0, duration=260)
+
+    paint_page()
+
+    if date_range:
+        start_date, end_date = date_range
+        summary = (
+            f"{count_label(len(calculations))} del "
+            f"{start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
+        )
+    else:
+        summary = f"{count_label(len(calculations))} guardados"
+
+    divider = build_scroll_divider()
+    scroll_column = ft.Column(
+        expand=True,
+        spacing=0,
+        scroll=ft.Scrollbar(thickness=6, radius=4),
+        on_scroll=make_scroll_divider_handler(divider, c),
+        controls=[
+            ft.Container(
+                margin=ft.Margin.only(left=20, right=20, bottom=20),
+                content=ft.Column(
+                    spacing=0,
+                    controls=[
+                        ft.Container(
+                            padding=ft.Padding.only(left=4, top=8),
+                            content=ft.Text(
+                                summary, size=12, color=c["on_surface_variant"]
+                            ),
+                        ),
+                        list_column,
+                    ],
+                ),
+            )
+        ],
+    )
+    bottom: list[ft.Control] = [pager.control]
+
+    if date_range:
+        # Filtered mode: the list previews what goes into the PDF.
+        async def _export_filtered(e):
+            pdf_path = pdf_export_service.export_calculations(calculations)
+            await share_local_file(
+                page,
+                pdf_path,
+                pdf_path.split(os.sep)[-1],
+                title="Exportar cálculos",
+            )
+
+        bottom.append(
+            ft.Container(
+                padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                content=ft.FilledButton(
+                    "Exportar PDF",
+                    icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
+                    on_click=_export_filtered,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=12),
+                        padding=ft.Padding.symmetric(vertical=14, horizontal=20),
+                        text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+                    ),
+                    width=float("inf"),
+                ),
+            )
+        )
+
+    return ft.SafeArea(
+        expand=True,
+        content=ft.Container(
+            expand=True,
+            padding=ft.Padding.only(top=4),
+            content=ft.Column(
+                expand=True,
+                spacing=0,
+                controls=[divider, scroll_column, *bottom],
+            ),
         ),
     )
