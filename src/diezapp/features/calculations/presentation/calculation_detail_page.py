@@ -107,7 +107,7 @@ def build_calculation_detail_view(
     )
     amount_field = ft.TextField(
         keyboard_type=ft.KeyboardType.NUMBER,
-        border=ft.InputBorder.NONE,
+        border=ft.NoInputBorder(),
         content_padding=ft.Padding.all(0),
         text_size=AMOUNT_SIZE,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_700),

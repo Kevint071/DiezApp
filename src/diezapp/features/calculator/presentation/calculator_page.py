@@ -75,7 +75,7 @@ class CalculatorView:
         self.input_amount = ft.TextField(
             hint_text="0",
             keyboard_type=ft.KeyboardType.NUMBER,
-            border=ft.InputBorder.NONE,
+            border=ft.NoInputBorder(),
             content_padding=ft.Padding.all(0),
             text_size=32,
             text_style=ft.TextStyle(weight=ft.FontWeight.W_700),

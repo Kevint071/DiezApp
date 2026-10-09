@@ -22,6 +22,7 @@ from diezapp.shared.presentation.dialogs import (
     dialog_primary_button,
     dialog_title,
 )
+from diezapp.shared.presentation.input_border import outline_input_border
 
 
 class GoogleDriveFolderPicker:
@@ -60,10 +61,10 @@ class GoogleDriveFolderPicker:
         self._creating_folder = False
         self._name_field = ft.TextField(
             label="Nombre de la carpeta",
-            border_radius=12,
+            border=outline_input_border(
+                colors["input_border"], colors["input_focused"]
+            ),
             content_padding=ft.Padding.symmetric(vertical=14, horizontal=14),
-            border_color=colors["input_border"],
-            focused_border_color=colors["input_focused"],
         )
         self._error_text = ft.Text("", size=12, color=ft.Colors.RED_600)
         self._error_banner = ft.Container(

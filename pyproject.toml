@@ -5,7 +5,7 @@ description = "Add to calculate the total of a bill"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "flet>=0.86.5",
+    "flet>=1.0.4",
     "fpdf2>=2.8.3",
     "httpx>=0.28.0",
     "truststore>=0.10.4",
@@ -14,9 +14,9 @@ dependencies = [
 [tool.flet.app]
 path = "src"
 
-[tool.flet.app.startup_screen]
-show = true
-message = "Cargando..."
+[tool.flet.boot_screen.flet]
+spinner_size = 30
+startup_message = "Cargando..."
 
 [tool.flet.android]
 # Build only the ARM64 Android variant to keep the APK smaller on modern phones.

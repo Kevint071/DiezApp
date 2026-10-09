@@ -17,6 +17,7 @@ from diezapp.shared.presentation.dialogs import (
     dialog_cancel_button,
     dialog_primary_button,
 )
+from diezapp.shared.presentation.input_border import outline_input_border
 
 MIN_INTERVAL_SECONDS = 8 * 3600
 
@@ -50,9 +51,9 @@ def build_frequency_cell(
             value=str(value),
             keyboard_type=ft.KeyboardType.NUMBER,
             width=90,
-            border_radius=12,
-            border_color=colors["input_border"],
-            focused_border_color=colors["input_focused"],
+            border=outline_input_border(
+                colors["input_border"], colors["input_focused"]
+            ),
         )
         for label, value in (
             ("Días", days),

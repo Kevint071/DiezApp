@@ -6,6 +6,7 @@ from diezapp.shared.presentation.dialogs import (
     dialog_cancel_button,
     dialog_primary_button,
 )
+from diezapp.shared.presentation.input_border import outline_input_border
 from diezapp.shared.presentation.theme import (
     FOCUS_DARK,
     FOCUS_LIGHT,
@@ -96,11 +97,9 @@ def build_preferences_section(
         label="Porcentaje",
         value=str(state["fund_percentage"]),
         keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=12,
+        border=outline_input_border(input_border, focus_color),
         content_padding=ft.Padding.symmetric(vertical=14, horizontal=14),
         suffix=ft.Text("%", color=colors["on_surface_variant"]),
-        border_color=input_border,
-        focused_border_color=focus_color,
     )
 
     def _validate_percentage(e):

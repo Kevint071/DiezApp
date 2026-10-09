@@ -8,6 +8,7 @@ from diezapp.shared.presentation.dialogs import (
     dialog_cancel_button,
     dialog_primary_button,
 )
+from diezapp.shared.presentation.input_border import outline_input_border
 from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
@@ -188,11 +189,9 @@ def build_notes_view(
         text_style=ft.TextStyle(size=14, color=c["on_surface"]),
         prefix_icon=ft.Icons.SEARCH_ROUNDED,
         width=float("inf"),
-        border_radius=12,
+        border=outline_input_border(c["card_bg"], c["input_focused"]),
         filled=True,
         bgcolor=c["card_bg"],
-        border_color=c["card_bg"],
-        focused_border_color=c["input_focused"],
         content_padding=ft.Padding.only(top=10, bottom=10, left=14, right=44),
         dense=True,
         cursor_color=c["primary"],
@@ -253,7 +252,7 @@ def build_new_note_view(
 
     title_field = ft.TextField(
         hint_text="Título",
-        border=ft.InputBorder.NONE,
+        border=ft.NoInputBorder(),
         content_padding=ft.Padding.only(bottom=8),
         dense=True,
         text_size=20,
@@ -271,7 +270,7 @@ def build_new_note_view(
         min_lines=10,
         max_lines=20,
         expand=True,
-        border=ft.InputBorder.NONE,
+        border=ft.NoInputBorder(),
         content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
         text_size=14,
         text_style=ft.TextStyle(color=c["on_surface"]),
@@ -355,7 +354,7 @@ def build_note_detail_view(
         width=float("inf"),
         multiline=True,
         min_lines=1,
-        border=ft.InputBorder.NONE,
+        border=ft.NoInputBorder(),
         content_padding=ft.Padding.only(bottom=8),
         dense=True,
         text_size=20,
@@ -372,7 +371,7 @@ def build_note_detail_view(
         multiline=True,
         min_lines=max(6, _initial_lines),
         width=float("inf"),
-        border=ft.InputBorder.NONE,
+        border=ft.NoInputBorder(),
         content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
         text_size=15,
         text_style=ft.TextStyle(
