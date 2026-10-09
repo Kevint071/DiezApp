@@ -405,7 +405,11 @@ class CalculatorView:
         self._refresh_date_card()
         self.page.update()
 
-    def _open_date_picker(self, e):
+    async def _open_date_picker(self, e):
+        # The amount field keeps focus (and its numeric keyboard) while the sheet
+        # is open, because tapping a day never takes focus. Flet has no blur(), so
+        # park focus on the save button, which hides the keyboard.
+        await self.save_btn.focus()
         show_date_sheet(
             self.page, self.colors_fn, self.calculation_date, self._set_calculation_date
         )
