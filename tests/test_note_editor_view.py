@@ -159,18 +159,30 @@ def test_leaving_a_note_with_text_keeps_it():
     assert len(service.list()) == 1
 
 
-def test_undo_and_redo_only_show_when_available():
+def _disabled(captured):
+    return [control.disabled for control in captured["actions"][0].content.controls[:2]]
+
+
+def test_undo_and_redo_keep_their_place_and_only_enable_when_available():
     service = NoteService(InMemoryNoteRepository())
     note = service.add("Algo", "Título")
     editor, captured = _build(service, note)
+    layout = [
+        ft.Icons.UNDO_ROUNDED,
+        ft.Icons.REDO_ROUNDED,
+        ft.Icons.DELETE_OUTLINE_ROUNDED,
+    ]
 
-    assert _icons(captured) == [ft.Icons.DELETE_OUTLINE_ROUNDED]
+    assert _icons(captured) == layout
+    assert _disabled(captured) == [True, True]
 
     _history(editor, True, False)
-    assert _icons(captured) == [ft.Icons.UNDO_ROUNDED, ft.Icons.DELETE_OUTLINE_ROUNDED]
+    assert _icons(captured) == layout
+    assert _disabled(captured) == [False, True]
 
     _history(editor, False, True)
-    assert _icons(captured) == [ft.Icons.REDO_ROUNDED, ft.Icons.DELETE_OUTLINE_ROUNDED]
+    assert _icons(captured) == layout
+    assert _disabled(captured) == [True, False]
 
 
 def test_history_buttons_are_async_so_flet_awaits_them():
@@ -192,7 +204,7 @@ def test_conflicts_make_the_editor_read_only():
     editor, captured = _build(service, note, conflicts=1)
 
     assert editor.read_only is True
-    assert _icons(captured) == [ft.Icons.DELETE_OUTLINE_ROUNDED]
+    assert _icons(captured)[-1] == ft.Icons.DELETE_OUTLINE_ROUNDED
 
 
 def test_preview_shows_list_markers():

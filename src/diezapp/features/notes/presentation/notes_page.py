@@ -300,12 +300,13 @@ def build_note_editor_view(
         state["can_redo"] = e.can_redo
         _refresh_actions()
 
-    def _history_button(icon, tooltip, handler):
+    def _history_button(icon, tooltip, handler, enabled):
         return ft.IconButton(
             icon=icon,
             icon_size=22,
             tooltip=tooltip,
             icon_color=c["on_surface"],
+            disabled=not enabled,
             on_click=handler,
         )
 
@@ -316,12 +317,14 @@ def build_note_editor_view(
         await editor.redo()
 
     def _build_actions():
-        # Undo/redo only appear once there is something to take back or redo.
-        controls = []
-        if state["can_undo"]:
-            controls.append(_history_button(ft.Icons.UNDO_ROUNDED, "Deshacer", _undo))
-        if state["can_redo"]:
-            controls.append(_history_button(ft.Icons.REDO_ROUNDED, "Rehacer", _redo))
+        # Both buttons are always present so each keeps its place: if one
+        # vanished, the other would slide under the thumb that just tapped it.
+        controls = [
+            _history_button(
+                ft.Icons.UNDO_ROUNDED, "Deshacer", _undo, state["can_undo"]
+            ),
+            _history_button(ft.Icons.REDO_ROUNDED, "Rehacer", _redo, state["can_redo"]),
+        ]
         if state["note"] is not None:
             controls.append(
                 ft.IconButton(
