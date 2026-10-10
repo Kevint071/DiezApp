@@ -877,7 +877,8 @@ def build_saved_calculations_view(
     state = {"page": initial_page}
     today = local_now().date()
     TILE = 44
-    ROW_PAD = 16
+    # Rows sit straight on the page, so they line up with the month header.
+    ROW_PAD = 4
     # Text column starts past the tile, so same-day separators can indent to it.
     TEXT_INSET = ROW_PAD + TILE + 14
 
@@ -885,7 +886,6 @@ def build_saved_calculations_view(
     def separator(new_day: bool):
         # A new day runs edge to edge; rows of the same day indent past the
         # tile, so the eye reads them as one block under a single date.
-        # `divider` collapses into `card_bg` in dark mode, hence `outline`.
         return ft.Container(
             padding=ft.Padding.only(
                 left=ROW_PAD if new_day else TEXT_INSET, right=ROW_PAD
@@ -900,7 +900,9 @@ def build_saved_calculations_view(
             width=TILE,
             height=TILE,
             border_radius=12,
-            bgcolor=c["hero_bg"] if is_today else c["surface"],
+            # Without a card behind it, the tile carries its own outline.
+            bgcolor=c["hero_bg"] if is_today else None,
+            border=None if is_today else ft.Border.all(1, c["outline"]),
             alignment=ft.Alignment.CENTER,
             content=ft.Column(
                 spacing=0,
@@ -935,6 +937,7 @@ def build_saved_calculations_view(
             details.append(f"Fondo {calc['fund_percentage']}%")
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=12, horizontal=ROW_PAD),
+            border_radius=12,
             ink=True,
             ink_color=ft.Colors.with_opacity(0.12, c["primary"]),
             on_click=lambda e, calc_id=calc["id"]: on_open(calc_id),
@@ -1029,15 +1032,7 @@ def build_saved_calculations_view(
                         ],
                     ),
                 ),
-                # Each month is one card, so where a month ends is never in doubt.
-                ft.Container(
-                    bgcolor=c["card_bg"],
-                    border_radius=16,
-                    border=ft.Border.all(1, c["outline"]),
-                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                    padding=ft.Padding.symmetric(vertical=4),
-                    content=ft.Column(spacing=0, controls=rows),
-                ),
+                *rows,
             ],
         )
 
