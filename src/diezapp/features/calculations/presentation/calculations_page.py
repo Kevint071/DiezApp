@@ -64,10 +64,10 @@ def build_date_range_picker_view(
         "Diciembre",
     ]
     DAY_NAMES = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]
-    CELL = 42
-    BADGE = 32  # selection/today indicator diameter — smaller than CELL for a floating, minimal look
+    CELL = 40
+    BADGE = 34  # selection/today indicator diameter — smaller than CELL for a floating, minimal look
 
-    state = {"start": None, "end": None, "month": today.replace(day=1)}
+    state = {"start": None, "end": None, "editing": None, "month": today.replace(day=1)}
 
     def _get_range():
         s, e = state["start"], state["end"]
@@ -87,9 +87,19 @@ def build_date_range_picker_view(
             return "today"
         return "normal"
 
+    def _edit(key):
+        # Only a full range has a bound worth re-picking on its own.
+        if state["start"] and state["end"]:
+            state["editing"] = key
+            _refresh()
+
     def _on_tap(d):
         s, e = state["start"], state["end"]
-        if s is None or e is not None:
+        if state["editing"]:
+            other = e if state["editing"] == "start" else s
+            state["start"], state["end"] = sorted((d, other))
+            state["editing"] = None
+        elif s is None or e is not None:
             state["start"], state["end"] = d, None
         elif d == s:
             state["end"] = d
@@ -257,25 +267,43 @@ def build_date_range_picker_view(
             )
         return ft.Column(spacing=4, controls=rows)
 
+    def _range_field(key: str, label: str, placeholder: str):
+        label_txt = ft.Text(label, size=12, weight=ft.FontWeight.W_500)
+        value = ft.Text(placeholder, size=16)
+        box = ft.Container(
+            expand=True,
+            border_radius=12,
+            # Constant border width (only the colour changes) so selecting a
+            # segment never shifts the layout.
+            border=ft.Border.all(1.5, ft.Colors.TRANSPARENT),
+            padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+            on_click=lambda e: _edit(key),
+            content=ft.Column(spacing=2, controls=[label_txt, value]),
+        )
+        return {"box": box, "label": label_txt, "value": value, "hint": placeholder}
+
+    def _format_day(d: date) -> str:
+        return f"{d.day} {MONTHS_SHORT[d.month - 1]} {d.year}"
+
     # ── Static controls ───────────────────────────────────
     m0 = state["month"]
     month_lbl = ft.Text(
         f"{MONTH_NAMES[m0.month - 1]} {m0.year}",
-        size=16,
-        weight=ft.FontWeight.W_600,
+        size=17,
+        weight=ft.FontWeight.W_700,
         color=c["on_surface"],
     )
-    start_val = ft.Text(
-        "Seleccionar",
-        size=14,
-        color=c["on_surface_variant"],
-        weight=ft.FontWeight.W_400,
-    )
-    end_val = ft.Text(
-        "Seleccionar",
-        size=14,
-        color=c["on_surface_variant"],
-        weight=ft.FontWeight.W_400,
+    fields = {
+        "start": _range_field("start", "Desde", "Elige inicio"),
+        "end": _range_field("end", "Hasta", "Elige fin"),
+    }
+    days_txt = ft.Text("", size=12, weight=ft.FontWeight.W_600, color=c["primary"])
+    days_pill = ft.Container(
+        visible=False,
+        bgcolor=c["hero_bg"],
+        border_radius=20,
+        padding=ft.Padding.symmetric(horizontal=10, vertical=4),
+        content=days_txt,
     )
     grid_box = ft.Container(content=_grid())
     err_txt = ft.Text(
@@ -296,27 +324,41 @@ def build_date_range_picker_view(
         width=float("inf"),
     )
 
+    def _paint_range():
+        s, e = state["start"], state["end"]
+        # Which bound the next tap will set; none while a full range is showing
+        # (the next tap starts over), so nothing is highlighted then.
+        if state["editing"]:
+            active = state["editing"]
+        elif s is None:
+            active = "start"
+        elif e is None:
+            active = "end"
+        else:
+            active = None
+        for key, day in (("start", s), ("end", e)):
+            field, on = fields[key], key == active
+            field["box"].bgcolor = c["hero_bg"] if on else None
+            field["box"].border = ft.Border.all(
+                1.5, c["primary"] if on else ft.Colors.TRANSPARENT
+            )
+            field["label"].color = c["hero_fg"] if on else c["on_surface_variant"]
+            field["value"].value = _format_day(day) if day else field["hint"]
+            field["value"].color = c["on_surface"] if day else c["on_surface_variant"]
+            field["value"].weight = ft.FontWeight.W_600 if day else ft.FontWeight.W_400
+        if s and e:
+            n = (e - s).days + 1
+            days_txt.value = "1 día" if n == 1 else f"{n} días"
+        days_pill.visible = bool(s and e)
+
+    _paint_range()
+
     def _refresh():
         m = state["month"]
         month_lbl.value = f"{MONTH_NAMES[m.month - 1]} {m.year}"
         grid_box.content = _grid()
         s, e = state["start"], state["end"]
-        if s:
-            start_val.value = s.strftime("%d/%m/%Y")
-            start_val.color = c["on_surface"]
-            start_val.weight = ft.FontWeight.W_600
-        else:
-            start_val.value = "Seleccionar"
-            start_val.color = c["on_surface_variant"]
-            start_val.weight = ft.FontWeight.W_400
-        if e:
-            end_val.value = e.strftime("%d/%m/%Y")
-            end_val.color = c["on_surface"]
-            end_val.weight = ft.FontWeight.W_600
-        else:
-            end_val.value = "Seleccionar"
-            end_val.color = c["on_surface_variant"]
-            end_val.weight = ft.FontWeight.W_400
+        _paint_range()
         export_btn.disabled = not (s and e)
         err_txt.visible = False
         page.update()
@@ -363,32 +405,69 @@ def build_date_range_picker_view(
 
     export_btn.on_click = _export
 
-    def _chip(icon, label: str, val_ctrl: ft.Text):
-        return ft.Container(
-            expand=True,
-            bgcolor=c["card_bg"],
-            border_radius=14,
-            padding=ft.Padding.only(left=14, right=14, top=12, bottom=12),
-            content=ft.Column(
-                spacing=4,
-                controls=[
-                    ft.Row(
-                        spacing=6,
+    range_card = ft.Column(
+        spacing=10,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        controls=[
+            ft.Container(
+                bgcolor=c["card_bg"],
+                border=ft.Border.all(1, c["outline"]),
+                border_radius=16,
+                padding=6,
+                content=ft.Row(
+                    spacing=6,
+                    controls=[fields["start"]["box"], fields["end"]["box"]],
+                ),
+            ),
+            # Fixed height so the calendar doesn't jump when the count appears.
+            ft.Container(height=28, alignment=ft.Alignment.CENTER, content=days_pill),
+        ],
+    )
+
+    def _nav_button(icon, handler):
+        return ft.IconButton(
+            icon=icon,
+            icon_size=20,
+            icon_color=c["on_surface"],
+            on_click=handler,
+            width=36,
+            height=36,
+            style=ft.ButtonStyle(
+                padding=ft.Padding.all(0),
+                shape=ft.CircleBorder(),
+                bgcolor=c["surface"],
+            ),
+        )
+
+    calendar_card = ft.Container(
+        bgcolor=c["card_bg"],
+        border=ft.Border.all(1, c["outline"]),
+        border_radius=16,
+        padding=ft.Padding.only(left=8, right=8, top=12, bottom=12),
+        content=ft.Column(
+            spacing=12,
+            controls=[
+                ft.Container(
+                    padding=ft.Padding.only(left=8, right=4),
+                    content=ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            ft.Icon(icon, color=c["primary"], size=15),
-                            ft.Text(
-                                label,
-                                size=11,
-                                color=c["on_surface_variant"],
-                                weight=ft.FontWeight.W_500,
+                            month_lbl,
+                            ft.Row(
+                                spacing=8,
+                                controls=[
+                                    _nav_button(ft.Icons.CHEVRON_LEFT_ROUNDED, _prev),
+                                    _nav_button(ft.Icons.CHEVRON_RIGHT_ROUNDED, _next),
+                                ],
                             ),
                         ],
                     ),
-                    val_ctrl,
-                ],
-            ),
-        )
+                ),
+                grid_box,
+            ],
+        ),
+    )
 
     divider = build_scroll_divider()
     return ft.SafeArea(
@@ -414,71 +493,9 @@ def build_date_range_picker_view(
                                     expand=True,
                                     spacing=16,
                                     controls=[
-                                        # ── Date range chips ────────────────────────
-                                        ft.Row(
-                                            spacing=12,
-                                            controls=[
-                                                _chip(
-                                                    ft.Icons.CALENDAR_TODAY_OUTLINED,
-                                                    "Desde",
-                                                    start_val,
-                                                ),
-                                                _chip(
-                                                    ft.Icons.EVENT_OUTLINED,
-                                                    "Hasta",
-                                                    end_val,
-                                                ),
-                                            ],
-                                        ),
-                                        # ── Calendar (no fill — borderless, minimal) ─
-                                        ft.Container(
-                                            padding=ft.Padding.symmetric(horizontal=8),
-                                            content=ft.Column(
-                                                spacing=12,
-                                                controls=[
-                                                    ft.Row(
-                                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                                                        controls=[
-                                                            ft.IconButton(
-                                                                icon=ft.Icons.CHEVRON_LEFT_ROUNDED,
-                                                                icon_color=c[
-                                                                    "on_surface_variant"
-                                                                ],
-                                                                icon_size=18,
-                                                                on_click=_prev,
-                                                                style=ft.ButtonStyle(
-                                                                    padding=ft.Padding.all(
-                                                                        8
-                                                                    ),
-                                                                    shape=ft.CircleBorder(),
-                                                                ),
-                                                            ),
-                                                            month_lbl,
-                                                            ft.IconButton(
-                                                                icon=ft.Icons.CHEVRON_RIGHT_ROUNDED,
-                                                                icon_color=c[
-                                                                    "on_surface_variant"
-                                                                ],
-                                                                icon_size=18,
-                                                                on_click=_next,
-                                                                style=ft.ButtonStyle(
-                                                                    padding=ft.Padding.all(
-                                                                        8
-                                                                    ),
-                                                                    shape=ft.CircleBorder(),
-                                                                ),
-                                                            ),
-                                                        ],
-                                                    ),
-                                                    ft.Container(
-                                                        height=1,
-                                                        bgcolor=c["divider"],
-                                                    ),
-                                                    grid_box,
-                                                ],
-                                            ),
-                                        ),
+                                        # ── Date range ──────────────────────────────
+                                        range_card,
+                                        calendar_card,
                                         err_txt,
                                         ft.Container(expand=True),
                                         export_btn,
