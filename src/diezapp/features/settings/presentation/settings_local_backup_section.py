@@ -97,9 +97,17 @@ def build_local_backup_section(
         file_name = local_now().strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
         method = export_method["value"]
         if method == "save" and is_desktop(page):
-            from diezapp.infrastructure.files.desktop_file_picker import pick_save_path
+            from diezapp.infrastructure.files.desktop_file_picker import (
+                DB_FILETYPES,
+                pick_save_path,
+            )
 
-            output_path = await pick_save_path(file_name)
+            output_path = await pick_save_path(
+                file_name,
+                title="Guardar copia de seguridad",
+                default_extension=".db",
+                filetypes=DB_FILETYPES,
+            )
             if not output_path:
                 return
             if target in ("calcs", "both"):
@@ -218,9 +226,14 @@ def build_local_backup_section(
 
         temp_path = None
         if is_desktop(page):
-            from diezapp.infrastructure.files.desktop_file_picker import pick_open_path
+            from diezapp.infrastructure.files.desktop_file_picker import (
+                DB_FILETYPES,
+                pick_open_path,
+            )
 
-            source_path = await pick_open_path()
+            source_path = await pick_open_path(
+                title="Seleccionar archivo SQLite", filetypes=DB_FILETYPES
+            )
             if not source_path:
                 return
         else:

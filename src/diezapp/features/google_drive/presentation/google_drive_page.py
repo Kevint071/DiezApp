@@ -503,10 +503,16 @@ def build_google_drive_backup_detail_view(
         try:
             if _is_desktop(page):
                 from diezapp.infrastructure.files.desktop_file_picker import (
+                    DB_FILETYPES,
                     pick_save_path,
                 )
 
-                output_path = await pick_save_path(file["name"])
+                output_path = await pick_save_path(
+                    file["name"],
+                    title="Guardar copia de seguridad",
+                    default_extension=".db",
+                    filetypes=DB_FILETYPES,
+                )
                 if not output_path:
                     return
                 token = await refresh_access_token.execute(account)
