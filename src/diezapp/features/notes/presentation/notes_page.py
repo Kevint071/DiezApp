@@ -104,6 +104,8 @@ def build_notes_view(
                 size=14,
                 weight=ft.FontWeight.W_400,
                 color=c["on_surface_variant"] if title else c["on_surface"],
+                max_lines=2,
+                overflow=ft.TextOverflow.ELLIPSIS,
             )
         )
         return ft.Container(
