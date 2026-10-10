@@ -67,7 +67,27 @@ def build_date_range_picker_view(
     CELL = 40
     BADGE = 34  # selection/today indicator diameter — smaller than CELL for a floating, minimal look
 
-    state = {"start": None, "end": None, "editing": None, "month": today.replace(day=1)}
+    state = {
+        "start": None,
+        "end": None,
+        "month": today.replace(day=1),
+        "picking": False,
+        "picker_year": today.year,
+    }
+
+    # Calculations per local day, so the calendar can mark days with data and
+    # the footer can preview what the range holds before leaving the screen.
+    by_day: dict[date, tuple[int, float]] = {}
+    for calc in calculations_service.list():
+        moment = _created_at(calc)
+        if moment is None:
+            continue
+        count, total = by_day.get(moment.date(), (0, 0.0))
+        by_day[moment.date()] = (count + 1, total + (calc.get("amount") or 0))
+
+    def _range_stats(s, e):
+        hits = [v for d, v in by_day.items() if s <= d <= e]
+        return sum(n for n, _ in hits), sum(t for _, t in hits)
 
     def _get_range():
         s, e = state["start"], state["end"]
@@ -87,19 +107,9 @@ def build_date_range_picker_view(
             return "today"
         return "normal"
 
-    def _edit(key):
-        # Only a full range has a bound worth re-picking on its own.
-        if state["start"] and state["end"]:
-            state["editing"] = key
-            _refresh()
-
     def _on_tap(d):
         s, e = state["start"], state["end"]
-        if state["editing"]:
-            other = e if state["editing"] == "start" else s
-            state["start"], state["end"] = sorted((d, other))
-            state["editing"] = None
-        elif s is None or e is not None:
+        if s is None or e is not None:
             state["start"], state["end"] = d, None
         elif d == s:
             state["end"] = d
@@ -221,6 +231,22 @@ def build_date_range_picker_view(
                 ),
             )
         )
+        if d in by_day:
+            layers.append(
+                ft.Container(
+                    width=CELL,
+                    height=CELL,
+                    alignment=ft.Alignment(0, 0.62),
+                    content=ft.Container(
+                        width=4,
+                        height=4,
+                        border_radius=2,
+                        bgcolor=txt_color
+                        if p in ("start", "end", "solo")
+                        else c["primary"],
+                    ),
+                )
+            )
         return ft.Container(
             width=CELL,
             height=CELL,
@@ -267,52 +293,128 @@ def build_date_range_picker_view(
             )
         return ft.Column(spacing=4, controls=rows)
 
-    def _range_field(key: str, label: str, placeholder: str):
-        label_txt = ft.Text(label, size=12, weight=ft.FontWeight.W_500)
-        value = ft.Text(placeholder, size=16)
-        box = ft.Container(
-            expand=True,
-            border_radius=12,
-            # Constant border width (only the colour changes) so selecting a
-            # segment never shifts the layout.
-            border=ft.Border.all(1.5, ft.Colors.TRANSPARENT),
-            padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            on_click=lambda e: _edit(key),
-            content=ft.Column(spacing=2, controls=[label_txt, value]),
-        )
-        return {"box": box, "label": label_txt, "value": value, "hint": placeholder}
+    def _month_bounds(m):
+        return m, m.replace(day=calendar.monthrange(m.year, m.month)[1])
 
-    def _format_day(d: date) -> str:
-        return f"{d.day} {MONTHS_SHORT[d.month - 1]} {d.year}"
+    def _select_month(e):
+        # Tapping the month name picks it whole: the common monthly report in
+        # one tap, without a row of preset chips competing for space.
+        state["start"], state["end"] = _month_bounds(state["month"])
+        _refresh()
+
+    def _month_grid():
+        # Month/year jump panel. Only moves the calendar: the range in progress
+        # is left alone, so a start picked in one year can end in another.
+        y = state["picker_year"]
+        s, e = _get_range()
+        with_data = {(d.year, d.month) for d in by_day}
+        on_badge = "#FFFFFF" if light else "#064E3B"
+
+        def _month_cell(n):
+            m = date(y, n, 1)
+            last = _month_bounds(m)[1]
+            current = m == state["month"]
+            if s and e:
+                in_range = m <= e and last >= s
+            else:
+                in_range = bool(s) and (s.year, s.month) == (y, n)
+            if current:
+                bg, fg = c["primary"], on_badge
+            elif in_range:
+                bg, fg = ft.Colors.with_opacity(0.10, c["primary"]), c["primary"]
+            else:
+                bg, fg = None, c["on_surface"]
+            this_month = (today.year, today.month) == (y, n)
+            return ft.Container(
+                expand=True,
+                height=48,
+                border_radius=24,
+                bgcolor=bg,
+                border=ft.Border.all(1.2, c["primary"])
+                if this_month and not current
+                else None,
+                alignment=ft.Alignment.CENTER,
+                on_click=lambda ev, target=m: _jump(target),
+                content=ft.Column(
+                    spacing=3,
+                    tight=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Text(
+                            MONTHS_SHORT[n - 1].capitalize(),
+                            size=14,
+                            weight=ft.FontWeight.W_600
+                            if current or in_range
+                            else ft.FontWeight.W_500,
+                            color=fg,
+                        ),
+                        ft.Container(
+                            width=4,
+                            height=4,
+                            border_radius=2,
+                            bgcolor=(on_badge if current else c["primary"])
+                            if (y, n) in with_data
+                            else None,
+                        ),
+                    ],
+                ),
+            )
+
+        return ft.Column(
+            spacing=8,
+            controls=[
+                ft.Row(spacing=8, controls=[_month_cell(n) for n in range(i, i + 3)])
+                for i in range(1, 13, 3)
+            ],
+        )
+
+    def _toggle_picker(e):
+        state["picking"] = not state["picking"]
+        state["picker_year"] = state["month"].year
+        _refresh()
+
+    def _jump(m):
+        state["month"] = m
+        state["picking"] = False
+        _refresh()
+
+    def _date_slot(align_end: bool):
+        big = ft.Text("—", size=24, weight=ft.FontWeight.W_700, no_wrap=True)
+        small = ft.Text(size=12, weight=ft.FontWeight.W_500, no_wrap=True)
+        column = ft.Column(
+            spacing=2,
+            tight=True,
+            horizontal_alignment=ft.CrossAxisAlignment.END
+            if align_end
+            else ft.CrossAxisAlignment.START,
+            controls=[big, small],
+        )
+        return {"big": big, "small": small, "column": column}
+
+    def _dot():
+        return ft.Container(width=8, height=8, border_radius=4)
 
     # ── Static controls ───────────────────────────────────
     m0 = state["month"]
     month_lbl = ft.Text(
-        f"{MONTH_NAMES[m0.month - 1]} {m0.year}",
+        MONTH_NAMES[m0.month - 1],
         size=17,
         weight=ft.FontWeight.W_700,
         color=c["on_surface"],
     )
-    fields = {
-        "start": _range_field("start", "Desde", "Elige inicio"),
-        "end": _range_field("end", "Hasta", "Elige fin"),
-    }
-    days_txt = ft.Text("", size=12, weight=ft.FontWeight.W_600, color=c["primary"])
-    days_pill = ft.Container(
-        visible=False,
-        bgcolor=c["hero_bg"],
-        border_radius=20,
-        padding=ft.Padding.symmetric(horizontal=10, vertical=4),
-        content=days_txt,
+    year_lbl = ft.Text(
+        str(m0.year), size=17, weight=ft.FontWeight.W_700, color=c["on_surface"]
     )
+    year_icon = ft.Icon(
+        ft.Icons.ARROW_DROP_DOWN_ROUNDED, size=22, color=c["on_surface_variant"]
+    )
+    slots = {"start": _date_slot(False), "end": _date_slot(True)}
+    span_txt = ft.Text(size=12, weight=ft.FontWeight.W_600, no_wrap=True)
+    span_line = ft.Container(expand=True, height=1.5)
+    span_dots = (_dot(), _dot())
     grid_box = ft.Container(content=_grid())
-    err_txt = ft.Text(
-        "",
-        size=12,
-        color="#DC2626",
-        visible=False,
-        text_align=ft.TextAlign.CENTER,
-    )
+    count_txt = ft.Text(size=13, color=c["on_surface_variant"])
+    total_txt = ft.Text(size=17, weight=ft.FontWeight.W_700, color=c["on_surface"])
     export_btn = ft.FilledButton(
         "Ver cálculos",
         disabled=True,
@@ -326,44 +428,76 @@ def build_date_range_picker_view(
 
     def _paint_range():
         s, e = state["start"], state["end"]
-        # Which bound the next tap will set; none while a full range is showing
-        # (the next tap starts over), so nothing is highlighted then.
-        if state["editing"]:
-            active = state["editing"]
-        elif s is None:
-            active = "start"
-        elif e is None:
-            active = "end"
-        else:
-            active = None
-        for key, day in (("start", s), ("end", e)):
-            field, on = fields[key], key == active
-            field["box"].bgcolor = c["hero_bg"] if on else None
-            field["box"].border = ft.Border.all(
-                1.5, c["primary"] if on else ft.Colors.TRANSPARENT
+        # The slot the next tap fills gets its caption in the accent colour.
+        active = "start" if s is None else "end" if e is None else None
+        for key, day, hint in (("start", s, "Inicio"), ("end", e, "Fin")):
+            slot = slots[key]
+            if day:
+                slot["big"].value = f"{day.day} {MONTHS_SHORT[day.month - 1]}"
+                weekday = WEEKDAYS_SHORT[day.weekday()].capitalize()
+                slot["small"].value = f"{weekday} · {day.year}"
+            else:
+                slot["big"].value = "—"
+                slot["small"].value = hint
+            slot["big"].color = c["on_surface"] if day else c["outline"]
+            slot["small"].color = (
+                c["primary"] if key == active else c["on_surface_variant"]
             )
-            field["label"].color = c["hero_fg"] if on else c["on_surface_variant"]
-            field["value"].value = _format_day(day) if day else field["hint"]
-            field["value"].color = c["on_surface"] if day else c["on_surface_variant"]
-            field["value"].weight = ft.FontWeight.W_600 if day else ft.FontWeight.W_400
+        # The connector fills in as the range does: hollow → half → solid.
+        for dot, filled in zip(span_dots, (s is not None, e is not None)):
+            dot.bgcolor = c["primary"] if filled else None
+            dot.border = None if filled else ft.Border.all(1.5, c["outline"])
+        span_line.bgcolor = c["primary"] if s and e else c["outline"]
         if s and e:
             n = (e - s).days + 1
-            days_txt.value = "1 día" if n == 1 else f"{n} días"
-        days_pill.visible = bool(s and e)
-
-    _paint_range()
+            span_txt.value = "1 día" if n == 1 else f"{n} días"
+            span_txt.color = c["primary"]
+        else:
+            span_txt.value = "Elige el fin" if s else "Elige el inicio"
+            span_txt.color = c["on_surface_variant"]
+        month_lbl.color = (
+            c["primary"] if (s, e) == _month_bounds(state["month"]) else c["on_surface"]
+        )
+        if s and e:
+            n_calcs, total = _range_stats(s, e)
+            if n_calcs:
+                count_txt.value = "1 cálculo" if n_calcs == 1 else f"{n_calcs} cálculos"
+                total_txt.value = format_currency(total)
+                export_btn.content = (
+                    "Ver 1 cálculo" if n_calcs == 1 else f"Ver {n_calcs} cálculos"
+                )
+            else:
+                count_txt.value = "Sin cálculos en este rango"
+                total_txt.value = ""
+                export_btn.content = "Ver cálculos"
+        else:
+            n_calcs = 0
+            count_txt.value = "Toca dos días, o el mes entero"
+            total_txt.value = ""
+            export_btn.content = "Ver cálculos"
+        export_btn.disabled = n_calcs == 0
 
     def _refresh():
         m = state["month"]
-        month_lbl.value = f"{MONTH_NAMES[m.month - 1]} {m.year}"
-        grid_box.content = _grid()
-        s, e = state["start"], state["end"]
+        picking = state["picking"]
+        month_lbl.value = MONTH_NAMES[m.month - 1]
+        month_btn.visible = not picking
+        year_lbl.value = str(state["picker_year"] if picking else m.year)
+        year_lbl.color = c["primary"] if picking else c["on_surface"]
+        year_icon.icon = (
+            ft.Icons.ARROW_DROP_UP_ROUNDED
+            if picking
+            else ft.Icons.ARROW_DROP_DOWN_ROUNDED
+        )
+        grid_box.content = _month_grid() if picking else _grid()
         _paint_range()
-        export_btn.disabled = not (s and e)
-        err_txt.visible = False
         page.update()
 
     def _prev(e):
+        if state["picking"]:
+            state["picker_year"] -= 1
+            _refresh()
+            return
         m = state["month"]
         state["month"] = (
             m.replace(month=m.month - 1)
@@ -373,6 +507,10 @@ def build_date_range_picker_view(
         _refresh()
 
     def _next(e):
+        if state["picking"]:
+            state["picker_year"] += 1
+            _refresh()
+            return
         m = state["month"]
         state["month"] = (
             m.replace(month=m.month + 1)
@@ -383,44 +521,37 @@ def build_date_range_picker_view(
 
     def _export(e):
         s, en = _get_range()
-        if not s or not en:
-            return
-        calculations = calculations_service.list()
-        has_calcs = False
-        for calc in calculations:
-            try:
-                cd = to_local_datetime(calc.get("created_at", "")).date()
-                if s <= cd <= en:
-                    has_calcs = True
-                    break
-            except ValueError, TypeError:
-                continue
-        if not has_calcs:
-            err_txt.value = "No hay cálculos en el rango seleccionado"
-            err_txt.visible = True
-            page.update()
-            return
-        if on_show_filtered:
+        if s and en and on_show_filtered:
             on_show_filtered(s, en)
 
     export_btn.on_click = _export
+    _paint_range()
 
-    range_card = ft.Column(
-        spacing=10,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    # Boarding-pass style: start and end at the edges, the span between them.
+    # The dates keep their natural width and the connector takes what's left,
+    # so a narrow screen shortens the line instead of squeezing the text.
+    range_pass = ft.Row(
+        spacing=14,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
         controls=[
-            ft.Container(
-                bgcolor=c["card_bg"],
-                border=ft.Border.all(1, c["outline"]),
-                border_radius=16,
-                padding=6,
-                content=ft.Row(
-                    spacing=6,
-                    controls=[fields["start"]["box"], fields["end"]["box"]],
-                ),
+            slots["start"]["column"],
+            ft.Column(
+                expand=True,
+                spacing=6,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    span_txt,
+                    ft.Row(
+                        spacing=0,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[span_dots[0], span_line, span_dots[1]],
+                    ),
+                    # Mirrors the label's height so the line sits on the
+                    # vertical centre of the dates.
+                    ft.Container(height=16),
+                ],
             ),
-            # Fixed height so the calendar doesn't jump when the count appears.
-            ft.Container(height=28, alignment=ft.Alignment.CENTER, content=days_pill),
+            slots["end"]["column"],
         ],
     )
 
@@ -435,38 +566,57 @@ def build_date_range_picker_view(
             style=ft.ButtonStyle(
                 padding=ft.Padding.all(0),
                 shape=ft.CircleBorder(),
-                bgcolor=c["surface"],
+                bgcolor=c["card_bg"],
+                side=ft.BorderSide(1, c["outline"]),
             ),
         )
 
-    calendar_card = ft.Container(
-        bgcolor=c["card_bg"],
-        border=ft.Border.all(1, c["outline"]),
-        border_radius=16,
-        padding=ft.Padding.only(left=8, right=8, top=12, bottom=12),
-        content=ft.Column(
-            spacing=12,
-            controls=[
-                ft.Container(
-                    padding=ft.Padding.only(left=8, right=4),
-                    content=ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    # Month name and year are separate targets: the name picks that month
+    # whole, the year opens the month/year jump panel.
+    month_btn = ft.Container(
+        border_radius=8,
+        padding=ft.Padding.symmetric(horizontal=6, vertical=4),
+        ink=True,
+        tooltip="Elegir el mes entero",
+        on_click=_select_month,
+        content=month_lbl,
+    )
+    year_btn = ft.Container(
+        border_radius=8,
+        padding=ft.Padding.only(left=4, right=2, top=4, bottom=4),
+        ink=True,
+        tooltip="Cambiar mes o año",
+        on_click=_toggle_picker,
+        content=ft.Row(
+            spacing=0,
+            tight=True,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[year_lbl, year_icon],
+        ),
+    )
+
+    calendar_section = ft.Column(
+        spacing=12,
+        controls=[
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Row(
+                        spacing=0,
+                        controls=[month_btn, year_btn],
+                    ),
+                    ft.Row(
+                        spacing=8,
                         controls=[
-                            month_lbl,
-                            ft.Row(
-                                spacing=8,
-                                controls=[
-                                    _nav_button(ft.Icons.CHEVRON_LEFT_ROUNDED, _prev),
-                                    _nav_button(ft.Icons.CHEVRON_RIGHT_ROUNDED, _next),
-                                ],
-                            ),
+                            _nav_button(ft.Icons.CHEVRON_LEFT_ROUNDED, _prev),
+                            _nav_button(ft.Icons.CHEVRON_RIGHT_ROUNDED, _next),
                         ],
                     ),
-                ),
-                grid_box,
-            ],
-        ),
+                ],
+            ),
+            grid_box,
+        ],
     )
 
     divider = build_scroll_divider()
@@ -494,11 +644,23 @@ def build_date_range_picker_view(
                                     spacing=16,
                                     controls=[
                                         # ── Date range ──────────────────────────────
-                                        range_card,
-                                        calendar_card,
-                                        err_txt,
+                                        range_pass,
+                                        calendar_section,
                                         ft.Container(expand=True),
-                                        export_btn,
+                                        ft.Column(
+                                            spacing=12,
+                                            controls=[
+                                                ft.Container(
+                                                    height=1, bgcolor=c["outline"]
+                                                ),
+                                                ft.Row(
+                                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                                    controls=[count_txt, total_txt],
+                                                ),
+                                                export_btn,
+                                            ],
+                                        ),
                                     ],
                                 ),
                             ),
