@@ -354,55 +354,44 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
         return view
 
     def _build_new_note_view() -> ft.View:
-        from diezapp.features.notes.presentation.notes_page import build_new_note_view
-
-        def _on_save(title, content):
-            dependencies.notes.add(content, title)
-            page.navigate(routes.NOTES)
-
-        content = build_new_note_view(
-            page, get_colors, _on_save, dependencies.conflicts
-        )
-        return ft.View(
-            route=routes.NOTES_NEW,
-            padding=0,
-            appbar=_build_appbar("Nueva nota", show_back=True, back_route=routes.NOTES),
-            controls=[content],
-        )
+        return _build_note_editor_view(routes.NOTES_NEW, None)
 
     def _build_note_detail_view() -> ft.View:
-        from diezapp.features.notes.presentation.notes_page import (
-            build_note_detail_view,
-        )
-
         note_id = page.session.store.get("note_id")
         note = next((n for n in dependencies.notes.list() if n["id"] == note_id), None)
         if note is None:
             return _build_notes_view()
+        return _build_note_editor_view(routes.NOTES_DETAIL, note)
 
-        appbar = _build_appbar("Nota", show_back=True, back_route=routes.NOTES)
+    def _build_note_editor_view(route: str, note: dict | None) -> ft.View:
+        from diezapp.features.notes.presentation.notes_page import (
+            build_note_editor_view,
+        )
+
+        appbar = _build_appbar(
+            "Nota" if note else "Nueva nota", show_back=True, back_route=routes.NOTES
+        )
 
         def _set_actions(actions):
             appbar.actions = actions
             page.update()
 
-        content = build_note_detail_view(
+        content = build_note_editor_view(
             page,
             get_colors,
             note,
-            lambda: page.navigate(routes.NOTES),
-            _set_actions,
-            dependencies.notes,
-            dependencies.conflicts,
-            _register_leave_guard,
+            notes_service=dependencies.notes,
+            conflicts_service=dependencies.conflicts,
+            set_header_actions=_set_actions,
+            register_leave_guard=_register_leave_guard,
+            on_deleted=lambda: page.navigate(routes.NOTES),
+            show_snack=lambda message: _show_snack(message, keep_open=False),
         )
-        view = ft.View(
-            route=routes.NOTES_DETAIL, padding=0, appbar=appbar, controls=[content]
-        )
+        view = ft.View(route=route, padding=0, appbar=appbar, controls=[content])
 
-        # Unsaved-changes guard needs to intercept the pop attempt itself
-        # (rather than react after the fact), so this view can't rely on
-        # the default can_pop=True + on_view_pop flow like the others.
+        # The editor saves as you type, but leaving still has to pass through
+        # its guard (it discards a note left empty), so the pop is intercepted
+        # rather than handled after the fact by the default on_view_pop flow.
         view.can_pop = False
 
         async def _on_confirm_pop(ev):

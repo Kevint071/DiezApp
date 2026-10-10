@@ -1,7 +1,11 @@
+import json
+
 import flet as ft
+from flet_note_editor import NoteEditor
 
 from diezapp.features.conflicts.application.conflict_service import ConflictService
 from diezapp.features.notes.application.note_service import NoteService
+from diezapp.features.notes.domain import note_document
 from diezapp.shared.datetime_utils import to_local_datetime
 from diezapp.shared.presentation.dialogs import (
     build_dialog,
@@ -9,10 +13,6 @@ from diezapp.shared.presentation.dialogs import (
     dialog_primary_button,
 )
 from diezapp.shared.presentation.input_border import outline_input_border
-from diezapp.shared.presentation.scroll_divider import (
-    build_scroll_divider,
-    make_scroll_divider_handler,
-)
 
 PREVIEW_LIMIT = 100
 
@@ -23,6 +23,13 @@ def _format_date(date_str: str) -> str:
         return d.strftime("%d/%m/%Y %I:%M %p")
     except ValueError, TypeError:
         return date_str
+
+
+def _preview(note: dict) -> str:
+    """Note text for the list card; list items keep their bullet or box."""
+    return note_document.preview(
+        note_document.to_delta(note.get("content"), note.get("format"))
+    )
 
 
 def _truncate(text: str) -> str:
@@ -93,7 +100,7 @@ def build_notes_view(
             )
         content_controls.append(
             ft.Text(
-                _truncate(note.get("content", "")),
+                _truncate(_preview(note)),
                 size=14,
                 weight=ft.FontWeight.W_400,
                 color=c["on_surface_variant"] if title else c["on_surface"],
@@ -242,214 +249,144 @@ def build_notes_view(
     )
 
 
-def build_new_note_view(
+def build_note_editor_view(
     page: ft.Page,
     colors_fn,
-    on_save,
-    conflicts_service: ConflictService,
-):
-    c = colors_fn(page)
-
-    title_field = ft.TextField(
-        hint_text="Título",
-        border=ft.NoInputBorder(),
-        content_padding=ft.Padding.only(bottom=8),
-        dense=True,
-        text_size=20,
-        text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
-        hint_style=ft.TextStyle(
-            size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]
-        ),
-        cursor_color=c["primary"],
-        autofocus=True,
-    )
-
-    content_field = ft.TextField(
-        hint_text="Nota",
-        multiline=True,
-        min_lines=10,
-        max_lines=20,
-        expand=True,
-        border=ft.NoInputBorder(),
-        content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
-        text_size=14,
-        text_style=ft.TextStyle(color=c["on_surface"]),
-        hint_style=ft.TextStyle(size=14, color=c["on_surface_variant"]),
-        cursor_color=c["primary"],
-    )
-
-    err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
-
-    def _save(e):
-        if conflicts_service.count(kind="notes") > 0:
-            err_txt.value = "Resuelve los conflictos antes de guardar"
-            err_txt.visible = True
-            page.update()
-            return
-        title = (title_field.value or "").strip()
-        text = (content_field.value or "").strip()
-        if not text:
-            err_txt.value = "Escribe algo antes de guardar"
-            err_txt.visible = True
-            page.update()
-            return
-        on_save(title, text)
-
-    save_btn = ft.FilledButton(
-        "Guardar nota",
-        on_click=_save,
-        style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-            text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
-        ),
-        width=float("inf"),
-    )
-
-    return ft.SafeArea(
-        expand=True,
-        content=ft.Container(
-            expand=True,
-            padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
-            content=ft.Column(
-                expand=True,
-                spacing=16,
-                controls=[
-                    ft.Column(
-                        expand=True,
-                        spacing=0,
-                        controls=[
-                            title_field,
-                            content_field,
-                        ],
-                    ),
-                    err_txt,
-                    save_btn,
-                ],
-            ),
-        ),
-    )
-
-
-def build_note_detail_view(
-    page: ft.Page,
-    colors_fn,
-    note: dict,
-    on_delete,
-    set_header_actions,
+    note: dict | None,
+    *,
     notes_service: NoteService,
     conflicts_service: ConflictService,
-    register_leave_guard=None,
+    set_header_actions,
+    register_leave_guard,
+    on_deleted,
+    show_snack,
 ):
+    """A note that saves itself on every keystroke; ``note=None`` starts one.
+
+    The editor itself is the ``NoteEditor`` extension (flutter_quill), so
+    formatting applies to the selection or the word under the caret. A new
+    note only reaches the database once it has some text, and a note left
+    completely empty is discarded on the way out (like Keep does).
+    """
     c = colors_fn(page)
+    state = {
+        "note": note,
+        "can_undo": False,
+        "can_redo": False,
+        "actions": None,
+    }
+    read_only = conflicts_service.count(kind="notes") > 0
 
-    state = {"dirty": False}
-    original = {"title": note.get("title", ""), "content": note.get("content", "")}
-
-    _initial_lines = max(1, note.get("content", "").count("\n") + 1)
-
-    title_field = ft.TextField(
-        value=original["title"],
-        hint_text="Título",
-        width=float("inf"),
-        multiline=True,
-        min_lines=1,
-        border=ft.NoInputBorder(),
-        content_padding=ft.Padding.only(bottom=8),
-        dense=True,
-        text_size=20,
-        text_style=ft.TextStyle(weight=ft.FontWeight.W_500, color=c["on_surface"]),
-        hint_style=ft.TextStyle(
-            size=20, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]
-        ),
-        cursor_color=c["primary"],
+    status_text = ft.Text(
+        size=12, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]
+    )
+    status_row = ft.Row(
+        spacing=6,
+        controls=[
+            ft.Icon(
+                ft.Icons.CLOUD_DONE_OUTLINED,
+                size=14,
+                color=c["on_surface_variant"],
+            ),
+            status_text,
+        ],
     )
 
-    content_field = ft.TextField(
-        value=original["content"],
-        hint_text="Nota",
-        multiline=True,
-        min_lines=max(6, _initial_lines),
-        width=float("inf"),
-        border=ft.NoInputBorder(),
-        content_padding=ft.Padding.symmetric(horizontal=0, vertical=8),
-        text_size=15,
-        text_style=ft.TextStyle(
-            weight=ft.FontWeight.W_400, color=c["on_surface"], height=1.3
-        ),
-        hint_style=ft.TextStyle(size=15, color=c["on_surface_variant"]),
-        strut_style=ft.StrutStyle(
-            size=15, height=1.3, weight=ft.FontWeight.W_400, force_strut_height=True
-        ),
-        cursor_color=c["primary"],
-    )
+    def _set_status():
+        # A note that isn't saved yet shows nothing; the "Guardado" line
+        # appears with the first save.
+        current = state["note"]
+        status_row.visible = current is not None
+        if current is not None:
+            saved_at = current.get("updated_at") or current.get("created_at", "")
+            status_text.value = f"Guardado · {_format_date(saved_at)}"
 
-    note_column = ft.Column(
-        width=float("inf"),
-        spacing=16,
-        controls=[title_field, content_field],
-    )
+    def _persist(title: str, delta: list):
+        content, fmt = note_document.serialize(delta)
+        current = state["note"]
+        if current is None:
+            if not title.strip() and not content.strip():
+                return
+            state["note"] = notes_service.add(content, title, fmt)
+        else:
+            state["note"] = (
+                notes_service.update(current["id"], content, title, fmt) or current
+            )
+        _set_status()
+        _refresh_actions()
 
-    err_txt = ft.Text("", size=12, color="#DC2626", visible=False)
+    def _on_change(e):
+        _persist(e.title, json.loads(e.delta))
+
+    def _on_history_change(e):
+        state["can_undo"] = e.can_undo
+        state["can_redo"] = e.can_redo
+        _refresh_actions()
+
+    def _history_button(icon, tooltip, handler):
+        return ft.IconButton(
+            icon=icon,
+            icon_size=22,
+            tooltip=tooltip,
+            icon_color=c["on_surface"],
+            on_click=handler,
+        )
+
+    async def _undo(e):
+        await editor.undo()
+
+    async def _redo(e):
+        await editor.redo()
 
     def _build_actions():
+        # Undo/redo only appear once there is something to take back or redo.
         controls = []
-        if state["dirty"]:
+        if state["can_undo"]:
+            controls.append(_history_button(ft.Icons.UNDO_ROUNDED, "Deshacer", _undo))
+        if state["can_redo"]:
+            controls.append(_history_button(ft.Icons.REDO_ROUNDED, "Rehacer", _redo))
+        if state["note"] is not None:
             controls.append(
-                ft.IconButton(
-                    icon=ft.Icons.CHECK,
-                    icon_color="#4CAF50",
-                    icon_size=22,
-                    tooltip="Guardar cambios",
-                    on_click=_save_edit,
+                ft.PopupMenuButton(
+                    icon=ft.Icons.MORE_VERT_ROUNDED,
+                    icon_color=c["on_surface"],
+                    tooltip="Más opciones",
+                    bgcolor=c["card_bg"],
+                    shape=ft.RoundedRectangleBorder(radius=14),
+                    items=[
+                        ft.PopupMenuItem(
+                            icon=ft.Icon(
+                                ft.Icons.DELETE_OUTLINE_ROUNDED, color=c["error"]
+                            ),
+                            content=ft.Text("Eliminar nota", color=c["error"]),
+                            on_click=_confirm_delete,
+                        )
+                    ],
                 )
             )
-        controls.append(
-            ft.IconButton(
-                icon=ft.Icons.DELETE_OUTLINE,
-                icon_color="#D32F2F",
-                icon_size=20,
-                tooltip="Eliminar",
-                on_click=_confirm_delete,
-            )
-        )
         return [
             ft.Container(
                 padding=ft.Padding.only(right=8),
                 content=ft.Row(spacing=0, controls=controls),
-            ),
+            )
         ]
 
-    def _is_dirty() -> bool:
-        return (title_field.value or "") != original["title"] or (
-            content_field.value or ""
-        ) != original["content"]
-
-    def _on_field_change(e):
-        dirty = _is_dirty()
-        if dirty != state["dirty"]:
-            state["dirty"] = dirty
+    def _refresh_actions():
+        key = (state["can_undo"], state["can_redo"], state["note"] is not None)
+        if key != state["actions"]:
+            state["actions"] = key
             set_header_actions(_build_actions())
-
-    title_field.on_change = _on_field_change
-    content_field.on_change = _on_field_change
 
     def _confirm_delete(e):
         if conflicts_service.count(kind="notes") > 0:
-            snack = ft.SnackBar(
-                content=ft.Text("Resuelve los conflictos antes de eliminar"), open=True
-            )
-            page.overlay.append(snack)
-            page.update()
+            show_snack("Resuelve los conflictos antes de eliminar")
             return
 
         def _do_delete(ev):
-            notes_service.delete(note["id"])
+            notes_service.delete(state["note"]["id"])
+            state["note"] = None
             page.pop_dialog()
-            on_delete()
-
-        def _cancel_delete(ev):
-            page.pop_dialog()
+            on_deleted()
 
         page.show_dialog(
             build_dialog(
@@ -458,121 +395,70 @@ def build_note_detail_view(
                 title="Eliminar nota",
                 content="¿Estás seguro de que deseas eliminar esta nota?",
                 actions=[
-                    dialog_cancel_button("Cancelar", _cancel_delete, c),
+                    dialog_cancel_button("Cancelar", lambda ev: page.pop_dialog(), c),
                     dialog_primary_button("Eliminar", _do_delete, c, destructive=True),
                 ],
             )
         )
 
-    def _perform_save() -> bool:
-        title = (title_field.value or "").strip()
-        text = (content_field.value or "").strip()
-        if not text:
-            err_txt.value = "La nota no puede estar vacía"
-            err_txt.visible = True
-            page.update()
-            return False
-        updated = notes_service.update(note["id"], text, title)
-        note["content"] = text
-        note["title"] = title
-        note["updated_at"] = (
-            updated["updated_at"] if updated else note.get("updated_at")
-        )
-        original["title"] = title
-        original["content"] = text
-        title_field.value = title
-        content_field.value = text
-        err_txt.visible = False
-        state["dirty"] = False
-        set_header_actions(_build_actions())
-        return True
-
-    def _save_edit(e):
-        _perform_save()
-
-    def _discard_changes():
-        title_field.value = original["title"]
-        content_field.value = original["content"]
-        err_txt.visible = False
-        state["dirty"] = False
-        set_header_actions(_build_actions())
-
     def _leave_guard(proceed, cancel):
-        if not state["dirty"]:
-            proceed()
-            return
+        current = state["note"]
+        if (
+            current is not None
+            and not read_only
+            and not (current.get("title") or "").strip()
+            and not (current.get("content") or "").strip()
+        ):
+            notes_service.delete(current["id"])
+            state["note"] = None
+            show_snack("Nota vacía descartada")
+        proceed()
 
-        resolved = {"value": False}
-
-        def _handle_save(ev):
-            resolved["value"] = True
-            page.pop_dialog()
-            if _perform_save():
-                proceed()
-            else:
-                cancel()
-
-        def _handle_discard(ev):
-            resolved["value"] = True
-            page.pop_dialog()
-            _discard_changes()
-            proceed()
-
-        def _handle_dismiss(ev):
-            if not resolved["value"]:
-                cancel()
-
-        page.show_dialog(
-            build_dialog(
-                c,
-                title="Cambios sin guardar",
-                content=(
-                    "Tienes cambios sin guardar en esta nota. "
-                    "¿Deseas guardarlos o descartarlos?"
-                ),
-                actions=[
-                    dialog_cancel_button("Descartar", _handle_discard, c),
-                    dialog_primary_button("Guardar", _handle_save, c),
-                ],
-                on_dismiss=_handle_dismiss,
-            )
-        )
-
-    if register_leave_guard is not None:
-        register_leave_guard(_leave_guard)
-
-    set_header_actions(_build_actions())
-
-    divider = build_scroll_divider()
-    return ft.SafeArea(
-        expand=True,
-        content=ft.Container(
-            expand=True,
-            padding=ft.Padding.only(left=0, right=0, top=8, bottom=24),
-            content=ft.Column(
-                expand=True,
-                spacing=0,
+    if read_only:
+        header = ft.Container(
+            border_radius=12,
+            bgcolor=c["warning_bg"],
+            padding=ft.Padding.symmetric(horizontal=14, vertical=10),
+            content=ft.Row(
+                spacing=10,
                 controls=[
-                    divider,
-                    ft.Column(
+                    ft.Icon(ft.Icons.LOCK_OUTLINE_ROUNDED, size=18, color=c["warning"]),
+                    ft.Text(
+                        "Resuelve los conflictos de notas para poder editar",
+                        size=13,
+                        weight=ft.FontWeight.W_500,
+                        color=c["warning"],
                         expand=True,
-                        spacing=0,
-                        scroll=ft.Scrollbar(thickness=6, radius=4),
-                        on_scroll=make_scroll_divider_handler(divider, c),
-                        controls=[
-                            ft.Container(
-                                margin=ft.Margin.symmetric(horizontal=24),
-                                content=ft.Column(
-                                    spacing=16,
-                                    controls=[
-                                        note_column,
-                                        err_txt,
-                                    ],
-                                ),
-                            ),
-                        ],
                     ),
                 ],
             ),
+        )
+    else:
+        header = status_row
+
+    source = note or {}
+    editor = NoteEditor(
+        expand=True,
+        value=json.dumps(
+            note_document.to_delta(source.get("content"), source.get("format"))
         ),
+        title=source.get("title") or "",
+        header=header,
+        read_only=read_only,
+        autofocus_title=note is None and not read_only,
+        text_color=c["on_surface"],
+        muted_color=c["on_surface_variant"],
+        accent_color=c["primary"],
+        accent_container_color=c["navigation_indicator"],
+        toolbar_color=c["card_bg"],
+        divider_color=c["header_divider"],
+        on_change=_on_change,
+        on_history_change=_on_history_change,
     )
+
+    _set_status()
+    _refresh_actions()
+    if register_leave_guard is not None:
+        register_leave_guard(_leave_guard)
+
+    return ft.SafeArea(expand=True, content=editor)
