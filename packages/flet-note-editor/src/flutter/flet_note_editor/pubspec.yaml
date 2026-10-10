@@ -1,0 +1,20 @@
+name: flet_note_editor
+description: Rich text note editor (flutter_quill) for DiezApp
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=1.17.0"
+
+dependencies:
+  flet: ^1.0.4
+  flutter:
+    sdk: flutter
+  # 11.5.1+ needs Flutter 3.44, which is what Flet 1.0.4 builds with.
+  flutter_quill: ^11.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0

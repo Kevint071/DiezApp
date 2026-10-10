@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "flet>=1.0.4",
+    "flet-note-editor",
     "fpdf2>=2.8.3",
     "httpx>=0.28.0",
     "truststore>=0.10.4",
@@ -13,6 +14,14 @@ dependencies = [
 
 [tool.flet.app]
 path = "src"
+
+# Rich text note editor (Flutter extension). Flet only compiles extensions in
+# `flet debug` / `flet build`; plain `flet run` can't show the note editor.
+[tool.flet.dev_packages]
+flet-note-editor = "packages/flet-note-editor"
+
+[tool.uv.sources]
+flet-note-editor = { path = "packages/flet-note-editor", editable = true }
 
 [tool.flet.boot_screen.flet]
 spinner_size = 30
@@ -37,6 +46,9 @@ host = "oauth2redirect"
 
 [dependency-groups]
 dev = [
+    "flet-cli>=1.0.4",
+    "flet-desktop>=1.0.4",
+    "flet-web>=1.0.4",
     "playwright>=1.62.0",
     "pytest>=9.1.1",
     "ruff>=0.16.1",

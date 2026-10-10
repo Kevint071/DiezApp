@@ -15,6 +15,13 @@ def configure_page(page: ft.Page, settings_service: SettingsService) -> AppSetti
     """Apply application-wide page settings and return session state."""
     page.title = "DiezApp"
     page.padding = ft.Padding.all(0)
+    # Note typefaces, bundled so they look the same offline on every platform.
+    page.fonts = {
+        "Nunito": "fonts/Nunito.ttf",
+        "Lora": "fonts/Lora.ttf",
+        "JetBrains Mono": "fonts/JetBrainsMono.ttf",
+        "Caveat": "fonts/Caveat.ttf",
+    }
 
     settings = settings_service.load()
     page.theme_mode = (

@@ -1,0 +1,18 @@
+[project]
+name = "flet-note-editor"
+version = "0.1.0"
+description = "Rich text note editor (flutter_quill) for DiezApp"
+requires-python = ">=3.10"
+dependencies = [
+    "flet>=1.0.4",
+]
+
+[tool.setuptools.package-data]
+"flutter.flet_note_editor" = ["**/*"]
+
+[tool.setuptools]
+license-files = []
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

@@ -31,9 +31,16 @@ La app usa dos capturas verticales. La primera muestra la pantalla de inicio y l
 ## Inicio rápido
 
 ```bash
-pip install flet fpdf2
-flet run src/main.py
+uv sync
+flet debug windows      # o: flet debug android (con el móvil conectado)
 ```
+
+El editor de notas es una extensión de Flutter propia
+([packages/flet-note-editor](packages/flet-note-editor), basada en
+`flutter_quill`). Flet solo compila extensiones con `flet debug` y
+`flet build`, así que con `flet run` la app arranca pero la pantalla de una
+nota no puede mostrarse. La primera compilación descarga Flutter y tarda unos
+minutos; en Windows necesita Visual Studio (o Build Tools) con C++.
 
 ## Funcionalidades
 
