@@ -26,6 +26,59 @@ final List<Attribute> _inlineKeys = [
 
 final _wordChar = RegExp(r"[\p{L}\p{N}_'’]", unicode: true);
 
+/// One indent level, like a tab stop.
+const _indentStep = 24.0;
+
+/// Room for "•" or the checkbox plus the gap before the text.
+const _markerWidth = 24.0;
+
+/// Room for "1." and each extra digit beyond the first.
+const _digitWidth = 9.0;
+
+int _indentLevel(Map<String, Attribute> attrs) =>
+    (attrs[Attribute.indent.key]?.value as int?) ?? 0;
+
+/// Lists start flush with the paragraphs instead of Quill's 2em gutter; the
+/// text after the marker is what moves right.
+HorizontalSpacing _blockIndent(Block block, BuildContext context, int count,
+    LeadingBlockNumberPointWidth numberPointWidth) {
+  final attrs = block.style.attributes;
+  if (attrs.containsKey(Attribute.codeBlock.key)) {
+    return TextBlockUtils.defaultIndentWidthBuilder(
+        block, context, count, numberPointWidth);
+  }
+  final indent = _indentStep * _indentLevel(attrs);
+  final list = attrs[Attribute.list.key];
+  if (list == null) return HorizontalSpacing(indent, 0);
+  final marker = list == Attribute.ol
+      ? _markerWidth + _digitWidth * ('$count'.length - 1)
+      : _markerWidth;
+  return HorizontalSpacing(indent + marker, 0);
+}
+
+/// Draws bullets and numbers at the start of their indent instead of
+/// right-aligned against the text. Checkboxes keep Quill's widget, which
+/// already hugs the text.
+Widget? _listMarker(Node node, LeadingConfig config) {
+  final String label;
+  if (config.attribute == Attribute.ul) {
+    label = '•';
+  } else if (config.attribute == Attribute.ol) {
+    // The getter advances the per-level counters; read it once per line.
+    label = '${config.getIndexNumberByIndent}.';
+  } else {
+    return null;
+  }
+  return Padding(
+    padding: EdgeInsetsDirectional.only(
+        start: _indentStep * _indentLevel(config.attrs)),
+    child: Align(
+      alignment: AlignmentDirectional.topStart,
+      child: Text(label, style: config.style, softWrap: false),
+    ),
+  );
+}
+
 class NoteEditorControl extends StatefulWidget {
   final Control control;
 
@@ -229,6 +282,11 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
     _keepEditing();
   }
 
+  void _indent(bool increase) {
+    _quill.indentSelection(increase);
+    _keepEditing();
+  }
+
   void _keepEditing() {
     if (!_editorFocus.hasFocus) _editorFocus.requestFocus();
   }
@@ -294,6 +352,8 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
         placeholder: control.getString("placeholder"),
         textCapitalization: TextCapitalization.sentences,
         customStyles: _styles(colors),
+        // ignore: experimental_member_use
+        customLeadingBlockBuilder: _listMarker,
         // "- ", "1. ", "# ", "## " turn the line into a list or a heading.
         // ignore: experimental_member_use
         spaceShortcutEvents: standardSpaceShorcutEvents,
@@ -363,7 +423,12 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
           VerticalSpacing.zero,
           null),
       lists: DefaultListBlockStyle(base, flat, const VerticalSpacing(2, 2),
-          const VerticalSpacing(0, 4), null, null),
+          const VerticalSpacing(0, 4), null, null,
+          indentWidthBuilder: _blockIndent),
+      // Bullets and numbers are top-aligned with the line, so they need the
+      // body's line height or they sit above the text.
+      leading: DefaultTextBlockStyle(
+          base, flat, VerticalSpacing.zero, VerticalSpacing.zero, null),
       placeHolder: DefaultTextBlockStyle(base.copyWith(color: colors.muted),
           flat, VerticalSpacing.zero, VerticalSpacing.zero, null),
     );
@@ -462,6 +527,10 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
                         () => _toggleList(Attribute.ol, list == "ordered")),
                     _icon(colors, Icons.checklist_rounded, "Lista de tareas",
                         isCheck, () => _toggleList(Attribute.unchecked, isCheck)),
+                    _icon(colors, Icons.format_indent_decrease_rounded,
+                        "Reducir sangría", false, () => _indent(false)),
+                    _icon(colors, Icons.format_indent_increase_rounded,
+                        "Aumentar sangría", false, () => _indent(true)),
                     _separator(colors),
                     _icon(colors, Icons.format_clear_rounded, "Quitar formato",
                         false, _clearInline),
