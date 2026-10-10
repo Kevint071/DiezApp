@@ -222,6 +222,10 @@ def build_date_range_picker_view(
                 width=CELL,
                 height=CELL,
                 alignment=ft.Alignment.CENTER,
+                # The font's line box carries extra leading above the digits,
+                # so a plain centre lands them ~1.5px low in the badge/track.
+                # A full 1.5px lift reads high, so this splits the difference.
+                padding=ft.Padding.only(bottom=2),
                 content=ft.Text(
                     str(d.day),
                     size=13,
