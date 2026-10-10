@@ -21,11 +21,11 @@ def _build_gdrive_backups_section(
     async def _link_account(e):
         del e
         if not oauth_flow.is_configured():
-            show_snack("OAuth de Google no configurado")
+            show_snack("OAuth de Google no configurado", kind="error")
             return
         started = await oauth_flow.start(page.session.store, page.url)
         if not started:
-            show_snack("Ya hay 2 cuentas vinculadas")
+            show_snack("Ya hay 2 cuentas vinculadas", kind="warning")
 
     def _account_row(account):
         return ft.Container(

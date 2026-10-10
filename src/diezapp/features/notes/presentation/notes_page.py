@@ -350,7 +350,7 @@ def build_note_editor_view(
 
     def _confirm_delete(e):
         if conflicts_service.count(kind="notes") > 0:
-            show_snack("Resuelve los conflictos antes de eliminar")
+            show_snack("Resuelve los conflictos antes de eliminar", kind="warning")
             return
 
         def _do_delete(ev):

@@ -24,6 +24,7 @@ def _local_iso(*args):
 
 class FakePage:
     theme_mode = "light"
+    width = None
 
     def __init__(self):
         self.overlay = []

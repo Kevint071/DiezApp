@@ -14,6 +14,7 @@ from diezapp.shared.presentation.theme import (
     get_colors,
     get_navigation_bar_style,
 )
+from diezapp.shared.presentation.toast import show_toast
 
 # settings_view and other secondary views are lazy-imported on first use to
 # speed up startup.
@@ -27,11 +28,8 @@ _CALCULATION_LISTS = {
 
 def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
 
-    def _show_snack(message: str, keep_open: bool = True):
-        snack = ft.SnackBar(content=ft.Text(message), open=True)
-        page.overlay.append(snack)
-        if keep_open:
-            page.update()
+    def _show_snack(message: str, keep_open: bool = True, **toast):
+        show_toast(page, message, update=keep_open, **toast)
 
     # ── Leave guard (unsaved-changes protection) ─────────
     leave_guard = {"check": None}
@@ -325,7 +323,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             page.update()
 
         def _on_deleted():
-            _show_snack("Cálculo eliminado", keep_open=False)
+            _show_snack("Cálculo eliminado", keep_open=False, kind="success")
             page.navigate(back_route)
 
         content = build_calculation_detail_view(
@@ -385,7 +383,9 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             set_header_actions=_set_actions,
             register_leave_guard=_register_leave_guard,
             on_deleted=lambda: page.navigate(routes.NOTES),
-            show_snack=lambda message: _show_snack(message, keep_open=False),
+            show_snack=lambda message, **toast: _show_snack(
+                message, keep_open=False, **toast
+            ),
         )
         view = ft.View(route=route, padding=0, appbar=appbar, controls=[content])
 

@@ -18,4 +18,4 @@ class RouteContext:
     dependencies: AppDependencies
     colors_fn: Callable[[ft.Page], dict]
     build_appbar: Callable[..., ft.AppBar]
-    show_snack: Callable[[str, bool], None]
+    show_snack: Callable[..., None]

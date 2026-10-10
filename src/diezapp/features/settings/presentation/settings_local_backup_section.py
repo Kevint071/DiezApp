@@ -23,6 +23,7 @@ from diezapp.shared.presentation.dialogs import (
     dialog_primary_button,
 )
 from diezapp.shared.presentation.share_files import share_local_file
+from diezapp.shared.presentation.toast import show_toast
 
 
 def build_local_backup_section(
@@ -38,11 +39,8 @@ def build_local_backup_section(
 ):
     """Build export, import and conflict controls for the local SQLite backup."""
 
-    def show_snack(message: str, keep_open: bool = True):
-        snack = ft.SnackBar(content=ft.Text(message), open=True)
-        page.overlay.append(snack)
-        if keep_open:
-            page.update()
+    def show_snack(message: str, keep_open: bool = True, **toast):
+        show_toast(page, message, update=keep_open, **toast)
 
     import_service = BackupImportService(
         calculations_service, notes_service, conflicts_service
@@ -91,7 +89,7 @@ def build_local_backup_section(
         )
         notes = notes_service.list() if target in ("notes", "both") else []
         if not calculations and not notes:
-            show_snack("No hay datos guardados para exportar")
+            show_snack("No hay datos guardados para exportar", kind="warning")
             return
 
         file_name = local_now().strftime("respaldo_%Y_%m_%d_%H_%M_%S.db")
@@ -114,7 +112,12 @@ def build_local_backup_section(
                 backup_service.export_calculations(output_path, calculations)
             if target in ("notes", "both"):
                 backup_service.export_notes(output_path, notes)
-            show_snack(f"Copia guardada en {output_path}", keep_open=False)
+            show_snack(
+                "Copia guardada",
+                keep_open=False,
+                kind="success",
+                detail=output_path,
+            )
             return
 
         output_path = os.path.join(tempfile.gettempdir(), file_name)
@@ -132,7 +135,9 @@ def build_local_backup_section(
                 src_bytes=backup_bytes,
             )
             if saved_path:
-                show_snack("Copia guardada correctamente", keep_open=False)
+                show_snack(
+                    "Copia guardada correctamente", keep_open=False, kind="success"
+                )
             return
 
         await share_local_file(
@@ -221,7 +226,7 @@ def build_local_backup_section(
         if (target in ("calcs", "both") and conflicts_service.count() > 0) or (
             target in ("notes", "both") and conflicts_service.count(kind="notes") > 0
         ):
-            show_snack("Resuelve los conflictos antes de importar")
+            show_snack("Resuelve los conflictos antes de importar", kind="warning")
             return
 
         temp_path = None
@@ -271,14 +276,14 @@ def build_local_backup_section(
                     if target == "notes":
                         raise
         except ValueError:
-            show_snack("Archivo SQLite inválido")
+            show_snack("Archivo SQLite inválido", kind="error")
             return
         finally:
             if temp_path and os.path.exists(temp_path):
                 os.unlink(temp_path)
 
         if not imported_calculations and not imported_notes:
-            show_snack("El archivo no contiene datos para importar")
+            show_snack("El archivo no contiene datos para importar", kind="warning")
             return
 
         messages, has_conflicts = [], False
@@ -297,7 +302,11 @@ def build_local_backup_section(
             messages.append(f"{result['notes']} notas {label}")
         if has_conflicts:
             messages.append("Resuélvelos abajo")
-        show_snack(". ".join(messages), keep_open=False)
+        show_snack(
+            ". ".join(messages),
+            keep_open=False,
+            kind="warning" if has_conflicts else "success",
+        )
         navigate_to_settings()
 
     import_dialog = build_dialog(

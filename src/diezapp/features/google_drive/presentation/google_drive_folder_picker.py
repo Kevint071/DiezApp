@@ -170,7 +170,7 @@ class GoogleDriveFolderPicker:
             return await self._refresh_access_token.execute(account)
         status, access_token = await self._validation_controller.validate(account)
         if not access_token or status == "unauthenticated":
-            self._show_snack("No se pudo autenticar la cuenta")
+            self._show_snack("No se pudo autenticar la cuenta", kind="error")
             return None
         return access_token
 
@@ -185,10 +185,12 @@ class GoogleDriveFolderPicker:
     def _show_folder_error(self, error: DriveFolderError):
         if error.status_code is not None:
             self._show_snack(
-                f"Drive {error.status_code} ({error.reason}): {error.message}"
+                f"Drive {error.status_code} ({error.reason})",
+                kind="error",
+                detail=error.message,
             )
         else:
-            self._show_snack(error.message)
+            self._show_snack(error.message, kind="error")
 
     def _render_folder_list(self):
         if not self._folders_loaded:
@@ -247,14 +249,14 @@ class GoogleDriveFolderPicker:
         del e
         selected_ids = set(self._delete_state["selected"])
         if not selected_ids:
-            self._show_snack("Selecciona al menos una carpeta")
+            self._show_snack("Selecciona al menos una carpeta", kind="warning")
             return
         account = self._account()
         if account is None:
             return
         access_token = await self._refresh_access_token.execute(account)
         if not access_token:
-            self._show_snack("No se pudo autenticar la cuenta")
+            self._show_snack("No se pudo autenticar la cuenta", kind="error")
             return
         try:
             for folder_id in selected_ids:
@@ -276,7 +278,7 @@ class GoogleDriveFolderPicker:
         self._render_folder_list()
         self._update_dialog_actions()
         self._page.update()
-        self._show_snack("Carpetas eliminadas", keep_open=False)
+        self._show_snack("Carpetas eliminadas", keep_open=False, kind="success")
 
     def _update_dialog_actions(self):
         if self._delete_state["active"]:
@@ -348,7 +350,7 @@ class GoogleDriveFolderPicker:
         access_token = await self._refresh_access_token.execute(account)
         if not access_token:
             self._set_busy(False)
-            self._show_snack("No se pudo autenticar la cuenta")
+            self._show_snack("No se pudo autenticar la cuenta", kind="error")
             return
         try:
             folder = await self._folder_service.get(access_token, folder_id)
@@ -409,13 +411,13 @@ class GoogleDriveFolderPicker:
         account = self._account()
         folder_name = (self._name_field.value or "").strip()
         if not account or not folder_name:
-            self._show_snack("Escribe un nombre para la carpeta")
+            self._show_snack("Escribe un nombre para la carpeta", kind="warning")
             return
         self._creating_folder = True
         try:
             access_token = await self._refresh_access_token.execute(account)
             if not access_token:
-                self._show_snack("No se pudo autenticar la cuenta")
+                self._show_snack("No se pudo autenticar la cuenta", kind="error")
                 return
             try:
                 folder_id = await self._folder_service.create(

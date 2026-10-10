@@ -156,13 +156,15 @@ def build_manual_backup_action(
         result = await backup_service.run(refresh_access_token.execute, {account["id"]})
         status = result["status"]
         if status == "skipped":
-            show_snack(result.get("message", "No hay cuentas configuradas"))
+            show_snack(
+                result.get("message", "No hay cuentas configuradas"), kind="warning"
+            )
         elif status == "success":
-            show_snack("Copia de seguridad completada", keep_open=False)
+            show_snack("Copia de seguridad completada", keep_open=False, kind="success")
         elif status == "partial":
-            show_snack("Copia parcial: alguna cuenta falló")
+            show_snack("Copia parcial: alguna cuenta falló", kind="warning")
         else:
-            show_snack("No se pudo completar la copia de seguridad")
+            show_snack("No se pudo completar la copia de seguridad", kind="error")
         backup_now_button.icon = ft.Icons.CLOUD_UPLOAD_OUTLINED
         backup_now_button.disabled = False
         page.update()

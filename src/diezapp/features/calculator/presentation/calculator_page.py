@@ -27,6 +27,7 @@ from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
 )
+from diezapp.shared.presentation.toast import show_toast
 
 
 def date_row_label(value: date, today: date) -> str:
@@ -457,11 +458,9 @@ class CalculatorView:
 
     def _save_calculation(self, e):
         if self.conflicts.count() > 0:
-            snack = ft.SnackBar(
-                content=ft.Text("Resuelve los conflictos antes de guardar"), open=True
+            show_toast(
+                self.page, "Resuelve los conflictos antes de guardar", kind="warning"
             )
-            self.page.overlay.append(snack)
-            self.page.update()
             return
         try:
             amount = self._parse_amount()

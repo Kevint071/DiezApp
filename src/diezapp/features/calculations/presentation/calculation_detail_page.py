@@ -43,6 +43,7 @@ from diezapp.shared.presentation.scroll_divider import (
     build_scroll_divider,
     make_scroll_divider_handler,
 )
+from diezapp.shared.presentation.toast import show_toast
 
 AMOUNT_SIZE = 34
 SAVE_BTN_HEIGHT = 48
@@ -94,9 +95,8 @@ def build_calculation_detail_view(
     fund_pct = calc.get("fund_percentage", 1)
     state = {"editing": False}
 
-    def _snack(message: str):
-        page.overlay.append(ft.SnackBar(content=ft.Text(message), open=True))
-        page.update()
+    def _snack(message: str, kind: str = "info"):
+        show_toast(page, message, kind=kind)
 
     # ── Hero: the net amount, read-only or as an input ────
     amount_text = ft.Text(
@@ -256,7 +256,7 @@ def build_calculation_detail_view(
 
     def _start_edit(e):
         if conflicts_service.count() > 0:
-            _snack("Resuelve los conflictos antes de editar")
+            _snack("Resuelve los conflictos antes de editar", "warning")
             return
         _set_editing(True)
         page.update()
@@ -268,7 +268,7 @@ def build_calculation_detail_view(
 
     def _perform_save() -> bool:
         if conflicts_service.count() > 0:
-            _snack("Resuelve los conflictos antes de editar")
+            _snack("Resuelve los conflictos antes de editar", "warning")
             return False
         amount = parse_amount(amount_field.value)
         if amount is None:
@@ -282,7 +282,7 @@ def build_calculation_detail_view(
 
     def _save_edit(e):
         if _perform_save():
-            _snack("Cálculo actualizado")
+            _snack("Cálculo actualizado", "success")
 
     cancel_btn.on_click = _cancel_edit
     save_btn.on_click = _save_edit
@@ -290,7 +290,7 @@ def build_calculation_detail_view(
     # ── Deleting ──────────────────────────────────────────
     def _confirm_delete(e):
         if conflicts_service.count() > 0:
-            _snack("Resuelve los conflictos antes de eliminar")
+            _snack("Resuelve los conflictos antes de eliminar", "warning")
             return
 
         def _do_delete(ev):

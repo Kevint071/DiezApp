@@ -58,6 +58,7 @@ from diezapp.shared.presentation.scroll_divider import (
     make_scroll_divider_handler,
 )
 from diezapp.shared.presentation.share_files import share_local_file
+from diezapp.shared.presentation.toast import show_toast
 
 
 def build_google_drive_view(
@@ -70,11 +71,8 @@ def build_google_drive_view(
     """Build the dedicated Google Drive account and backup management view."""
     colors = colors_fn(page)
 
-    def show_snack(message: str, keep_open: bool = True):
-        snack = ft.SnackBar(content=ft.Text(message), open=True)
-        page.overlay.append(snack)
-        if keep_open:
-            page.update()
+    def show_snack(message: str, keep_open: bool = True, **toast):
+        show_toast(page, message, update=keep_open, **toast)
 
     return ft.SafeArea(
         expand=True,
@@ -462,11 +460,8 @@ def build_google_drive_backup_detail_view(
     file_picker = ft.FilePicker()
     page.services.append(file_picker)
 
-    def show_snack(message: str, keep_open: bool = True):
-        snack = ft.SnackBar(content=ft.Text(message), open=True)
-        page.overlay.append(snack)
-        if keep_open:
-            page.update()
+    def show_snack(message: str, keep_open: bool = True, **toast):
+        show_toast(page, message, update=keep_open, **toast)
 
     def parse_moment(value: str | None):
         if not value:
@@ -519,7 +514,12 @@ def build_google_drive_backup_detail_view(
                 if not token:
                     raise ValueError("No se pudo renovar el acceso a Google Drive")
                 await download_file(token, file["id"], output_path)
-                show_snack(f"Copia guardada en {output_path}", keep_open=False)
+                show_snack(
+                    "Copia guardada",
+                    keep_open=False,
+                    kind="success",
+                    detail=output_path,
+                )
                 return
 
             temp_path = None
@@ -534,11 +534,13 @@ def build_google_drive_backup_detail_view(
                     src_bytes=backup_bytes,
                 )
                 if saved_path:
-                    show_snack("Copia guardada correctamente", keep_open=False)
+                    show_snack(
+                        "Copia guardada correctamente", keep_open=False, kind="success"
+                    )
             finally:
                 await remove_temp_file(temp_path)
         except Exception as error:  # noqa: BLE001 - Drive errors are user-facing
-            show_snack(f"No se pudo descargar la copia: {error}")
+            show_snack("No se pudo descargar la copia", kind="error", detail=str(error))
 
     async def share_copy(e):
         del e
@@ -552,7 +554,7 @@ def build_google_drive_backup_detail_view(
                 title="Compartir copia de seguridad",
             )
         except Exception as error:  # noqa: BLE001 - Drive errors are user-facing
-            show_snack(f"No se pudo compartir la copia: {error}")
+            show_snack("No se pudo compartir la copia", kind="error", detail=str(error))
         finally:
             await remove_temp_file(temp_path)
 
@@ -579,7 +581,8 @@ def build_google_drive_backup_detail_view(
                     show_snack(
                         "Se detectaron conflictos "
                         + " y ".join(parts)
-                        + ". Puedes resolverlos en Conflictos."
+                        + ". Puedes resolverlos en Conflictos.",
+                        kind="warning",
                     )
                     page.navigate("/settings/conflicts")
                     return
@@ -593,7 +596,7 @@ def build_google_drive_backup_detail_view(
                         f"Agregados {result['calculations']} cálculos y "
                         f"{result['notes']} notas nuevos"
                     )
-                show_snack(message)
+                show_snack(message, kind="success")
 
             return handler
 
@@ -641,7 +644,9 @@ def build_google_drive_backup_detail_view(
                 temp_path = None
                 show_import_options(calculations, notes)
             except Exception as error:  # noqa: BLE001 - import errors are user-facing
-                show_snack(f"No se pudo importar la copia: {error}")
+                show_snack(
+                    "No se pudo importar la copia", kind="error", detail=str(error)
+                )
             finally:
                 await remove_temp_file(temp_path)
 
@@ -671,12 +676,12 @@ def build_google_drive_backup_detail_view(
             if not token:
                 raise ValueError("No se pudo renovar el acceso a Google Drive")
             await delete_file(token, file["id"])
-            show_snack("Copia eliminada de Google Drive")
+            show_snack("Copia eliminada de Google Drive", kind="success")
             navigate_back()
         except ValueError as error:
-            show_snack(str(error))
+            show_snack(str(error), kind="error")
         except Exception as error:  # noqa: BLE001 - Drive errors are user-facing
-            show_snack(f"No se pudo eliminar la copia: {error}")
+            show_snack("No se pudo eliminar la copia", kind="error", detail=str(error))
 
     def confirm_delete(e):
         del e

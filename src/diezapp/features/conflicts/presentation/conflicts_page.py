@@ -11,6 +11,7 @@ from diezapp.shared.presentation.scroll_divider import (
     make_scroll_divider_handler,
 )
 from diezapp.shared.presentation.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
+from diezapp.shared.presentation.toast import show_toast
 
 # Per-kind configuration: how to load/save items, their unique id field, and
 # which fields to render in the comparison cards. This lets the same
@@ -595,15 +596,13 @@ def build_conflicts_grid_view(
             conflicts_service.save(unresolved, pending_add, kind)
             msg = f"{n_applied} resueltos, {len(unresolved)} pendientes"
 
-        snack = ft.SnackBar(content=ft.Text(msg), open=True)
-        page.overlay.append(snack)
+        show_toast(page, msg, kind="warning" if unresolved else "success", update=False)
         _reset_conflict_state(kind)
         page.navigate(back_route)
 
     def _discard_all(e):
         conflicts_service.clear(kind)
-        snack = ft.SnackBar(content=ft.Text("Importación descartada"), open=True)
-        page.overlay.append(snack)
+        show_toast(page, "Importación descartada", update=False)
         _reset_conflict_state(kind)
         page.navigate(back_route)
 
