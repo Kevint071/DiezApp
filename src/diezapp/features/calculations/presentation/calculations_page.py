@@ -40,6 +40,8 @@ from diezapp.shared.presentation.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
 from diezapp.shared.presentation.toast import show_toast
 
 PAGE_SIZE = 20
+# Height of the big dates in the PDF range header; the connector shares it.
+DATE_ROW_HEIGHT = 32
 
 _DESKTOP_PLATFORMS = {
     ft.PagePlatform.WINDOWS,
@@ -392,7 +394,16 @@ def build_date_range_picker_view(
         _refresh()
 
     def _date_slot(align_end: bool):
-        big = ft.Text("—", size=24, weight=ft.FontWeight.W_700, no_wrap=True)
+        big = ft.Text(size=24, weight=ft.FontWeight.W_700, no_wrap=True)
+        # An unset date is a drawn bar, not a "—" glyph: the glyph sits below
+        # the middle of its line box and would miss the connector's height.
+        blank = ft.Container(width=22, height=3, border_radius=2)
+        big_box = ft.Container(
+            height=DATE_ROW_HEIGHT,
+            alignment=ft.Alignment.CENTER_RIGHT
+            if align_end
+            else ft.Alignment.CENTER_LEFT,
+        )
         small = ft.Text(size=12, weight=ft.FontWeight.W_500, no_wrap=True)
         column = ft.Column(
             spacing=2,
@@ -400,9 +411,15 @@ def build_date_range_picker_view(
             horizontal_alignment=ft.CrossAxisAlignment.END
             if align_end
             else ft.CrossAxisAlignment.START,
-            controls=[big, small],
+            controls=[big_box, small],
         )
-        return {"big": big, "small": small, "column": column}
+        return {
+            "big": big,
+            "blank": blank,
+            "big_box": big_box,
+            "small": small,
+            "column": column,
+        }
 
     def _dot():
         return ft.Container(width=8, height=8, border_radius=4)
@@ -447,12 +464,14 @@ def build_date_range_picker_view(
             slot = slots[key]
             if day:
                 slot["big"].value = f"{day.day} {MONTHS_SHORT[day.month - 1]}"
+                slot["big"].color = c["on_surface"]
+                slot["big_box"].content = slot["big"]
                 weekday = WEEKDAYS_SHORT[day.weekday()].capitalize()
                 slot["small"].value = f"{weekday} · {day.year}"
             else:
-                slot["big"].value = "—"
+                slot["blank"].bgcolor = c["outline"]
+                slot["big_box"].content = slot["blank"]
                 slot["small"].value = hint
-            slot["big"].color = c["on_surface"] if day else c["outline"]
             slot["small"].color = (
                 c["primary"] if key == active else c["on_surface_variant"]
             )
@@ -543,25 +562,29 @@ def build_date_range_picker_view(
     # Boarding-pass style: start and end at the edges, the span between them.
     # The dates keep their natural width and the connector takes what's left,
     # so a narrow screen shortens the line instead of squeezing the text.
+    # The connector lives in a box as tall as the date boxes, so it lines up
+    # with the big dates (set or not) by construction; the span label sits
+    # on the captions' row underneath.
     range_pass = ft.Row(
         spacing=14,
-        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        vertical_alignment=ft.CrossAxisAlignment.START,
         controls=[
             slots["start"]["column"],
             ft.Column(
                 expand=True,
-                spacing=6,
+                spacing=2,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    span_txt,
-                    ft.Row(
-                        spacing=0,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[span_dots[0], span_line, span_dots[1]],
+                    ft.Container(
+                        height=DATE_ROW_HEIGHT,
+                        alignment=ft.Alignment.CENTER,
+                        content=ft.Row(
+                            spacing=0,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[span_dots[0], span_line, span_dots[1]],
+                        ),
                     ),
-                    # Mirrors the label's height so the line sits on the
-                    # vertical centre of the dates.
-                    ft.Container(height=16),
+                    span_txt,
                 ],
             ),
             slots["end"]["column"],
