@@ -1,7 +1,9 @@
+import asyncio
 import dataclasses
 from datetime import date
 
 import flet as ft
+import pytest
 from flet.controls.base_control import BaseControl
 from flet.utils.validation import validate
 
@@ -40,6 +42,20 @@ class FakeConflicts:
         return 0
 
 
+@pytest.fixture(autouse=True)
+def _stub_focus(monkeypatch):
+    """`calculate` parks focus on the save button; the fake page is not mounted."""
+
+    async def _no_focus(self):
+        pass
+
+    monkeypatch.setattr(ft.FilledButton, "focus", _no_focus)
+
+
+def _run_calculate(view):
+    asyncio.run(view.calculate(None))
+
+
 def _calculated_view():
     create = FakeCreateCalculation()
     view = CalculatorView(
@@ -52,7 +68,7 @@ def _calculated_view():
     )
     view.build_content()
     view.input_amount.value = "1.000"
-    view.calculate(None)
+    _run_calculate(view)
     return view, create
 
 
@@ -97,7 +113,7 @@ def test_recalculating_after_saving_allows_saving_again():
     view._save_calculation(None)
 
     view.input_amount.value = "2.000"
-    view.calculate(None)
+    _run_calculate(view)
 
     assert view.save_btn.disabled is False
     assert view.date_card.disabled is False
@@ -115,7 +131,7 @@ def test_invalid_amount_flags_the_input_card_without_showing_results():
     )
     view.input_amount.value = ""
 
-    view.calculate(None)
+    _run_calculate(view)
 
     assert view.input_amount.error
     assert view.results_container.visible is False
@@ -157,7 +173,7 @@ def test_view_tree_passes_flet_validation_in_every_state():
     _assert_tree_is_valid(view)
 
     view.input_amount.value = "1.000"
-    view.calculate(None)
+    _run_calculate(view)
     _assert_tree_is_valid(view)
 
     view._save_calculation(None)
