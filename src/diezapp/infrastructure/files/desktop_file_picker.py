@@ -9,6 +9,7 @@ gives a normal native "Save as" / "Open" dialog with a real path back.
 import asyncio
 
 DB_FILETYPES = [("Base de datos SQLite", "*.db"), ("Todos los archivos", "*.*")]
+PDF_FILETYPES = [("Documento PDF", "*.pdf"), ("Todos los archivos", "*.*")]
 
 
 def _pick_save_path(

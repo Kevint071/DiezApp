@@ -6,8 +6,10 @@ view. Only one page of rows is ever built, which keeps a long history from
 landing on Flet all at once.
 """
 
+import asyncio
 import calendar
 import os
+import shutil
 from collections.abc import Callable
 from datetime import date
 
@@ -35,8 +37,15 @@ from diezapp.shared.presentation.scroll_divider import (
 )
 from diezapp.shared.presentation.share_files import share_local_file
 from diezapp.shared.presentation.theme import ON_SURFACE_DARK, ON_SURFACE_LIGHT
+from diezapp.shared.presentation.toast import show_toast
 
 PAGE_SIZE = 20
+
+_DESKTOP_PLATFORMS = {
+    ft.PagePlatform.WINDOWS,
+    ft.PagePlatform.MACOS,
+    ft.PagePlatform.LINUX,
+}
 
 
 def build_date_range_picker_view(
@@ -1084,10 +1093,28 @@ def build_saved_calculations_view(
         # Filtered mode: the list previews what goes into the PDF.
         async def _export_filtered(e):
             pdf_path = pdf_export_service.export_calculations(calculations)
+            file_name = pdf_path.split(os.sep)[-1]
+            if page.platform in _DESKTOP_PLATFORMS:
+                from diezapp.infrastructure.files.desktop_file_picker import (
+                    PDF_FILETYPES,
+                    pick_save_path,
+                )
+
+                output_path = await pick_save_path(
+                    file_name,
+                    title="Guardar PDF",
+                    default_extension=".pdf",
+                    filetypes=PDF_FILETYPES,
+                )
+                if not output_path:
+                    return
+                await asyncio.to_thread(shutil.copyfile, pdf_path, output_path)
+                show_toast(page, "PDF guardado", kind="success", detail=output_path)
+                return
             await share_local_file(
                 page,
                 pdf_path,
-                pdf_path.split(os.sep)[-1],
+                file_name,
                 title="Exportar cálculos",
             )
 
