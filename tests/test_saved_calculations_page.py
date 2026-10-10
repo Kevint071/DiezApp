@@ -7,7 +7,9 @@ from flet.utils.validation import validate
 from diezapp.features.calculations.presentation.calculations_page import (
     PAGE_SIZE,
     build_saved_calculations_view,
+    day_caption,
     filter_by_date_range,
+    group_by_day,
     group_by_month,
     month_totals,
 )
@@ -162,13 +164,13 @@ def test_tapping_a_row_opens_that_calculation():
     assert opened == ["calc-1"]
 
 
-def test_rows_show_only_net_amount_and_when():
+def test_rows_show_net_amount_time_and_fund():
     calc = _calc(0, _local(2026, 10, 8, 10, 32), amount=1_500_000, updated_at="x")
     _, view, _ = _build([calc])
     texts = _texts(view)
 
     assert "$1.500.000" in texts
-    assert "Jue a las 10:32" in texts
+    assert "10:32  ·  Fondo 10%" in texts
     assert not any("ditado" in t for t in texts if t)
     # The breakdown lives in the detail view, not the list.
     assert not any("Envío" in t for t in texts if t)
@@ -181,9 +183,11 @@ def test_month_header_totals_cover_the_whole_month_across_pages():
     texts = _texts(view)
 
     assert "Octubre 2026" in texts
-    assert "25 cálculos, $2.500" in texts
+    assert "25 cálculos" in texts
+    assert "$2.500" in texts
     assert "Septiembre 2026" in texts
-    assert "1 cálculo, $50" in texts
+    assert "1 cálculo" in texts
+    assert "$50" in texts
 
 
 def test_group_by_month_keeps_consecutive_runs():
@@ -218,6 +222,44 @@ def test_view_tree_passes_flet_validation():
         _, view, _ = _build(_history(30), **kwargs)
         for control in _walk(view):
             validate(control)
+
+
+def test_each_day_gets_one_date_tile_for_its_rows():
+    calcs = [
+        _calc(0, _local(2025, 1, 8, 18, 0), amount=300),
+        _calc(1, _local(2025, 1, 8, 9, 0), amount=200),
+        _calc(2, _local(2025, 1, 6, 9, 0), amount=100),
+    ]
+    _, view, _ = _build(calcs)
+    texts = _texts(view)
+
+    assert texts.count("8") == 1
+    assert texts.count("MIÉ") == 1
+    assert texts.count("6") == 1
+    assert texts.count("LUN") == 1
+    assert len(_rows(view)) == 3
+
+
+def test_group_by_day_keeps_consecutive_runs():
+    calcs = [
+        _calc(0, _local(2026, 10, 8, 18, 0)),
+        _calc(1, _local(2026, 10, 8, 9, 0)),
+        _calc(2, _local(2026, 10, 7, 9, 0)),
+    ]
+
+    assert [(day, [c["id"] for c in items]) for day, items in group_by_day(calcs)] == [
+        (date(2026, 10, 8), ["calc-0", "calc-1"]),
+        (date(2026, 10, 7), ["calc-2"]),
+    ]
+
+
+def test_day_caption_names_today_and_yesterday():
+    today = date(2026, 10, 10)
+
+    assert day_caption(today, today) == "HOY"
+    assert day_caption(date(2026, 10, 9), today) == "AYER"
+    assert day_caption(date(2026, 10, 7), today) == "MIÉ"
+    assert day_caption(None, today) == "—"
 
 
 def test_empty_history_shows_the_empty_state():

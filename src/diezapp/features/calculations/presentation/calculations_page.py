@@ -758,6 +758,30 @@ def group_by_month(window: list[Calculation]) -> list[tuple]:
     return groups
 
 
+def group_by_day(calcs: list[Calculation]) -> list[tuple]:
+    """Split a newest-first run into consecutive ``(local date, calcs)`` runs."""
+    groups: list[tuple] = []
+    for calc in calcs:
+        moment = _created_at(calc)
+        day = moment.date() if moment else None
+        if groups and groups[-1][0] == day:
+            groups[-1][1].append(calc)
+        else:
+            groups.append((day, [calc]))
+    return groups
+
+
+def day_caption(day: date | None, today: date) -> str:
+    """Small label under the day number, e.g. ``HOY``, ``AYER`` or ``JUE``."""
+    if day is None:
+        return "—"
+    if day == today:
+        return "HOY"
+    if (today - day).days == 1:
+        return "AYER"
+    return WEEKDAYS_SHORT[day.weekday()].upper()
+
+
 def month_title(key: tuple[int, int] | None) -> str:
     if key is None:
         return "Sin fecha"
@@ -788,30 +812,55 @@ def build_saved_calculations_view(
     calculations = filter_by_date_range(calculations_service.list(), date_range)
 
     if not calculations:
-        empty_msg = (
-            "No hay cálculos en el rango seleccionado"
-            if date_range
-            else "No hay cálculos guardados"
-        )
+        if date_range:
+            title, hint = (
+                "No hay cálculos en el rango seleccionado",
+                "Prueba con otras fechas en el calendario.",
+            )
+        else:
+            title, hint = (
+                "No hay cálculos guardados",
+                (
+                    "Los cálculos que guardes en la calculadora aparecerán aquí, "
+                    "agrupados por mes."
+                ),
+            )
         return ft.SafeArea(
             expand=True,
             content=ft.Container(
                 expand=True,
-                padding=ft.Padding.only(top=80, left=24, right=24, bottom=24),
+                padding=ft.Padding.only(top=72, left=32, right=32, bottom=24),
                 alignment=ft.Alignment.TOP_CENTER,
                 content=ft.Column(
+                    spacing=0,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Icon(
-                            ft.Icons.CALCULATE_OUTLINED,
-                            size=48,
-                            color=c["on_surface_variant"],
+                        ft.Container(
+                            width=80,
+                            height=80,
+                            border_radius=40,
+                            border=ft.Border.all(1, c["outline"]),
+                            alignment=ft.Alignment.CENTER,
+                            content=ft.Icon(
+                                ft.Icons.EVENT_BUSY_OUTLINED
+                                if date_range
+                                else ft.Icons.CALCULATE_OUTLINED,
+                                size=34,
+                                color=c["on_surface_variant"],
+                            ),
                         ),
-                        ft.Container(height=12),
+                        ft.Container(height=20),
                         ft.Text(
-                            empty_msg,
-                            size=16,
-                            weight=ft.FontWeight.W_500,
+                            title,
+                            size=17,
+                            weight=ft.FontWeight.W_600,
+                            color=c["on_surface"],
+                            text_align=ft.TextAlign.CENTER,
+                        ),
+                        ft.Container(height=6),
+                        ft.Text(
+                            hint,
+                            size=14,
                             color=c["on_surface_variant"],
                             text_align=ft.TextAlign.CENTER,
                         ),
@@ -822,22 +871,32 @@ def build_saved_calculations_view(
 
     totals = month_totals(calculations)
     state = {"page": initial_page}
+    today = local_now().date()
+    TILE = 44
+    ROW_PAD = 16
+    # Text column starts past the tile, so same-day separators can indent to it.
+    TEXT_INSET = ROW_PAD + TILE + 14
 
     # ── Primitives ────────────────────────────────────────
-    def hairline():
-        # `divider` collapses into `card_bg` in dark mode, so in-card separators
-        # use `outline`, which keeps contrast in both themes.
+    def separator(new_day: bool):
+        # A new day runs edge to edge; rows of the same day indent past the
+        # tile, so the eye reads them as one block under a single date.
+        # `divider` collapses into `card_bg` in dark mode, hence `outline`.
         return ft.Container(
-            padding=ft.Padding.only(left=76, right=16),
+            padding=ft.Padding.only(
+                left=ROW_PAD if new_day else TEXT_INSET, right=ROW_PAD
+            ),
             content=ft.Divider(height=1, thickness=1, color=c["outline"]),
         )
 
-    def date_tile(moment):
+    def date_tile(day: date | None):
+        # Today gets the tinted tile so "now" is findable at a glance.
+        is_today = day == today
         return ft.Container(
-            width=48,
-            height=48,
+            width=TILE,
+            height=TILE,
             border_radius=12,
-            bgcolor=c["hero_bg"],
+            bgcolor=c["hero_bg"] if is_today else c["surface"],
             alignment=ft.Alignment.CENTER,
             content=ft.Column(
                 spacing=0,
@@ -845,56 +904,62 @@ def build_saved_calculations_view(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
                     ft.Text(
-                        str(moment.day) if moment else "--",
-                        size=17,
+                        str(day.day) if day else "?",
+                        size=16,
                         weight=ft.FontWeight.W_700,
-                        color=c["primary"],
+                        color=c["hero_fg"] if is_today else c["on_surface"],
                     ),
                     ft.Text(
-                        MONTHS_SHORT[moment.month - 1].upper() if moment else "",
-                        size=10,
-                        weight=ft.FontWeight.W_600,
-                        color=c["primary"],
+                        day_caption(day, today),
+                        size=9,
+                        weight=ft.FontWeight.W_700,
+                        color=c["hero_fg"] if is_today else c["on_surface_variant"],
+                        style=ft.TextStyle(letter_spacing=0.6),
                     ),
                 ],
             ),
         )
 
-    # ── Row: only the net amount and when; the rest is one tap away ──
-    def calc_row(calc: Calculation):
+    # ── Row: date tile · net amount over time and fund · chevron ──
+    def calc_row(calc: Calculation, show_date: bool):
         moment = _created_at(calc)
-        caption = (
-            f"{WEEKDAYS_SHORT[moment.weekday()].capitalize()} a las {clock(moment)}"
-            if moment
-            else "Sin fecha"
-        )
-        caption_controls = [
-            ft.Text(caption, size=12, color=c["on_surface_variant"]),
-        ]
+        day = moment.date() if moment else None
+        # Later rows of the same day keep the tile's width so amounts align.
+        leading = date_tile(day) if show_date else ft.Container(width=TILE)
+        details = [clock(moment) if moment else "--:--"]
+        if calc.get("fund_percentage") is not None:
+            details.append(f"Fondo {calc['fund_percentage']}%")
         return ft.Container(
-            padding=ft.Padding.symmetric(vertical=10, horizontal=14),
+            padding=ft.Padding.symmetric(vertical=12, horizontal=ROW_PAD),
             ink=True,
+            ink_color=ft.Colors.with_opacity(0.12, c["primary"]),
             on_click=lambda e, calc_id=calc["id"]: on_open(calc_id),
             content=ft.Row(
                 spacing=14,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    date_tile(moment),
+                    leading,
                     ft.Column(
                         expand=True,
                         spacing=2,
+                        tight=True,
                         controls=[
                             ft.Text(
                                 format_currency(calc.get("amount") or 0),
-                                size=16,
-                                weight=ft.FontWeight.W_700,
+                                size=17,
+                                weight=ft.FontWeight.W_600,
                                 color=c["on_surface"],
+                                style=ft.TextStyle(letter_spacing=-0.2),
                             ),
-                            ft.Row(spacing=4, controls=caption_controls),
+                            ft.Text(
+                                "  ·  ".join(details),
+                                size=12,
+                                color=c["on_surface_variant"],
+                            ),
                         ],
                     ),
                     ft.Icon(
-                        ft.Icons.CHEVRON_RIGHT,
+                        ft.Icons.CHEVRON_RIGHT_ROUNDED,
                         size=20,
                         color=c["on_surface_variant"],
                     ),
@@ -902,39 +967,69 @@ def build_saved_calculations_view(
             ),
         )
 
-    def month_section(key, calcs: list[Calculation]):
+    def month_section(key, calcs: list[Calculation], first: bool):
         count, total = totals.get(key, (len(calcs), 0.0))
         rows: list[ft.Control] = []
-        for index, calc in enumerate(calcs):
-            if index:
-                rows.append(hairline())
-            rows.append(calc_row(calc))
+        for day_index, (_, items) in enumerate(group_by_day(calcs)):
+            for index, calc in enumerate(items):
+                if day_index or index:
+                    rows.append(separator(new_day=index == 0))
+                rows.append(calc_row(calc, show_date=index == 0))
         return ft.Column(
             spacing=0,
             controls=[
                 ft.Container(
-                    padding=ft.Padding.only(left=4, right=4, top=18, bottom=8),
+                    padding=ft.Padding.only(
+                        left=4, right=4, top=8 if first else 24, bottom=10
+                    ),
                     content=ft.Row(
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        vertical_alignment=ft.CrossAxisAlignment.END,
                         controls=[
-                            ft.Text(
-                                month_title(key),
-                                size=14,
-                                weight=ft.FontWeight.W_700,
-                                color=c["on_surface"],
+                            ft.Column(
+                                spacing=2,
+                                tight=True,
+                                controls=[
+                                    ft.Text(
+                                        month_title(key),
+                                        size=15,
+                                        weight=ft.FontWeight.W_700,
+                                        color=c["on_surface"],
+                                    ),
+                                    ft.Text(
+                                        count_label(count),
+                                        size=12,
+                                        color=c["on_surface_variant"],
+                                    ),
+                                ],
                             ),
-                            ft.Text(
-                                f"{count_label(count)}, {format_currency(total)}",
-                                size=12,
-                                color=c["on_surface_variant"],
+                            ft.Column(
+                                spacing=2,
+                                tight=True,
+                                horizontal_alignment=ft.CrossAxisAlignment.END,
+                                controls=[
+                                    ft.Text(
+                                        "Total",
+                                        size=12,
+                                        color=c["on_surface_variant"],
+                                    ),
+                                    ft.Text(
+                                        format_currency(total),
+                                        size=15,
+                                        weight=ft.FontWeight.W_700,
+                                        # AA-safe green for text.
+                                        color=c["button"],
+                                    ),
+                                ],
                             ),
                         ],
                     ),
                 ),
+                # Each month is one card, so where a month ends is never in doubt.
                 ft.Container(
                     bgcolor=c["card_bg"],
                     border_radius=16,
+                    border=ft.Border.all(1, c["outline"]),
                     clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                     padding=ft.Padding.symmetric(vertical=4),
                     content=ft.Column(spacing=0, controls=rows),
@@ -944,7 +1039,7 @@ def build_saved_calculations_view(
 
     # ── Paging ────────────────────────────────────────────
     list_column = ft.Column(spacing=0)
-    pager = Pager(c, lambda delta: go(delta))
+    pager = Pager(c, lambda delta: go_to(state["page"] + delta))
 
     def total_pages():
         return page_count(len(calculations), PAGE_SIZE)
@@ -955,12 +1050,13 @@ def build_saved_calculations_view(
         start = state["page"] * PAGE_SIZE
         window = calculations[start : start + PAGE_SIZE]
         list_column.controls = [
-            month_section(key, calcs) for key, calcs in group_by_month(window)
+            month_section(key, calcs, first=index == 0)
+            for index, (key, calcs) in enumerate(group_by_month(window))
         ]
         pager.paint(state["page"], pages, start, len(window), len(calculations))
 
-    def go(delta):
-        state["page"] = max(0, min(total_pages() - 1, state["page"] + delta))
+    def go_to(index: int):
+        state["page"] = max(0, min(total_pages() - 1, index))
         paint_page()
         if on_page_change is not None:
             on_page_change(state["page"])
@@ -970,15 +1066,6 @@ def build_saved_calculations_view(
 
     paint_page()
 
-    if date_range:
-        start_date, end_date = date_range
-        summary = (
-            f"{count_label(len(calculations))} del "
-            f"{start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
-        )
-    else:
-        summary = f"{count_label(len(calculations))} guardados"
-
     divider = build_scroll_divider()
     scroll_column = ft.Column(
         expand=True,
@@ -987,19 +1074,8 @@ def build_saved_calculations_view(
         on_scroll=make_scroll_divider_handler(divider, c),
         controls=[
             ft.Container(
-                margin=ft.Margin.only(left=20, right=20, bottom=20),
-                content=ft.Column(
-                    spacing=0,
-                    controls=[
-                        ft.Container(
-                            padding=ft.Padding.only(left=4, top=8),
-                            content=ft.Text(
-                                summary, size=12, color=c["on_surface_variant"]
-                            ),
-                        ),
-                        list_column,
-                    ],
-                ),
+                margin=ft.Margin.only(left=12, right=12, bottom=24),
+                content=list_column,
             )
         ],
     )
@@ -1018,15 +1094,18 @@ def build_saved_calculations_view(
 
         bottom.append(
             ft.Container(
-                padding=ft.Padding.only(left=24, right=24, top=8, bottom=24),
+                padding=ft.Padding.only(left=20, right=20, top=8, bottom=20),
                 content=ft.FilledButton(
                     "Exportar PDF",
                     icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
                     on_click=_export_filtered,
+                    height=52,
                     style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=12),
-                        padding=ft.Padding.symmetric(vertical=14, horizontal=20),
-                        text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_600),
+                        shape=ft.RoundedRectangleBorder(radius=14),
+                        bgcolor=c["button"],
+                        color=c["on_button"],
+                        elevation=0,
+                        text_style=ft.TextStyle(size=15, weight=ft.FontWeight.W_700),
                     ),
                     width=float("inf"),
                 ),
