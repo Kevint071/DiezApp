@@ -279,30 +279,6 @@ def build_note_editor_view(
     }
     read_only = conflicts_service.count(kind="notes") > 0
 
-    status_text = ft.Text(
-        size=12, weight=ft.FontWeight.W_500, color=c["on_surface_variant"]
-    )
-    status_row = ft.Row(
-        spacing=6,
-        controls=[
-            ft.Icon(
-                ft.Icons.CLOUD_DONE_OUTLINED,
-                size=14,
-                color=c["on_surface_variant"],
-            ),
-            status_text,
-        ],
-    )
-
-    def _set_status():
-        # A note that isn't saved yet shows nothing; the "Guardado" line
-        # appears with the first save.
-        current = state["note"]
-        status_row.visible = current is not None
-        if current is not None:
-            saved_at = current.get("updated_at") or current.get("created_at", "")
-            status_text.value = f"Guardado · {_format_date(saved_at)}"
-
     def _persist(title: str, delta: list):
         content, fmt = note_document.serialize(delta)
         current = state["note"]
@@ -314,7 +290,6 @@ def build_note_editor_view(
             state["note"] = (
                 notes_service.update(current["id"], content, title, fmt) or current
             )
-        _set_status()
         _refresh_actions()
 
     def _on_change(e):
@@ -416,6 +391,7 @@ def build_note_editor_view(
             show_snack("Nota vacía descartada")
         proceed()
 
+    header = None
     if read_only:
         header = ft.Container(
             border_radius=12,
@@ -435,8 +411,6 @@ def build_note_editor_view(
                 ],
             ),
         )
-    else:
-        header = status_row
 
     source = note or {}
     editor = NoteEditor(
@@ -458,7 +432,6 @@ def build_note_editor_view(
         on_history_change=_on_history_change,
     )
 
-    _set_status()
     _refresh_actions()
     if register_leave_guard is not None:
         register_leave_guard(_leave_guard)
