@@ -1,4 +1,4 @@
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def run_migrations(conn):
@@ -24,6 +24,14 @@ def run_migrations(conn):
 
     if current < 4:
         current = max(current, 4)
+
+    if current < 5:
+        existing_cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(notes)").fetchall()
+        }
+        if "format" not in existing_cols:
+            conn.execute("ALTER TABLE notes ADD COLUMN format TEXT")
+        current = 5
 
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (current,))

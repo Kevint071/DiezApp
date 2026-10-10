@@ -4,6 +4,9 @@ from diezapp.features.notes.domain.models import Note
 from diezapp.features.notes.domain.repositories import NoteRepository
 from diezapp.shared.datetime_utils import local_now, to_local_iso
 
+# Lets `update` tell "leave the formatting alone" apart from "clear it" (None).
+_KEEP = object()
+
 
 class NoteService:
     def __init__(self, repository: NoteRepository):
@@ -23,13 +26,14 @@ class NoteService:
     def replace_all(self, notes: list[Note]) -> None:
         self.repository.replace_all(notes)
 
-    def add(self, content: str, title: str = "") -> Note:
+    def add(self, content: str, title: str = "", fmt: str | None = None) -> Note:
         note: Note = {
             "id": str(uuid.uuid4()),
             "title": title,
             "content": content,
             "created_at": to_local_iso(local_now()),
             "updated_at": None,
+            "format": fmt,
         }
         notes = self.repository.list()
         notes.insert(0, note)
@@ -37,17 +41,22 @@ class NoteService:
         return note
 
     def update(
-        self, note_id: str, content: str, title: str | None = None
+        self,
+        note_id: str,
+        content: str,
+        title: str | None = None,
+        fmt: str | None | object = _KEEP,
     ) -> Note | None:
-        notes = self.repository.list()
-        for note in notes:
+        for note in self.repository.list():
             if note["id"] != note_id:
                 continue
             note["content"] = content
             if title is not None:
                 note["title"] = title
+            if fmt is not _KEEP:
+                note["format"] = fmt
             note["updated_at"] = to_local_iso(local_now())
-            self.repository.replace_all(notes)
+            self.repository.save(note)
             return note
         return None
 

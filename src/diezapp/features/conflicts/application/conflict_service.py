@@ -9,7 +9,7 @@ CALC_DIFF_FIELDS = [
     "sostenimiento",
     "fund_percentage",
 ]
-NOTE_DIFF_FIELDS = ["title", "content"]
+NOTE_DIFF_FIELDS = ["title", "content", "format"]
 
 
 class ConflictService:

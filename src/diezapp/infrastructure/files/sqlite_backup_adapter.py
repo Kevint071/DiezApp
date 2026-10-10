@@ -11,7 +11,7 @@ CALC_COLUMNS = [
     "fund_percentage",
     "updated_at",
 ]
-NOTE_COLUMNS = ["id", "title", "content", "created_at", "updated_at"]
+NOTE_COLUMNS = ["id", "title", "content", "created_at", "updated_at", "format"]
 
 
 class SqliteBackupAdapter:
@@ -37,18 +37,19 @@ class SqliteBackupAdapter:
             conn.execute("DROP TABLE IF EXISTS notes")
             conn.execute(
                 "CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, "
-                "created_at TEXT, updated_at TEXT)"
+                "created_at TEXT, updated_at TEXT, format TEXT)"
             )
             for note in notes:
                 conn.execute(
-                    "INSERT INTO notes (id, title, content, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO notes (id, title, content, created_at, updated_at, "
+                    "format) VALUES (?, ?, ?, ?, ?, ?)",
                     (
                         note.get("id"),
                         note.get("title", ""),
                         note.get("content"),
                         note.get("created_at"),
                         note.get("updated_at"),
+                        note.get("format"),
                     ),
                 )
 
@@ -78,8 +79,10 @@ class SqliteBackupAdapter:
                     for row in conn.execute("PRAGMA table_info(notes)").fetchall()
                 }
                 updated_at = "updated_at" if "updated_at" in columns else "NULL"
+                fmt = "format" if "format" in columns else "NULL"
                 rows = conn.execute(
-                    f"SELECT id, title, content, created_at, {updated_at} FROM notes"
+                    f"SELECT id, title, content, created_at, {updated_at}, {fmt} "
+                    "FROM notes"
                 ).fetchall()
         except Exception as exc:
             raise ValueError("Archivo de respaldo inválido") from exc

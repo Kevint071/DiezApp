@@ -27,9 +27,10 @@ def test_local_backup_round_trip(tmp_path):
         {
             "id": "note-1",
             "title": "Lista",
-            "content": "Pan",
+            "content": "Lista\nPan",
             "created_at": "2026-08-17T10:00:00+00:00",
             "updated_at": None,
+            "format": '[{"k":"h1"},{"k":"check","c":1}]',
         }
     ]
     service = LocalBackupService(SqliteBackupAdapter())
@@ -49,7 +50,7 @@ def test_local_backup_rejects_invalid_file(tmp_path):
         SqliteBackupAdapter().read_notes(str(path))
 
 
-def test_local_backup_accepts_old_schema_without_updated_at(tmp_path):
+def test_local_backup_accepts_old_schema_without_updated_at_or_format(tmp_path):
     path = str(tmp_path / "old.db")
     with sqlite3.connect(path) as conn:
         conn.execute(
@@ -70,5 +71,6 @@ def test_local_backup_accepts_old_schema_without_updated_at(tmp_path):
             "content": "Contenido",
             "created_at": "2025-01-01",
             "updated_at": None,
+            "format": None,
         }
     ]

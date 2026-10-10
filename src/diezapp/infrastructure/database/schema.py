@@ -27,7 +27,8 @@ def initialize_schema(conn) -> None:
             content TEXT,
             created_at TEXT,
             updated_at TEXT,
-            sort_index INTEGER
+            sort_index INTEGER,
+            format TEXT
         )
         """
     )
