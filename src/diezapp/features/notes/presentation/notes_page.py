@@ -324,21 +324,12 @@ def build_note_editor_view(
             controls.append(_history_button(ft.Icons.REDO_ROUNDED, "Rehacer", _redo))
         if state["note"] is not None:
             controls.append(
-                ft.PopupMenuButton(
-                    icon=ft.Icons.MORE_VERT_ROUNDED,
-                    icon_color=c["on_surface"],
-                    tooltip="Más opciones",
-                    bgcolor=c["card_bg"],
-                    shape=ft.RoundedRectangleBorder(radius=14),
-                    items=[
-                        ft.PopupMenuItem(
-                            icon=ft.Icon(
-                                ft.Icons.DELETE_OUTLINE_ROUNDED, color=c["error"]
-                            ),
-                            content=ft.Text("Eliminar nota", color=c["error"]),
-                            on_click=_confirm_delete,
-                        )
-                    ],
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE_ROUNDED,
+                    icon_size=22,
+                    icon_color=c["error"],
+                    tooltip="Eliminar nota",
+                    on_click=_confirm_delete,
                 )
             )
         return [

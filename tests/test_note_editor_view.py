@@ -164,13 +164,13 @@ def test_undo_and_redo_only_show_when_available():
     note = service.add("Algo", "Título")
     editor, captured = _build(service, note)
 
-    assert _icons(captured) == [ft.Icons.MORE_VERT_ROUNDED]
+    assert _icons(captured) == [ft.Icons.DELETE_OUTLINE_ROUNDED]
 
     _history(editor, True, False)
-    assert _icons(captured) == [ft.Icons.UNDO_ROUNDED, ft.Icons.MORE_VERT_ROUNDED]
+    assert _icons(captured) == [ft.Icons.UNDO_ROUNDED, ft.Icons.DELETE_OUTLINE_ROUNDED]
 
     _history(editor, False, True)
-    assert _icons(captured) == [ft.Icons.REDO_ROUNDED, ft.Icons.MORE_VERT_ROUNDED]
+    assert _icons(captured) == [ft.Icons.REDO_ROUNDED, ft.Icons.DELETE_OUTLINE_ROUNDED]
 
 
 def test_history_buttons_are_async_so_flet_awaits_them():
@@ -192,7 +192,7 @@ def test_conflicts_make_the_editor_read_only():
     editor, captured = _build(service, note, conflicts=1)
 
     assert editor.read_only is True
-    assert _icons(captured) == [ft.Icons.MORE_VERT_ROUNDED]
+    assert _icons(captured) == [ft.Icons.DELETE_OUTLINE_ROUNDED]
 
 
 def test_preview_shows_list_markers():
