@@ -64,3 +64,41 @@ def test_note_service_update_only_rewrites_that_note():
     assert stored[first["id"]]["content"] == "Uno editado"
     assert stored[second["id"]]["content"] == "Dos"
     assert [n["id"] for n in repository.list()] == [second["id"], first["id"]]
+
+
+def test_note_service_paints_notes_without_touching_their_date():
+    repository = InMemoryNoteRepository()
+    service = NoteService(repository)
+    first = service.add("Uno")
+    second = service.add("Dos")
+
+    service.set_color([first["id"], second["id"]], "blue")
+    service.set_color([second["id"]], None)
+
+    stored = {n["id"]: n for n in repository.list()}
+    assert stored[first["id"]]["color"] == "blue"
+    assert stored[second["id"]]["color"] is None
+    assert stored[first["id"]]["updated_at"] is None
+
+
+def test_note_service_deletes_several_notes():
+    repository = InMemoryNoteRepository()
+    service = NoteService(repository)
+    keep = service.add("Queda")
+    doomed = [service.add("A")["id"], service.add("B")["id"]]
+
+    assert service.delete_many([*doomed, "missing"]) == 2
+    assert [n["id"] for n in repository.list()] == [keep["id"]]
+
+
+def test_note_service_moves_a_note():
+    repository = InMemoryNoteRepository()
+    service = NoteService(repository)
+    c, b, a = (service.add(text)["id"] for text in "cba")  # listed a, b, c
+
+    service.move(a, 2)
+    assert [n["id"] for n in repository.list()] == [b, c, a]
+
+    service.move(a, 0)
+    service.move("missing", 1)
+    assert [n["id"] for n in repository.list()] == [a, b, c]

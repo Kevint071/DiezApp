@@ -11,7 +11,15 @@ CALC_COLUMNS = [
     "fund_percentage",
     "updated_at",
 ]
-NOTE_COLUMNS = ["id", "title", "content", "created_at", "updated_at", "format"]
+NOTE_COLUMNS = [
+    "id",
+    "title",
+    "content",
+    "created_at",
+    "updated_at",
+    "format",
+    "color",
+]
 
 
 class SqliteBackupAdapter:
@@ -37,12 +45,12 @@ class SqliteBackupAdapter:
             conn.execute("DROP TABLE IF EXISTS notes")
             conn.execute(
                 "CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, content TEXT, "
-                "created_at TEXT, updated_at TEXT, format TEXT)"
+                "created_at TEXT, updated_at TEXT, format TEXT, color TEXT)"
             )
             for note in notes:
                 conn.execute(
                     "INSERT INTO notes (id, title, content, created_at, updated_at, "
-                    "format) VALUES (?, ?, ?, ?, ?, ?)",
+                    "format, color) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         note.get("id"),
                         note.get("title", ""),
@@ -50,6 +58,7 @@ class SqliteBackupAdapter:
                         note.get("created_at"),
                         note.get("updated_at"),
                         note.get("format"),
+                        note.get("color"),
                     ),
                 )
 
@@ -80,9 +89,10 @@ class SqliteBackupAdapter:
                 }
                 updated_at = "updated_at" if "updated_at" in columns else "NULL"
                 fmt = "format" if "format" in columns else "NULL"
+                color = "color" if "color" in columns else "NULL"
                 rows = conn.execute(
-                    f"SELECT id, title, content, created_at, {updated_at}, {fmt} "
-                    "FROM notes"
+                    f"SELECT id, title, content, created_at, {updated_at}, {fmt}, "
+                    f"{color} FROM notes ORDER BY rowid"
                 ).fetchall()
         except Exception as exc:
             raise ValueError("Archivo de respaldo inválido") from exc

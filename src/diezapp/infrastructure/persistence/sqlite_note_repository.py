@@ -12,12 +12,14 @@ class SqliteNoteRepository:
         "created_at",
         "updated_at",
         "format",
+        "color",
     ]
 
     def list(self) -> list[Note]:
         conn = get_connection()
         rows = conn.execute(
-            "SELECT id, title, content, created_at, updated_at, format FROM notes "
+            "SELECT id, title, content, created_at, updated_at, format, color "
+            "FROM notes "
             "ORDER BY sort_index ASC"
         ).fetchall()
         return [dict(zip(self._columns, row, strict=True)) for row in rows]
@@ -28,7 +30,7 @@ class SqliteNoteRepository:
         for index, note in enumerate(notes):
             conn.execute(
                 "INSERT INTO notes (id, title, content, created_at, updated_at, "
-                "format, sort_index) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "format, color, sort_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     note["id"],
                     note["title"],
@@ -36,6 +38,7 @@ class SqliteNoteRepository:
                     note["created_at"],
                     note["updated_at"],
                     note.get("format"),
+                    note.get("color"),
                     index,
                 ),
             )
