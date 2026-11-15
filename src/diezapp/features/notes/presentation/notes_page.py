@@ -263,10 +263,8 @@ def build_notes_view(
             icon_size=20,
             tooltip="Opciones",
             bgcolor=c["card_bg"],
-            padding=0,
-            size_constraints=ft.BoxConstraints(
-                min_width=32, min_height=32, max_width=32, max_height=32
-            ),
+            shape=ft.RoundedRectangleBorder(radius=12),
+            padding=4,
             items=[
                 _item(
                     ft.Icons.PALETTE_OUTLINED,
