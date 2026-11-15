@@ -60,12 +60,16 @@ jobs:
           SIGNING: ${{ steps.signing.outputs.kind }}
           FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD: ${{ secrets.DIEZAPP_KEYSTORE_PASSWORD }}
           FLET_ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.DIEZAPP_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DIEZAPP_KEY_ALIAS }}
         run: |
           args=()
           if [ "$SIGNING" = release ]; then
-            # The CLI flag wins over the key_store path in pyproject.toml; the
-            # alias (diezapp-key) still comes from there.
+            # CLI flags win over pyproject.toml. Without DIEZAPP_KEY_ALIAS the
+            # alias comes from there (diezapp-key).
             args+=(--android-signing-key-store "$RUNNER_TEMP/diezapp-release.jks")
+            if [ -n "$KEY_ALIAS" ]; then
+              args+=(--android-signing-key-alias "$KEY_ALIAS")
+            fi
           fi
           flet build apk --yes -v "${args[@]}"
 
