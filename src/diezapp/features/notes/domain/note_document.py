@@ -6,9 +6,14 @@ backups rely on it) and ``format`` keeps the Delta as JSON. Plain notes store
 
 Older builds stored ``format`` as a list with one style per line; those notes
 are converted on the fly the first time they are opened.
+
+Embeds (the dated table) are objects in the Delta; their text goes into
+``content`` too, so search and the list card see them.
 """
 
 import json
+
+from diezapp.features.notes.domain import note_table
 
 # Families the editor offers; legacy per-line fonts map onto them.
 LEGACY_FONTS = {
@@ -71,15 +76,27 @@ def to_delta(content: str | None, fmt: str | None) -> list[dict]:
     return _plain_delta(content)
 
 
+def _text(insert) -> str:
+    """An op's text; embeds we know become their lines, the rest vanish."""
+    if isinstance(insert, str):
+        return insert
+    if isinstance(insert, dict) and note_table.LEDGER in insert:
+        return "\n".join(note_table.text_lines(insert[note_table.LEDGER]))
+    return ""
+
+
 def plain_text(delta: list[dict]) -> str:
-    text = "".join(op["insert"] for op in delta if isinstance(op.get("insert"), str))
+    text = "".join(_text(op.get("insert")) for op in delta)
     return text.removesuffix("\n")
 
 
 def serialize(delta: list[dict]) -> tuple[str, str | None]:
-    """``(content, format)`` to store; ``format`` is None when nothing is styled."""
+    """``(content, format)`` to store; ``format`` is None for plain text only."""
     content = plain_text(delta)
-    if not any(op.get("attributes") for op in delta):
+    plain = all(
+        not op.get("attributes") and isinstance(op.get("insert"), str) for op in delta
+    )
+    if plain:
         return content, None
     return content, json.dumps({"v": 2, "delta": delta}, separators=(",", ":"))
 
@@ -91,7 +108,10 @@ def lines(delta: list[dict]) -> list[tuple[str, dict]]:
     for op in delta:
         insert = op.get("insert")
         if not isinstance(insert, str):
-            continue
+            insert = _text(insert)
+            if not insert:
+                continue
+            op = {"insert": insert}
         attributes = op.get("attributes") or {}
         block = {k: v for k, v in attributes.items() if k in BLOCK_KEYS}
         parts = insert.split("\n")

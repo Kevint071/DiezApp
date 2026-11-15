@@ -3,7 +3,11 @@ import 'dart:convert';
 
 import 'package:flet/flet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_quill/quill_delta.dart';
+
+part 'ledger.dart';
 
 /// Typefaces offered in the "Aa" panel. The app registers the families
 /// through `page.fonts`; `null` is the platform default.
@@ -100,6 +104,7 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
   bool _canUndo = false;
   bool _canRedo = false;
   bool _stylePanelOpen = false;
+  _Palette? _colors;
 
   Control get control => widget.control;
 
@@ -291,6 +296,106 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
     if (!_editorFocus.hasFocus) _editorFocus.requestFocus();
   }
 
+  // ── Dated table ───────────────────────────────────────
+
+  /// Puts a new table on its own line at the caret and opens it.
+  void _insertLedger() {
+    final selection = _quill.selection;
+    if (!selection.isCollapsed) {
+      _quill.replaceText(
+          selection.start, selection.end - selection.start, '', null);
+    }
+    final plain = _quill.document.toPlainText();
+    final start = _quill.selection.start;
+    final index = start < 0 ? 0 : (start >= plain.length ? plain.length - 1 : start);
+    final line = _quill.document.queryChild(index).node;
+    final lineAttrs = line?.style.toJson() ?? const <String, dynamic>{};
+    final splitBefore = index > 0 && plain[index - 1] != '\n';
+    final atLineEnd = plain[index] == '\n';
+    final lastLine = index == plain.length - 1;
+
+    // Quill only lays out a block embed on its own when it is alone on its
+    // line, and only adds those line breaks for videos, so do it here.
+    final at = splitBefore ? index + 1 : index;
+    final data = _LedgerData();
+    final delta = Delta()..retain(index);
+    if (splitBefore) {
+      delta.insert('\n', lineAttrs.isEmpty ? null : Map.of(lineAttrs));
+    }
+    delta.insert(BlockEmbed(_ledgerType, data.encode()).toJson());
+    if (!atLineEnd || lastLine) {
+      // A fresh plain line; at the end it also leaves room to keep writing.
+      delta.insert('\n');
+    } else if (lineAttrs.isNotEmpty) {
+      // Reusing an empty list item or heading: drop its block format.
+      delta.retain(1, {for (final key in lineAttrs.keys) key: null});
+    }
+    _quill.compose(
+        delta, TextSelection.collapsed(offset: at + 2), ChangeSource.local);
+    _editLedger(at, data, isNew: true);
+  }
+
+  void _openLedger(Embed node) {
+    final offset = node.documentOffset;
+    final data = _LedgerData.decode(node.value.data);
+    // The editor handles the same tap (caret, keyboard); open afterwards.
+    Timer.run(() {
+      if (mounted) _editLedger(offset, data);
+    });
+  }
+
+  /// The stored JSON of the table at [offset], if it is still there.
+  String? _ledgerAt(int offset) {
+    var position = 0;
+    for (final op in _quill.document.toDelta().toList()) {
+      if (position == offset) {
+        final data = op.data;
+        if (data is Map && data[_ledgerType] is String) {
+          return data[_ledgerType] as String;
+        }
+        return null;
+      }
+      position += op.length ?? 0;
+      if (position > offset) return null;
+    }
+    return null;
+  }
+
+  Future<void> _editLedger(int offset, _LedgerData data,
+      {bool isNew = false}) async {
+    final colors = _colors;
+    if (colors == null) return;
+    _editorFocus.unfocus();
+    final draft = data.copy();
+    final delete = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: colors.bar,
+      builder: (_) => _LedgerSheet(draft: draft, colors: colors, isNew: isNew),
+    );
+    if (!mounted) return;
+    final stored = _ledgerAt(offset);
+    if (stored == null) return;
+    if (delete == true) {
+      // Its line break goes too, unless it is the document's last one.
+      final count = offset + 1 < _quill.document.length - 1 ? 2 : 1;
+      _quill.compose(Delta()..retain(offset)..delete(count),
+          TextSelection.collapsed(offset: offset), ChangeSource.local);
+      return;
+    }
+    final encoded = draft.compact().encode();
+    if (encoded == stored) return;
+    _quill.compose(
+        Delta()
+          ..retain(offset)
+          ..delete(1)
+          ..insert(BlockEmbed(_ledgerType, encoded).toJson()),
+        _quill.selection,
+        ChangeSource.local);
+  }
+
   void _focusEnd() {
     if (_quill.readOnly) return;
     _quill.moveCursorToEnd();
@@ -318,6 +423,7 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
       divider: control.getColor("divider_color", context) ??
           theme.colorScheme.outlineVariant,
     );
+    _colors = colors;
     final header = control.buildWidget("header");
 
     final title = TextField(
@@ -352,6 +458,9 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
         placeholder: control.getString("placeholder"),
         textCapitalization: TextCapitalization.sentences,
         customStyles: _styles(colors),
+        embedBuilders: [
+          _LedgerEmbedBuilder(colors: colors, onOpen: _openLedger),
+        ],
         // ignore: experimental_member_use
         customLeadingBlockBuilder: _listMarker,
         // "- ", "1. ", "# ", "## " turn the line into a list or a heading.
@@ -531,6 +640,9 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
                         "Reducir sangría", false, () => _indent(false)),
                     _icon(colors, Icons.format_indent_increase_rounded,
                         "Aumentar sangría", false, () => _indent(true)),
+                    _separator(colors),
+                    _icon(colors, Icons.table_chart_outlined,
+                        "Tabla con fecha", false, _insertLedger),
                     _separator(colors),
                     _icon(colors, Icons.format_clear_rounded, "Quitar formato",
                         false, _clearInline),
