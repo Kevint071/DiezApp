@@ -4,8 +4,11 @@ part of 'note_editor.dart';
 //
 // A block embed of type "ledger": a merged header cell with a date, then
 // "Descripción | Valor" rows and the total of the values in the last row.
+// More dates can split the rows: a date row spans both columns like the
+// header, and the total still adds up every value in the table.
 // The Delta stores it as {"insert": {"ledger": "<json>"}} with
-// {"date": "15/11/2026", "rows": [{"description": "...", "value": "..."}]}.
+// {"date": "15/11/2026", "rows": [{"description": "...", "value": "..."},
+//  {"date": "16/11/2026"}, ...]}.
 //
 // Values keep the typed text. Dots group thousands and a comma starts the
 // decimals, like the calculator. The Python side
@@ -14,12 +17,33 @@ part of 'note_editor.dart';
 const _ledgerType = 'ledger';
 
 class _LedgerRow {
-  _LedgerRow([this.description = '', this.value = '']);
+  _LedgerRow([this.description = '', this.value = '']) : date = null;
+
+  /// A date that separates the rows below it from the ones above.
+  _LedgerRow.date(String this.date)
+      : description = '',
+        value = '';
 
   String description;
   String value;
+  String? date;
 
-  bool get isBlank => description.trim().isEmpty && value.trim().isEmpty;
+  bool get isDate => date != null;
+
+  bool get isBlank => isDate
+      ? date!.trim().isEmpty
+      : description.trim().isEmpty && value.trim().isEmpty;
+
+  _LedgerRow copy({bool trim = false}) {
+    String clean(String s) => trim ? s.trim() : s;
+    return isDate
+        ? _LedgerRow.date(clean(date!))
+        : _LedgerRow(clean(description), clean(value));
+  }
+
+  Map<String, String> toJson() => isDate
+      ? {'date': date!}
+      : {'description': description, 'value': value};
 }
 
 class _LedgerData {
@@ -34,7 +58,9 @@ class _LedgerData {
       if (json is! Map) return _LedgerData();
       final rows = <_LedgerRow>[
         for (final row in (json['rows'] as List? ?? const []))
-          if (row is Map)
+          if (row is Map && row.containsKey('date'))
+            _LedgerRow.date('${row['date'] ?? ''}')
+          else if (row is Map)
             _LedgerRow('${row['description'] ?? ''}', '${row['value'] ?? ''}'),
       ];
       return _LedgerData(date: '${json['date'] ?? ''}', rows: rows);
@@ -46,15 +72,12 @@ class _LedgerData {
 
   String encode() => jsonEncode({
         'date': date,
-        'rows': [
-          for (final row in rows)
-            {'description': row.description, 'value': row.value},
-        ],
+        'rows': [for (final row in rows) row.toJson()],
       });
 
   _LedgerData copy() => _LedgerData(
         date: date,
-        rows: [for (final row in rows) _LedgerRow(row.description, row.value)],
+        rows: [for (final row in rows) row.copy()],
       );
 
   /// Trimmed, without the rows left completely empty.
@@ -62,13 +85,12 @@ class _LedgerData {
         date: date.trim(),
         rows: [
           for (final row in rows)
-            if (!row.isBlank)
-              _LedgerRow(row.description.trim(), row.value.trim()),
+            if (!row.isBlank) row.copy(trim: true),
         ],
       );
 
-  int get totalCents =>
-      rows.fold(0, (sum, row) => sum + (_parseCents(row.value) ?? 0));
+  int get totalCents => rows.fold(
+      0, (sum, row) => sum + (row.isDate ? 0 : _parseCents(row.value) ?? 0));
 }
 
 final _digitsOnly = RegExp(r'^\d*$');
@@ -201,7 +223,44 @@ class _LedgerView extends StatelessWidget {
               style: style, textAlign: end ? TextAlign.end : TextAlign.start),
         );
 
-    final date = data.date.trim();
+    // Flutter's Table cannot merge cells, so rows are built by hand.
+    Widget pair(Widget left, Widget right, {Color? color}) => Container(
+          color: color,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 3, child: left),
+                VerticalDivider(width: 1, thickness: 1, color: colors.divider),
+                Expanded(flex: 2, child: right),
+              ],
+            ),
+          ),
+        );
+
+    // A cell across both columns: the header and each date separator.
+    Widget dateCell(String date) {
+      final value = date.trim();
+      return Container(
+        color: colors.accentContainer,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.event_rounded, size: 18, color: colors.accent),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                value.isEmpty ? 'dd/mm/aaaa' : value,
+                style: value.isEmpty ? base.copyWith(color: colors.muted) : strong,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final rule = Divider(height: 1, thickness: 1, color: colors.divider);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -215,65 +274,38 @@ class _LedgerView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // The merged cell across both columns.
-            Container(
-              color: colors.accentContainer,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.event_rounded, size: 18, color: colors.accent),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      date.isEmpty ? 'dd/mm/aaaa' : date,
-                      style: date.isEmpty
-                          ? base.copyWith(color: colors.muted)
-                          : strong,
-                    ),
+            dateCell(data.date),
+            rule,
+            pair(cell('Descripción', label), cell('Valor', label, end: true)),
+            for (final row in data.rows) ...[
+              rule,
+              if (row.isDate)
+                dateCell(row.date!)
+              else
+                pair(
+                  cell(row.description, base),
+                  cell(
+                    row.value,
+                    row.value.trim().isNotEmpty && _parseCents(row.value) == null
+                        ? base.copyWith(color: error)
+                        : base,
+                    end: true,
                   ),
-                ],
-              ),
-            ),
-            Table(
-              columnWidths: const {
-                0: FlexColumnWidth(3),
-                1: FlexColumnWidth(2),
-              },
-              border: TableBorder(
-                  top: line, horizontalInside: line, verticalInside: line),
-              children: [
-                TableRow(children: [
-                  cell('Descripción', label),
-                  cell('Valor', label, end: true),
-                ]),
-                for (final row in data.rows)
-                  TableRow(children: [
-                    cell(row.description, base),
-                    cell(
-                      row.value,
-                      row.value.trim().isNotEmpty &&
-                              _parseCents(row.value) == null
-                          ? base.copyWith(color: error)
-                          : base,
-                      end: true,
-                    ),
-                  ]),
-                if (data.rows.isEmpty)
-                  TableRow(children: [
-                    cell(onTap == null ? 'Sin filas' : 'Toca para agregar filas',
-                        base.copyWith(color: colors.muted)),
-                    cell('', base),
-                  ]),
-                TableRow(
-                  decoration: BoxDecoration(
-                      color: colors.accentContainer.withValues(alpha: 0.45)),
-                  children: [
-                    cell('Total', strong),
-                    cell(_formatCents(data.totalCents), strong, end: true),
-                  ],
                 ),
-              ],
+            ],
+            if (data.rows.isEmpty) ...[
+              rule,
+              pair(
+                cell(onTap == null ? 'Sin filas' : 'Toca para agregar filas',
+                    base.copyWith(color: colors.muted)),
+                cell('', base),
+              ),
+            ],
+            rule,
+            pair(
+              cell('Total', strong),
+              cell(_formatCents(data.totalCents), strong, end: true),
+              color: colors.accentContainer.withValues(alpha: 0.45),
             ),
           ],
         ),
@@ -299,15 +331,26 @@ class _LedgerSheet extends StatefulWidget {
   State<_LedgerSheet> createState() => _LedgerSheetState();
 }
 
+/// The text fields of one row of the sheet: a description and a value, or
+/// a date that separates rows ([date] is set only then).
 class _RowFields {
   _RowFields(_LedgerRow row)
-      : description = TextEditingController(text: row.description),
+      : date = row.isDate ? TextEditingController(text: row.date) : null,
+        description = TextEditingController(text: row.description),
         value = TextEditingController(text: row.value);
 
+  final TextEditingController? date;
   final TextEditingController description;
   final TextEditingController value;
 
+  bool get isDate => date != null;
+
+  _LedgerRow toRow() => isDate
+      ? _LedgerRow.date(date!.text)
+      : _LedgerRow(description.text, value.text);
+
   void dispose() {
+    date?.dispose();
     description.dispose();
     value.dispose();
   }
@@ -341,17 +384,14 @@ class _LedgerSheetState extends State<_LedgerSheet> {
   void _sync() {
     _draft
       ..date = _date.text
-      ..rows = [
-        for (final row in _rows)
-          _LedgerRow(row.description.text, row.value.text),
-      ];
+      ..rows = [for (final row in _rows) row.toRow()];
   }
 
   void _changed() => setState(_sync);
 
-  void _today() {
+  void _today(TextEditingController field) {
     final now = DateTime.now();
-    _date.text = '${_twoDigits(now.day)}/${_twoDigits(now.month)}/${now.year}';
+    field.text = '${_twoDigits(now.day)}/${_twoDigits(now.month)}/${now.year}';
     _changed();
   }
 
@@ -359,6 +399,16 @@ class _LedgerSheetState extends State<_LedgerSheet> {
     final row = _RowFields(_LedgerRow());
     _rows.add(row);
     _added = row;
+    _changed();
+  }
+
+  /// A date separator plus an empty row to write under it.
+  void _addDate() {
+    final separator = _RowFields(_LedgerRow.date(''));
+    _rows
+      ..add(separator)
+      ..add(_RowFields(_LedgerRow()));
+    _added = separator;
     _changed();
   }
 
@@ -388,35 +438,93 @@ class _LedgerSheetState extends State<_LedgerSheet> {
     );
   }
 
+  Widget _dateField(TextEditingController field, {bool autofocus = false}) {
+    final c = widget.colors;
+    return TextField(
+      controller: field,
+      autofocus: autofocus,
+      keyboardType: TextInputType.number,
+      inputFormatters: [_DateFormatter()],
+      textAlign: TextAlign.center,
+      cursorColor: c.accent,
+      style: TextStyle(fontSize: 15, color: c.text, fontWeight: FontWeight.w700),
+      decoration: _decoration(
+        'dd/mm/aaaa',
+        suffix: TextButton(
+          onPressed: () => _today(field),
+          style: TextButton.styleFrom(foregroundColor: c.accent),
+          child: const Text('Hoy'),
+        ),
+      ),
+      onChanged: (_) => _changed(),
+    );
+  }
+
+  Widget _removeButton(_RowFields row, String tooltip) => SizedBox(
+        width: 40,
+        child: IconButton(
+          tooltip: tooltip,
+          icon: Icon(Icons.close_rounded, size: 20, color: widget.colors.muted),
+          onPressed: () => _removeRow(row),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
     final scheme = Theme.of(context).colorScheme;
     final text = TextStyle(fontSize: 15, color: c.text);
+    // Column titles in the text colour; only the placeholders stay muted.
     final label =
-        TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.muted);
+        TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.text);
+
+    Widget valueRow(_RowFields row) => Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: row.description,
+                autofocus: identical(row, _added),
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.next,
+                cursorColor: c.accent,
+                style: text,
+                decoration: _decoration('Descripción'),
+                onChanged: (_) => _changed(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: row.value,
+                keyboardType: const TextInputType.numberWithOptions(
+                    signed: true, decimal: true),
+                inputFormatters: [_AmountFormatter()],
+                textAlign: TextAlign.end,
+                cursorColor: c.accent,
+                style: text,
+                decoration: _decoration('0'),
+                onChanged: (_) => _changed(),
+              ),
+            ),
+            _removeButton(row, 'Quitar fila'),
+          ],
+        );
+
+    Widget dateRow(_RowFields row) => Row(
+          children: [
+            Expanded(
+              child: _dateField(row.date!, autofocus: identical(row, _added)),
+            ),
+            _removeButton(row, 'Quitar fecha'),
+          ],
+        );
 
     final fields = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          controller: _date,
-          autofocus: widget.isNew,
-          keyboardType: TextInputType.number,
-          inputFormatters: [_DateFormatter()],
-          textAlign: TextAlign.center,
-          cursorColor: c.accent,
-          style: text.copyWith(fontWeight: FontWeight.w700),
-          decoration: _decoration(
-            'dd/mm/aaaa',
-            suffix: TextButton(
-              onPressed: _today,
-              style: TextButton.styleFrom(foregroundColor: c.accent),
-              child: const Text('Hoy'),
-            ),
-          ),
-          onChanged: (_) => _changed(),
-        ),
+        _dateField(_date, autofocus: widget.isNew),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -431,56 +539,25 @@ class _LedgerSheetState extends State<_LedgerSheet> {
         for (final row in _rows)
           Padding(
             key: ObjectKey(row),
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: row.description,
-                    autofocus: identical(row, _added),
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: TextInputAction.next,
-                    cursorColor: c.accent,
-                    style: text,
-                    decoration: _decoration('Descripción'),
-                    onChanged: (_) => _changed(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: row.value,
-                    keyboardType: const TextInputType.numberWithOptions(
-                        signed: true, decimal: true),
-                    inputFormatters: [_AmountFormatter()],
-                    textAlign: TextAlign.end,
-                    cursorColor: c.accent,
-                    style: text,
-                    decoration: _decoration('0'),
-                    onChanged: (_) => _changed(),
-                  ),
-                ),
-                SizedBox(
-                  width: 40,
-                  child: IconButton(
-                    tooltip: 'Quitar fila',
-                    icon: Icon(Icons.close_rounded, size: 20, color: c.muted),
-                    onPressed: () => _removeRow(row),
-                  ),
-                ),
-              ],
+            padding: EdgeInsets.only(top: row.isDate ? 16 : 8),
+            child: row.isDate ? dateRow(row) : valueRow(row),
+          ),
+        Wrap(
+          spacing: 4,
+          children: [
+            TextButton.icon(
+              onPressed: _addRow,
+              style: TextButton.styleFrom(foregroundColor: c.accent),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Agregar fila'),
             ),
-          ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: TextButton.icon(
-            onPressed: _addRow,
-            style: TextButton.styleFrom(foregroundColor: c.accent),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Agregar fila'),
-          ),
+            TextButton.icon(
+              onPressed: _addDate,
+              style: TextButton.styleFrom(foregroundColor: c.accent),
+              icon: const Icon(Icons.event_rounded),
+              label: const Text('Agregar fecha'),
+            ),
+          ],
         ),
       ],
     );

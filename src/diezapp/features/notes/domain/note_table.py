@@ -2,6 +2,8 @@
 
 The Delta stores it as ``{"insert": {"ledger": "<json>"}}``, where the JSON is
 ``{"date": "15/11/2026", "rows": [{"description": "...", "value": "..."}]}``.
+A row ``{"date": "16/11/2026"}`` is a date that separates the rows after it;
+the total still adds every value in the table.
 Values keep the text the user typed (``1.200.000``, ``-50.000``, ``12,5``):
 dots group thousands and a comma starts the decimals, like the calculator.
 The flutter side (``packages/flet-note-editor/.../ledger.dart``) parses them
@@ -14,7 +16,8 @@ LEDGER = "ledger"
 
 
 def parse_ledger(raw) -> dict:
-    """``{"date": str, "rows": [{"description": str, "value": str}]}``."""
+    """``{"date": str, "rows": [...]}``; rows are ``{"description", "value"}``
+    or, for a separator, ``{"date"}``."""
     try:
         data = json.loads(raw) if isinstance(raw, str) else raw
     except ValueError:
@@ -23,7 +26,9 @@ def parse_ledger(raw) -> dict:
         data = {}
     rows = []
     for row in data.get("rows") or []:
-        if isinstance(row, dict):
+        if isinstance(row, dict) and "date" in row:
+            rows.append({"date": str(row.get("date") or "")})
+        elif isinstance(row, dict):
             rows.append(
                 {
                     "description": str(row.get("description") or ""),
@@ -62,7 +67,9 @@ def format_cents(cents: int) -> str:
 
 
 def total_cents(ledger: dict) -> int:
-    return sum(parse_cents(row["value"]) or 0 for row in ledger["rows"])
+    return sum(
+        parse_cents(row["value"]) or 0 for row in ledger["rows"] if "value" in row
+    )
 
 
 def text_lines(raw) -> list[str]:
@@ -71,6 +78,10 @@ def text_lines(raw) -> list[str]:
     date = ledger["date"].strip()
     result = [f"Tabla · {date}" if date else "Tabla"]
     for row in ledger["rows"]:
+        if "date" in row:
+            if row["date"].strip():
+                result.append(row["date"].strip())
+            continue
         cells = [row["description"].strip(), row["value"].strip()]
         if any(cells):
             result.append(" — ".join(cell for cell in cells if cell))

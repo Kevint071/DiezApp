@@ -210,16 +210,24 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
   Future<dynamic> _invokeMethod(String name, dynamic args) async {
     switch (name) {
       case "undo":
-        if (_quill.hasUndo) _quill.undo();
-        _publish();
+        _undo();
       case "redo":
-        if (_quill.hasRedo) _quill.redo();
-        _publish();
+        _redo();
       case "focus":
         _editorFocus.requestFocus();
       default:
         throw Exception("Unknown NoteEditor method: $name");
     }
+  }
+
+  void _undo() {
+    if (_quill.hasUndo) _quill.undo();
+    _publish();
+  }
+
+  void _redo() {
+    if (_quill.hasRedo) _quill.redo();
+    _publish();
   }
 
   // ── Formatting ────────────────────────────────────────
@@ -562,6 +570,35 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Undo far left, redo far right, on a row of their own so they
+              // never sit among the formatting buttons or over the text.
+              SizedBox(
+                height: 44,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _HistoryButton(
+                        icon: Icons.undo_rounded,
+                        label: "Deshacer",
+                        enabled: _quill.hasUndo,
+                        colors: colors,
+                        onTap: _undo,
+                      ),
+                      _HistoryButton(
+                        icon: Icons.redo_rounded,
+                        label: "Rehacer",
+                        enabled: _quill.hasRedo,
+                        colors: colors,
+                        onTap: _redo,
+                        iconAfter: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(height: 1, thickness: 1, color: colors.divider),
               AnimatedSize(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
@@ -769,6 +806,53 @@ class _Palette {
   final Color accentContainer;
   final Color bar;
   final Color divider;
+}
+
+class _HistoryButton extends StatelessWidget {
+  const _HistoryButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.colors,
+    required this.onTap,
+    this.iconAfter = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final _Palette colors;
+  final VoidCallback onTap;
+  final bool iconAfter;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? colors.text : colors.muted.withValues(alpha: 0.55);
+    final parts = [
+      Icon(icon, size: 20, color: color),
+      const SizedBox(width: 6),
+      Text(label,
+          style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w600, color: color)),
+    ];
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        // Buttons must not steal focus from the editor.
+        canRequestFocus: false,
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: iconAfter ? parts.reversed.toList() : parts,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ToolButton extends StatelessWidget {
