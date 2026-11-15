@@ -6,7 +6,6 @@ import flet as ft
 from flet_note_editor import (
     NoteEditor,
     NoteEditorChangeEvent,
-    NoteEditorHistoryEvent,
 )
 
 from diezapp.features.notes.application.note_service import NoteService
@@ -91,20 +90,6 @@ def _type(editor, title, delta):
     _fire(editor.on_change, event)
 
 
-def _history(editor, can_undo, can_redo):
-    event = NoteEditorHistoryEvent(
-        name="history_change", control=editor, can_undo=can_undo, can_redo=can_redo
-    )
-    _fire(editor.on_history_change, event)
-
-
-def _icons(captured):
-    return [
-        getattr(control, "icon", None)
-        for control in captured["actions"][0].content.controls
-    ]
-
-
 def test_editor_loads_the_note_as_a_delta():
     service = NoteService(InMemoryNoteRepository())
     note = service.add("Hola", "Título")
@@ -159,42 +144,17 @@ def test_leaving_a_note_with_text_keeps_it():
     assert len(service.list()) == 1
 
 
-def _disabled(captured):
-    return [control.disabled for control in captured["actions"][0].content.controls[:2]]
-
-
-def test_undo_and_redo_keep_their_place_and_only_enable_when_available():
+def test_header_only_offers_delete_once_the_note_exists():
+    # Undo and redo moved into the editor, above its formatting bar.
     service = NoteService(InMemoryNoteRepository())
-    note = service.add("Algo", "Título")
-    editor, captured = _build(service, note)
-    layout = [
-        ft.Icons.UNDO_ROUNDED,
-        ft.Icons.REDO_ROUNDED,
-        ft.Icons.DELETE_OUTLINE_ROUNDED,
+    editor, captured = _build(service)
+    assert captured["actions"] == []
+
+    _type(editor, "Compra", [{"insert": "pan\n"}])
+
+    assert [control.content.icon for control in captured["actions"]] == [
+        ft.Icons.DELETE_OUTLINE_ROUNDED
     ]
-
-    assert _icons(captured) == layout
-    assert _disabled(captured) == [True, True]
-
-    _history(editor, True, False)
-    assert _icons(captured) == layout
-    assert _disabled(captured) == [False, True]
-
-    _history(editor, False, True)
-    assert _icons(captured) == layout
-    assert _disabled(captured) == [True, False]
-
-
-def test_history_buttons_are_async_so_flet_awaits_them():
-    service = NoteService(InMemoryNoteRepository())
-    note = service.add("Algo", "Título")
-    editor, captured = _build(service, note)
-    _history(editor, True, True)
-
-    undo, redo = captured["actions"][0].content.controls[:2]
-
-    assert inspect.iscoroutinefunction(undo.on_click)
-    assert inspect.iscoroutinefunction(redo.on_click)
 
 
 def test_conflicts_make_the_editor_read_only():
@@ -204,7 +164,7 @@ def test_conflicts_make_the_editor_read_only():
     editor, captured = _build(service, note, conflicts=1)
 
     assert editor.read_only is True
-    assert _icons(captured)[-1] == ft.Icons.DELETE_OUTLINE_ROUNDED
+    assert captured["actions"][0].content.icon == ft.Icons.DELETE_OUTLINE_ROUNDED
 
 
 def test_preview_shows_list_markers():

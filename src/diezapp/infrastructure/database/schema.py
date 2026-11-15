@@ -28,7 +28,8 @@ def initialize_schema(conn) -> None:
             created_at TEXT,
             updated_at TEXT,
             sort_index INTEGER,
-            format TEXT
+            format TEXT,
+            color TEXT
         )
         """
     )

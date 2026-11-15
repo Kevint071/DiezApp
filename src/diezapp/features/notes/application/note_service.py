@@ -13,15 +13,8 @@ class NoteService:
         self.repository = repository
 
     def list(self) -> list[Note]:
+        """In the order the user arranged them; new notes go first."""
         return self.repository.list()
-
-    @staticmethod
-    def sort_for_display(notes: list[Note]) -> list[Note]:
-        return sorted(
-            notes,
-            key=lambda note: note.get("updated_at") or note.get("created_at") or "",
-            reverse=True,
-        )
 
     def replace_all(self, notes: list[Note]) -> None:
         self.repository.replace_all(notes)
@@ -34,6 +27,7 @@ class NoteService:
             "created_at": to_local_iso(local_now()),
             "updated_at": None,
             "format": fmt,
+            "color": None,
         }
         notes = self.repository.list()
         notes.insert(0, note)
@@ -61,9 +55,32 @@ class NoteService:
         return None
 
     def delete(self, note_id: str) -> bool:
+        return self.delete_many([note_id]) > 0
+
+    def delete_many(self, note_ids) -> int:
+        doomed = set(note_ids)
         notes = self.repository.list()
-        remaining = [note for note in notes if note["id"] != note_id]
-        if len(remaining) == len(notes):
-            return False
-        self.repository.replace_all(remaining)
-        return True
+        remaining = [note for note in notes if note["id"] not in doomed]
+        removed = len(notes) - len(remaining)
+        if removed:
+            self.repository.replace_all(remaining)
+        return removed
+
+    def set_color(self, note_ids, color: str | None) -> None:
+        """Paint the cards; not an edit, so ``updated_at`` stays as it was."""
+        targets = set(note_ids)
+        notes = self.repository.list()
+        for note in notes:
+            if note["id"] in targets:
+                note["color"] = color
+        self.repository.replace_all(notes)
+
+    def move(self, note_id: str, new_index: int) -> None:
+        """Put a note at ``new_index`` of the list, shifting the rest."""
+        notes = self.repository.list()
+        index = next((i for i, n in enumerate(notes) if n["id"] == note_id), None)
+        if index is None:
+            return
+        note = notes.pop(index)
+        notes.insert(max(0, min(new_index, len(notes))), note)
+        self.repository.replace_all(notes)

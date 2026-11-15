@@ -113,3 +113,29 @@ def test_table_lines_close_with_the_embed_newline():
         ("Total: $0", {}),
         ("fin", {}),
     ]
+
+
+def test_date_separators_split_the_rows_but_not_the_total():
+    raw = json.dumps(
+        {
+            "date": "15/11/2026",
+            "rows": [
+                {"description": "Pan", "value": "5.000"},
+                {"date": "16/11/2026"},
+                {"description": "Leche", "value": "4.500"},
+                {"date": ""},
+            ],
+        }
+    )
+
+    ledger = parse_ledger(raw)
+
+    assert ledger["rows"][1] == {"date": "16/11/2026"}
+    assert total_cents(ledger) == 950_000
+    assert text_lines(raw) == [
+        "Tabla · 15/11/2026",
+        "Pan — 5.000",
+        "16/11/2026",
+        "Leche — 4.500",
+        "Total: $9.500",
+    ]

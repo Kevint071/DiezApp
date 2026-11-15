@@ -235,6 +235,7 @@ def build_app(page: ft.Page, dependencies: AppDependencies, state: AppSettings):
             dependencies.notes,
             dependencies.conflicts,
             _set_actions,
+            show_snack=_show_snack,
         )
         return _apply_root(routes.NOTES, appbar, content)
 

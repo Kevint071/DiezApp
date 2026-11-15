@@ -31,7 +31,17 @@ def test_local_backup_round_trip(tmp_path):
             "created_at": "2026-08-17T10:00:00+00:00",
             "updated_at": None,
             "format": '[{"k":"h1"},{"k":"check","c":1}]',
-        }
+            "color": "yellow",
+        },
+        {
+            "id": "note-2",
+            "title": "",
+            "content": "Sin color",
+            "created_at": "2026-08-16T10:00:00+00:00",
+            "updated_at": None,
+            "format": None,
+            "color": None,
+        },
     ]
     service = LocalBackupService(SqliteBackupAdapter())
 
@@ -72,5 +82,6 @@ def test_local_backup_accepts_old_schema_without_updated_at_or_format(tmp_path):
             "created_at": "2025-01-01",
             "updated_at": None,
             "format": None,
+            "color": None,
         }
     ]
