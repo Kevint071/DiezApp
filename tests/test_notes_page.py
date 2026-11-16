@@ -13,6 +13,8 @@ COLORS = {
         "error",
         "outline",
         "surface",
+        "button",
+        "on_button",
     )
 }
 
@@ -82,8 +84,13 @@ def _build(notes, *, conflicts=0, page=None, snacks=None):
     return view, service
 
 
+def _column(view):
+    """The search bar and the list, under the floating "+" button."""
+    return view.content.controls[0].content
+
+
 def _bar(view):
-    return view.content.content.controls[0]
+    return _column(view).controls[0]
 
 
 def _bar_controls(view):
@@ -91,7 +98,7 @@ def _bar_controls(view):
 
 
 def _list(view):
-    return view.content.content.controls[1].content
+    return _column(view).controls[1].content
 
 
 def _card(item):
@@ -100,6 +107,31 @@ def _card(item):
 
 def _note(note_id, **extra):
     return {"id": note_id, "content": f"nota {note_id}", "created_at": "2026-01-01"}
+
+
+def test_new_note_is_a_round_plus_button_in_the_bottom_right_corner():
+    added = []
+    actions = []
+    view = build_notes_view(
+        FakePage(),
+        lambda page: COLORS,
+        lambda: added.append(True),
+        lambda note_id: None,
+        lambda: None,
+        FakeNotes([]),
+        FakeConflicts(),
+        set_header_actions=actions.append,
+    )
+    corner = view.content.controls[-1]
+    fab = corner.content
+
+    assert isinstance(fab, ft.FloatingActionButton)
+    assert isinstance(fab.shape, ft.CircleBorder)
+    assert fab.icon.icon == ft.Icons.ADD_ROUNDED
+    assert (corner.right, corner.bottom) == (20, 20)
+    assert actions == [[]]
+    fab.on_click(None)
+    assert added == [True]
 
 
 def test_empty_notes_hides_the_whole_search_bar_container_not_the_field_inside_it():

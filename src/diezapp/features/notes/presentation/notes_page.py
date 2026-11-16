@@ -10,6 +10,7 @@ from diezapp.features.notes.presentation.note_colors import (
     NOTE_COLORS,
     note_bgcolor,
     note_muted,
+    note_preview,
 )
 from diezapp.shared.datetime_utils import to_local_datetime
 from diezapp.shared.presentation.dialogs import (
@@ -72,15 +73,15 @@ def build_notes_view(
     notes = notes_service.list()
     state = {"query": "", "selected": [], "reordering": False}
 
-    add_btn = ft.FilledButton(
-        "Nueva nota",
-        icon=ft.Icons.ADD_ROUNDED,
+    add_btn = ft.FloatingActionButton(
+        icon=ft.Icon(ft.Icons.ADD_ROUNDED, size=30, color=c["on_button"]),
+        tooltip="Nueva nota",
+        bgcolor=c["button"],
+        foreground_color=c["on_button"],
+        shape=ft.CircleBorder(),
+        elevation=4,
+        highlight_elevation=8,
         on_click=lambda e: on_add(),
-        style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=12),
-            padding=ft.Padding.symmetric(vertical=8, horizontal=10),
-            text_style=ft.TextStyle(size=13, weight=ft.FontWeight.W_600),
-        ),
     )
 
     def _matches_query(note: dict, query: str) -> bool:
@@ -291,7 +292,7 @@ def build_notes_view(
         selecting = bool(state["selected"])
         selected = note_id in state["selected"]
         reordering = state["reordering"]
-        muted = note_muted(note.get("color"), light, c["on_surface_variant"])
+        muted = note_muted(light)
         title = (note.get("title") or "").strip()
         display_date = note.get("updated_at") or note.get("created_at", "")
         content_controls = [
@@ -318,7 +319,7 @@ def build_notes_view(
                 _truncate(_preview(note)),
                 size=14,
                 weight=ft.FontWeight.W_400,
-                color=muted if title else c["on_surface"],
+                color=note_preview(light) if title else c["on_surface"],
                 max_lines=2,
                 overflow=ft.TextOverflow.ELLIPSIS,
             )
@@ -417,6 +418,8 @@ def build_notes_view(
         return ft.ReorderableListView(
             expand=True,
             spacing=0,
+            # The last card can scroll clear of the round "+" button.
+            padding=ft.Padding.only(bottom=88),
             show_default_drag_handles=False,
             on_reorder=_on_reorder,
             controls=[_build_item(n) for n in visible],
@@ -572,25 +575,25 @@ def build_notes_view(
         page.update()
 
     if set_header_actions is not None:
-        set_header_actions(
-            [
-                ft.Container(
-                    padding=ft.Padding.only(right=24),
-                    content=add_btn,
-                )
-            ]
-        )
+        set_header_actions([])
 
     return ft.SafeArea(
         expand=True,
-        content=ft.Container(
+        content=ft.Stack(
             expand=True,
-            padding=ft.Padding.only(left=0, right=0, top=4, bottom=0),
-            content=ft.Column(
-                expand=True,
-                spacing=16,
-                controls=[bar_container, results_container],
-            ),
+            controls=[
+                ft.Container(
+                    expand=True,
+                    padding=ft.Padding.only(left=0, right=0, top=4, bottom=0),
+                    content=ft.Column(
+                        expand=True,
+                        spacing=16,
+                        controls=[bar_container, results_container],
+                    ),
+                ),
+                # The usual round "+" in the bottom-right corner.
+                ft.Container(right=20, bottom=20, content=add_btn),
+            ],
         ),
     )
 

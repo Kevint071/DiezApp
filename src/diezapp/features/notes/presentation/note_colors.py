@@ -1,17 +1,23 @@
 """Card colours a note can wear in the list (stored as the key)."""
 
-# key: (label, light theme, dark theme). On light pastels the theme's muted
-# grey drops under 4.5:1, so coloured cards use a darker one (note_muted).
+# key: (label, light theme, dark theme). The dark shades are saturated enough
+# to read as their colour on a dark screen, and still dark enough for the
+# light card text (title >= 7:1, date and preview >= 4.5:1).
 NOTE_COLORS: dict[str, tuple[str, str, str]] = {
-    "red": ("Rojo", "#FDE2E1", "#4A1F1F"),
-    "orange": ("Naranja", "#FFEDD5", "#45290F"),
-    "yellow": ("Amarillo", "#FEF3C7", "#3D340E"),
-    "green": ("Verde", "#DCFCE7", "#14382A"),
-    "teal": ("Turquesa", "#CCFBF1", "#113936"),
-    "blue": ("Azul", "#DBEAFE", "#1A2C4E"),
-    "purple": ("Morado", "#EDE9FE", "#2D2350"),
-    "pink": ("Rosa", "#FCE7F3", "#451B35"),
+    "red": ("Rojo", "#FDE2E1", "#8F1D2C"),
+    "orange": ("Naranja", "#FFEDD5", "#88350E"),
+    "yellow": ("Amarillo", "#FEF3C7", "#6E4B05"),
+    "green": ("Verde", "#DCFCE7", "#155C33"),
+    "teal": ("Turquesa", "#CCFBF1", "#0F5A55"),
+    "blue": ("Azul", "#DBEAFE", "#1E40AF"),
+    "purple": ("Morado", "#EDE9FE", "#5B21B6"),
+    "pink": ("Rosa", "#FCE7F3", "#8E1D57"),
 }
+
+# Secondary text on a card, coloured or not. The theme's muted grey looks
+# washed out on the cards (and drops under 4.5:1 on the light pastels).
+_MUTED = {True: "#475569", False: "#CBD5E1"}  # slate-600 / slate-300
+_PREVIEW = {True: "#334155", False: "#E2E8F0"}  # slate-700 / slate-200
 
 
 def note_bgcolor(key: str | None, light: bool, default: str) -> str:
@@ -22,12 +28,11 @@ def note_bgcolor(key: str | None, light: bool, default: str) -> str:
     return entry[1] if light else entry[2]
 
 
-# slate-600: >= 6:1 on every light pastel above.
-_MUTED_ON_LIGHT_COLOR = "#475569"
+def note_muted(light: bool) -> str:
+    """The date and the menu icon on a card."""
+    return _MUTED[light]
 
 
-def note_muted(key: str | None, light: bool, default: str) -> str:
-    """Secondary text (date, preview) on a card of that colour."""
-    if light and key in NOTE_COLORS:
-        return _MUTED_ON_LIGHT_COLOR
-    return default
+def note_preview(light: bool) -> str:
+    """The text preview under a note's title."""
+    return _PREVIEW[light]

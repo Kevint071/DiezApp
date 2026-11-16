@@ -5,6 +5,7 @@ from diezapp.features.notes.presentation.note_colors import (
     NOTE_COLORS,
     note_bgcolor,
     note_muted,
+    note_preview,
 )
 from diezapp.shared.presentation.theme import get_colors
 
@@ -29,18 +30,17 @@ def _contrast(a: str, b: str) -> float:
 
 
 @pytest.mark.parametrize("mode", [ft.ThemeMode.LIGHT, ft.ThemeMode.DARK])
-@pytest.mark.parametrize("key", list(NOTE_COLORS))
+@pytest.mark.parametrize("key", [None, *NOTE_COLORS])
 def test_card_text_stays_readable_on_every_note_colour(mode, key):
     c = get_colors(FakePage(mode))
     light = mode == ft.ThemeMode.LIGHT
     bg = note_bgcolor(key, light, c["card_bg"])
-    muted = note_muted(key, light, c["on_surface_variant"])
 
     assert _contrast(c["on_surface"], bg) >= 7
-    assert _contrast(muted, bg) >= 4.5
+    assert _contrast(note_muted(light), bg) >= 4.5
+    assert _contrast(note_preview(light), bg) >= 4.5
 
 
 def test_unknown_or_missing_colour_uses_the_default_card():
     assert note_bgcolor(None, True, "#FFFFFF") == "#FFFFFF"
     assert note_bgcolor("gone", False, "#1E293B") == "#1E293B"
-    assert note_muted(None, True, "#64748B") == "#64748B"
