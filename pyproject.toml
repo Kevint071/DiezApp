@@ -30,6 +30,10 @@ startup_message = "Cargando..."
 [tool.flet.android]
 # Build only the ARM64 Android variant to keep the APK smaller on modern phones.
 target_arch = ["arm64-v8a"]
+# assets/icon_android.png is the finished launcher icon: an opaque blue square
+# with the white mark inside the adaptive-icon safe zone (icon.png is a
+# rounded tile and would get cropped). This is the blue behind it.
+adaptive_icon_background = "#1478EA"
 
 # Google Drive OAuth redirect (see src/diezapp/infrastructure/google). Google no
 # longer accepts a custom-scheme redirect_uri directly, so the diezmapp-api
