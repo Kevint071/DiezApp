@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flet/flet.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -38,6 +40,10 @@ const _markerWidth = 24.0;
 
 /// Room for "1." and each extra digit beyond the first.
 const _digitWidth = 9.0;
+
+/// [value] kept between [low] and [high] (or [low] when they cross).
+double _within(double value, double low, double high) =>
+    math.max(low, math.min(value, high));
 
 int _indentLevel(Map<String, Attribute> attrs) =>
     (attrs[Attribute.indent.key]?.value as int?) ?? 0;
@@ -99,12 +105,25 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
   final _editorFocus = FocusNode();
   final _scroll = ScrollController();
   final _title = TextEditingController();
+  final _editorKey = GlobalKey<QuillEditorState>();
+  final _editorAreaKey = GlobalKey();
+  final _viewportKey = GlobalKey();
   String _value = "";
   String _titleValue = "";
   bool _canUndo = false;
   bool _canRedo = false;
   bool _stylePanelOpen = false;
   _Palette? _colors;
+
+  /// Where the caret was last seen, to tell which way it was moving.
+  int _lastCaret = 0;
+
+  /// The table being dragged by its handle, if any.
+  _TableDrag? _drag;
+
+  /// The y (in the editor area) of the line where a dragged table would
+  /// land; null hides it.
+  final _dropLine = ValueNotifier<double?>(null);
 
   Control get control => widget.control;
 
@@ -121,6 +140,7 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
     _value = _encode();
     _listenToDocument();
     _quill.addListener(_syncHistory);
+    _quill.addListener(_keepCaretOffTables);
     control.addInvokeMethodListener(_invokeMethod);
   }
 
@@ -150,11 +170,14 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
   void dispose() {
     control.removeInvokeMethodListener(_invokeMethod);
     _changes?.cancel();
+    _drag?.ticker.cancel();
     _quill.removeListener(_syncHistory);
+    _quill.removeListener(_keepCaretOffTables);
     _quill.dispose();
     _editorFocus.dispose();
     _scroll.dispose();
     _title.dispose();
+    _dropLine.dispose();
     super.dispose();
   }
 
@@ -404,9 +427,228 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
         ChangeSource.local);
   }
 
+  /// The line holding a table, if [offset] falls on one.
+  Line? _tableLine(int offset) {
+    if (offset < 0 || offset >= _quill.document.length) return null;
+    final node = _quill.document.queryChild(offset).node;
+    if (node is! Line || node.childCount != 1) return null;
+    final leaf = node.first;
+    return leaf is Embed && leaf.value.type == _ledgerType ? node : null;
+  }
+
+  /// A table fills its whole line, so a caret beside it is drawn as tall as
+  /// the table, a big bar at its left or right edge. Undo and redo put the
+  /// caret there, and so do the arrow keys or a tap. Move it to the line
+  /// below the table, or the one above when the caret was moving up or the
+  /// table is the last line.
+  void _keepCaretOffTables() {
+    final selection = _quill.selection;
+    if (!selection.isCollapsed || selection.baseOffset < 0) return;
+    final offset = selection.baseOffset;
+    final line = _tableLine(offset);
+    if (line == null) {
+      _lastCaret = offset;
+      return;
+    }
+    final start = line.documentOffset;
+    final below = start + line.length;
+    final hasBelow = below < _quill.document.length;
+    final hasAbove = start > 0;
+    final int target;
+    if (hasAbove && (offset < _lastCaret || !hasBelow)) {
+      target = start - 1;
+    } else if (hasBelow) {
+      target = below;
+    } else {
+      return;
+    }
+    _lastCaret = target;
+    _quill.updateSelection(
+        TextSelection.collapsed(offset: target), ChangeSource.silent);
+  }
+
+  // ── Moving a table ────────────────────────────────────
+
+  RenderEditor? get _renderEditor =>
+      _editorKey.currentState?.editableTextKey.currentState?.renderEditor;
+
+  void _onTableDragStart(Embed node) {
+    _drag?.ticker.cancel();
+    HapticFeedback.selectionClick();
+    _drag = _TableDrag(
+      node,
+      // Scrolls the note while the table is held near its top or bottom.
+      Timer.periodic(const Duration(milliseconds: 16), (_) => _autoScroll()),
+    );
+  }
+
+  void _onTableDragUpdate(Offset pointer) {
+    final drag = _drag;
+    if (drag == null) return;
+    drag.pointer = pointer;
+    _updateDropSlot();
+  }
+
+  void _onTableDragEnd() {
+    final drag = _stopTableDrag();
+    final slot = drag?.slot;
+    if (drag == null || slot == null) return;
+    final from = drag.node.documentOffset;
+    if (_tableLine(from) == null) return;
+    HapticFeedback.lightImpact();
+    _moveLedger(from, slot);
+  }
+
+  /// Ends the drag without moving anything (the table went away mid-drag).
+  void _onTableDragCancel() {
+    _stopTableDrag(notify: false);
+    // Called while the tree is being torn down; hide the line afterwards.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _drag == null) _dropLine.value = null;
+    });
+  }
+
+  _TableDrag? _stopTableDrag({bool notify = true}) {
+    final drag = _drag;
+    drag?.ticker.cancel();
+    _drag = null;
+    if (notify) _dropLine.value = null;
+    return drag;
+  }
+
+  /// Finds the line break nearest the pointer: before or after the line
+  /// under it. Shows the drop line there unless the table would not move.
+  void _updateDropSlot() {
+    final drag = _drag;
+    final pointer = drag?.pointer;
+    final editor = _renderEditor;
+    final area = _editorAreaKey.currentContext?.findRenderObject();
+    if (drag == null ||
+        pointer == null ||
+        editor == null ||
+        !editor.hasSize ||
+        area is! RenderBox) {
+      return;
+    }
+    final local = editor.globalToLocal(pointer);
+    final size = editor.size;
+    // Above or below the text counts as the first or last line.
+    final probe = Offset(
+      _within(local.dx, 1, size.width - 1),
+      _within(local.dy, 1, size.height - 1),
+    );
+    final document = _quill.document;
+    final position = editor.getPositionForOffset(editor.localToGlobal(probe));
+    final index = math.max(0, math.min(position.offset, document.length - 1));
+    final node = document.queryChild(index).node;
+    if (node is! Line) return;
+    final start = node.documentOffset;
+    final end = start + node.length;
+    final top = editor.getLocalRectForCaret(TextPosition(offset: start)).top;
+    final bottom =
+        editor.getLocalRectForCaret(TextPosition(offset: end - 1)).bottom;
+    final before = local.dy < (top + bottom) / 2;
+    final slot = before ? start : end;
+    final from = drag.node.documentOffset;
+    // Right above or right below the table itself: it would stay put.
+    if (slot == from || slot == from + 2) {
+      drag.slot = null;
+      _dropLine.value = null;
+      return;
+    }
+    drag.slot = slot;
+    final y = before ? top : bottom;
+    _dropLine.value = area.globalToLocal(editor.localToGlobal(Offset(0, y))).dy;
+  }
+
+  void _autoScroll() {
+    final pointer = _drag?.pointer;
+    final viewport = _viewportKey.currentContext?.findRenderObject();
+    if (pointer == null || viewport is! RenderBox || !_scroll.hasClients) {
+      return;
+    }
+    const edge = 72.0;
+    const maxStep = 16.0;
+    final top = viewport.localToGlobal(Offset.zero).dy;
+    final bottom = top + viewport.size.height;
+    double step = 0;
+    if (pointer.dy < top + edge) {
+      step = -maxStep * _within((top + edge - pointer.dy) / edge, 0, 1);
+    } else if (pointer.dy > bottom - edge) {
+      step = maxStep * _within((pointer.dy - bottom + edge) / edge, 0, 1);
+    }
+    if (step == 0) return;
+    final position = _scroll.position;
+    final target = _within(position.pixels + step, position.minScrollExtent,
+        position.maxScrollExtent);
+    if (target == position.pixels) return;
+    _scroll.jumpTo(target);
+    _updateDropSlot();
+  }
+
+  /// Moves the table at [from] to the line break [to] (an offset in the
+  /// document as it is now), in one step that undo reverts at once.
+  void _moveLedger(int from, int to) {
+    final stored = _ledgerAt(from);
+    if (stored == null) return;
+    final document = _quill.document;
+    final length = document.length;
+    // Its line break goes too, unless it is the document's last one.
+    final count = from + 2 < length ? 2 : 1;
+    final remaining = length - count;
+    var at = to > from ? to - count : to;
+    final last = document.queryChild(length - 1).node;
+    final lastAttrs = count == 2 && last is Line
+        ? (last.style.toJson() ?? const <String, dynamic>{})
+        : const <String, dynamic>{};
+    final lastIsEmpty = count == 1 || (last is Line && last.length == 1);
+    final embed = BlockEmbed(_ledgerType, stored).toJson();
+
+    final insert = Delta();
+    final int table;
+    if (at >= remaining && !lastIsEmpty) {
+      // Below the last line: end that line, then the table and an empty
+      // line to keep writing on.
+      insert
+        ..retain(remaining - 1)
+        ..insert('\n', lastAttrs.isEmpty ? null : Map.of(lastAttrs))
+        ..insert(embed)
+        ..insert('\n');
+      if (lastAttrs.isNotEmpty) {
+        insert.retain(1, {for (final key in lastAttrs.keys) key: null});
+      }
+      table = remaining;
+    } else {
+      // At the start of a line; at the very end, above the empty last line.
+      if (at >= remaining) at = remaining - 1;
+      insert
+        ..retain(at)
+        ..insert(embed)
+        ..insert('\n');
+      table = at;
+    }
+    final delta = (Delta()
+          ..retain(from)
+          ..delete(count))
+        .compose(insert);
+    _quill.compose(
+        delta, TextSelection.collapsed(offset: table + 2), ChangeSource.local);
+  }
+
   void _focusEnd() {
     if (_quill.readOnly) return;
-    _quill.moveCursorToEnd();
+    final end = _quill.document.length - 1;
+    if (_tableLine(end) != null) {
+      // A table ends the note: open a line under it to write on.
+      _quill.compose(
+          Delta()
+            ..retain(end)
+            ..insert('\n'),
+          TextSelection.collapsed(offset: end + 1),
+          ChangeSource.local);
+    } else {
+      _quill.moveCursorToEnd();
+    }
     _editorFocus.requestFocus();
   }
 
@@ -455,6 +697,7 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
     );
 
     final editor = QuillEditor(
+      key: _editorKey,
       controller: _quill,
       focusNode: _editorFocus,
       // The page scrolls as a whole (header + title + body); Quill keeps the
@@ -467,7 +710,14 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
         textCapitalization: TextCapitalization.sentences,
         customStyles: _styles(colors),
         embedBuilders: [
-          _LedgerEmbedBuilder(colors: colors, onOpen: _openLedger),
+          _LedgerEmbedBuilder(
+            colors: colors,
+            onOpen: _openLedger,
+            onDragStart: _onTableDragStart,
+            onDragUpdate: _onTableDragUpdate,
+            onDragEnd: _onTableDragEnd,
+            onDragCancel: _onTableDragCancel,
+          ),
         ],
         // ignore: experimental_member_use
         customLeadingBlockBuilder: _listMarker,
@@ -477,7 +727,28 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
       ),
     );
 
+    // The editor plus the line that shows where a dragged table will land.
+    final editorArea = Stack(
+      key: _editorAreaKey,
+      clipBehavior: Clip.none,
+      children: [
+        editor,
+        ValueListenableBuilder<double?>(
+          valueListenable: _dropLine,
+          builder: (context, y, _) => y == null
+              ? const SizedBox.shrink()
+              : Positioned(
+                  left: -6,
+                  right: 0,
+                  top: y - 5,
+                  child: IgnorePointer(child: _DropLine(color: colors.accent)),
+                ),
+        ),
+      ],
+    );
+
     final body = SingleChildScrollView(
+      key: _viewportKey,
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
       child: Column(
@@ -487,7 +758,7 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
           const SizedBox(height: 8),
           title,
           const SizedBox(height: 12),
-          editor,
+          editorArea,
           // Tapping the blank space under the text keeps writing at the end.
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -788,6 +1059,55 @@ class _NoteEditorControlState extends State<NoteEditorControl> {
           color: colors.divider,
         ),
       );
+}
+
+/// A table being moved by its handle.
+class _TableDrag {
+  _TableDrag(this.node, this.ticker);
+
+  final Embed node;
+  final Timer ticker;
+
+  /// Where the finger (or mouse) is, in global coordinates.
+  Offset? pointer;
+
+  /// The line break the table would move to; null leaves it where it is.
+  int? slot;
+}
+
+/// A dot and a bar across the note where a dragged table will land.
+class _DropLine extends StatelessWidget {
+  const _DropLine({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 10,
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2.5),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Palette {

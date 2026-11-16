@@ -181,10 +181,21 @@ class _DateFormatter extends TextInputFormatter {
 }
 
 class _LedgerEmbedBuilder extends EmbedBuilder {
-  const _LedgerEmbedBuilder({required this.colors, required this.onOpen});
+  const _LedgerEmbedBuilder({
+    required this.colors,
+    required this.onOpen,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onDragCancel,
+  });
 
   final _Palette colors;
   final void Function(Embed node) onOpen;
+  final void Function(Embed node) onDragStart;
+  final void Function(Offset pointer) onDragUpdate;
+  final VoidCallback onDragEnd;
+  final VoidCallback onDragCancel;
 
   @override
   String get key => _ledgerType;
@@ -192,21 +203,245 @@ class _LedgerEmbedBuilder extends EmbedBuilder {
   @override
   Widget build(BuildContext context, EmbedContext embedContext) {
     final node = embedContext.node;
+    final editable = !embedContext.readOnly;
     return _LedgerView(
       data: _LedgerData.decode(node.value.data),
       colors: colors,
-      onTap: embedContext.readOnly ? null : () => onOpen(node),
+      onTap: editable ? () => onOpen(node) : null,
+      drag: editable
+          ? _LedgerDragCallbacks(
+              start: () => onDragStart(node),
+              update: onDragUpdate,
+              end: onDragEnd,
+              cancel: onDragCancel,
+            )
+          : null,
     );
   }
 }
 
-/// The table as it sits in the note. Tapping it opens [_LedgerSheet].
-class _LedgerView extends StatelessWidget {
-  const _LedgerView({required this.data, required this.colors, this.onTap});
+class _LedgerDragCallbacks {
+  const _LedgerDragCallbacks({
+    required this.start,
+    required this.update,
+    required this.end,
+    required this.cancel,
+  });
+
+  final VoidCallback start;
+  final void Function(Offset pointer) update;
+  final VoidCallback end;
+  final VoidCallback cancel;
+}
+
+/// The table as it sits in the note. Tapping it opens [_LedgerSheet]; the
+/// six dots in its top-left corner drag it to another line of the note.
+class _LedgerView extends StatefulWidget {
+  const _LedgerView({
+    required this.data,
+    required this.colors,
+    this.onTap,
+    this.drag,
+  });
 
   final _LedgerData data;
   final _Palette colors;
   final VoidCallback? onTap;
+  final _LedgerDragCallbacks? drag;
+
+  @override
+  State<_LedgerView> createState() => _LedgerViewState();
+}
+
+class _LedgerViewState extends State<_LedgerView> {
+  final _tableKey = GlobalKey();
+  bool _dragging = false;
+
+  /// The table's width when the drag started, for the copy that follows.
+  double _width = 0;
+
+  @override
+  void dispose() {
+    // Draggable skips onDragEnd once its widget is gone.
+    if (_dragging) widget.drag?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final drag = widget.drag;
+    final table = _LedgerTable(
+      key: _tableKey,
+      data: widget.data,
+      colors: widget.colors,
+      handle: drag == null ? null : _handle(drag),
+      hint: widget.onTap == null ? 'Sin filas' : 'Toca para agregar filas',
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: AnimatedOpacity(
+          opacity: _dragging ? 0.35 : 1,
+          duration: const Duration(milliseconds: 120),
+          child: table,
+        ),
+      ),
+    );
+  }
+
+  Widget _handle(_LedgerDragCallbacks drag) {
+    final colors = widget.colors;
+    final dots = _LedgerHandle(colors: colors);
+    // The copy that follows the finger: the same table, lifted off the
+    // page. Very tall tables are cut off at the bottom. Built once the drag
+    // has started, so _width is known by then.
+    final feedback = Builder(
+      builder: (context) => SizedBox(
+        width: _width,
+        child: Material(
+          color: colors.bar,
+          elevation: 10,
+          shadowColor: Colors.black54,
+          borderRadius: BorderRadius.circular(12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: SingleChildScrollView(
+              primary: false,
+              physics: const NeverScrollableScrollPhysics(),
+              child: _LedgerTable(
+                data: widget.data,
+                colors: colors,
+                handle: dots,
+                hint: '',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: _GrabDraggable(
+        // The copy starts exactly over the table, its handle under the
+        // finger, and follows it from there.
+        dragAnchorStrategy: childDragAnchorStrategy,
+        feedback: feedback,
+        onDragStarted: () {
+          final box = _tableKey.currentContext?.findRenderObject();
+          setState(() {
+            _width = box is RenderBox && box.hasSize ? box.size.width : 320;
+            _dragging = true;
+          });
+          drag.start();
+        },
+        onDragUpdate: (details) => drag.update(details.globalPosition),
+        onDragEnd: (_) {
+          setState(() => _dragging = false);
+          drag.end();
+        },
+        child: dots,
+      ),
+    );
+  }
+}
+
+/// A [Draggable] that takes the pointer as soon as it lands, so the
+/// editor's tap and long-press (text selection) and the page's scroll never
+/// get it: holding the handle still before moving still drags the table.
+class _GrabDraggable extends Draggable<Object> {
+  const _GrabDraggable({
+    required super.child,
+    required super.feedback,
+    super.dragAnchorStrategy,
+    super.onDragStarted,
+    super.onDragUpdate,
+    super.onDragEnd,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer(
+          GestureMultiDragStartCallback onStart) =>
+      _GrabRecognizer()..onStart = onStart;
+}
+
+class _GrabRecognizer extends MultiDragGestureRecognizer {
+  _GrabRecognizer() : super(debugOwner: null);
+
+  _GrabPointerState? _arrived;
+
+  @override
+  MultiDragPointerState createNewPointerState(PointerDownEvent event) =>
+      _arrived = _GrabPointerState(event.position, event.kind, gestureSettings);
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    // Its arena entry exists now: win it before anyone else can.
+    _arrived?.claim();
+    _arrived = null;
+  }
+
+  @override
+  String get debugDescription => 'table grab';
+}
+
+class _GrabPointerState extends MultiDragPointerState {
+  _GrabPointerState(super.initialPosition, super.kind, super.gestureSettings);
+
+  void claim() => resolve(GestureDisposition.accepted);
+
+  @override
+  void accepted(GestureMultiDragStartCallback starter) {
+    starter(initialPosition);
+  }
+}
+
+/// The six dots that grab a table, in the corner of its date header.
+class _LedgerHandle extends StatelessWidget {
+  const _LedgerHandle({required this.colors});
+
+  final _Palette colors;
+
+  @override
+  Widget build(BuildContext context) {
+    // Opaque to hits, so the whole corner grabs and not only the dots.
+    return ColoredBox(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: 44,
+        height: 42,
+        child: Center(
+          child: Icon(
+            Icons.drag_indicator_rounded,
+            size: 22,
+            color: colors.accent.withValues(alpha: 0.85),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The bordered table itself, as drawn in the note and while dragged.
+class _LedgerTable extends StatelessWidget {
+  const _LedgerTable({
+    super.key,
+    required this.data,
+    required this.colors,
+    required this.hint,
+    this.handle,
+  });
+
+  final _LedgerData data;
+  final _Palette colors;
+
+  /// What the row says when the table has no rows yet.
+  final String hint;
+
+  /// Sits in the top-left corner of the date header.
+  final Widget? handle;
 
   @override
   Widget build(BuildContext context) {
@@ -261,54 +496,57 @@ class _LedgerView extends StatelessWidget {
     }
 
     final rule = Divider(height: 1, thickness: 1, color: colors.divider);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          border: Border.fromBorderSide(line),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            dateCell(data.date),
+    final handle = this.handle;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        border: Border.fromBorderSide(line),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (handle == null)
+            dateCell(data.date)
+          else
+            Stack(
+              children: [
+                dateCell(data.date),
+                Positioned(left: 0, top: 0, bottom: 0, child: handle),
+              ],
+            ),
+          rule,
+          pair(cell('Descripción', label), cell('Valor', label, end: true)),
+          for (final row in data.rows) ...[
             rule,
-            pair(cell('Descripción', label), cell('Valor', label, end: true)),
-            for (final row in data.rows) ...[
-              rule,
-              if (row.isDate)
-                dateCell(row.date!)
-              else
-                pair(
-                  cell(row.description, base),
-                  cell(
-                    row.value,
-                    row.value.trim().isNotEmpty && _parseCents(row.value) == null
-                        ? base.copyWith(color: error)
-                        : base,
-                    end: true,
-                  ),
-                ),
-            ],
-            if (data.rows.isEmpty) ...[
-              rule,
+            if (row.isDate)
+              dateCell(row.date!)
+            else
               pair(
-                cell(onTap == null ? 'Sin filas' : 'Toca para agregar filas',
-                    base.copyWith(color: colors.muted)),
-                cell('', base),
+                cell(row.description, base),
+                cell(
+                  row.value,
+                  row.value.trim().isNotEmpty && _parseCents(row.value) == null
+                      ? base.copyWith(color: error)
+                      : base,
+                  end: true,
+                ),
               ),
-            ],
+          ],
+          if (data.rows.isEmpty) ...[
             rule,
             pair(
-              cell('Total', strong),
-              cell(_formatCents(data.totalCents), strong, end: true),
-              color: colors.accentContainer.withValues(alpha: 0.45),
+              cell(hint, base.copyWith(color: colors.muted)),
+              cell('', base),
             ),
           ],
-        ),
+          rule,
+          pair(
+            cell('Total', strong),
+            cell(_formatCents(data.totalCents), strong, end: true),
+            color: colors.accentContainer.withValues(alpha: 0.45),
+          ),
+        ],
       ),
     );
   }
