@@ -71,7 +71,21 @@ jobs:
               args+=(--android-signing-key-alias "$KEY_ALIAS")
             fi
           fi
-          flet build apk --yes -v "${args[@]}"
+          # serious_python_android downloads libdart_bridge.so for every ABI
+          # (even with target_arch = arm64 only) via gradle-download-task, which
+          # keeps a JSON .etag file next to each download. A truncated/NUL-filled
+          # .etag or a flaky GitHub download fails the build with "Unable to
+          # determine the current character". It is transient: wipe that cache
+          # and try again.
+          for attempt in 1 2 3; do
+            if flet build apk --yes -v "${args[@]}"; then
+              exit 0
+            fi
+            echo "::warning title=Build APK falló::Intento $attempt de 3 fallido; se limpia la caché de dart-bridge y se reintenta."
+            rm -rf "$HOME/.flet/cache/dart-bridge"
+            sleep 10
+          done
+          exit 1
 
       - name: Delete keystore
         if: always()
